@@ -34,8 +34,9 @@
 │              (Claude, Cursor, VS Code, Windsurf, etc.)                      │
 └─────────────────────────────────┬───────────────────────────────────────────┘
                                   │
-                                  │ HTTP POST/GET (JSON-RPC 2.0)
-                                  │ http://localhost:{IDE_PORT}/index-mcp
+                                  │ HTTP+SSE Transport
+                                  │ GET  /index-mcp/sse → SSE stream (endpoint event)
+                                  │ POST /index-mcp     → JSON-RPC requests
                                   │
 ┌─────────────────────────────────▼───────────────────────────────────────────┐
 │                         IntelliJ IDEA Instance                               │
@@ -114,19 +115,24 @@ Each IntelliJ IDE instance has its own built-in web server on a unique port:
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Client Configuration Example (Claude Desktop):**
+**Client Configuration Example (Claude Desktop / Cursor):**
 ```json
 {
   "mcpServers": {
     "intellij-myapp": {
-      "url": "http://localhost:63342/index-mcp"
+      "url": "http://localhost:63342/index-mcp/sse"
     },
     "intellij-api": {
-      "url": "http://localhost:63343/index-mcp"
+      "url": "http://localhost:63343/index-mcp/sse"
     }
   }
 }
 ```
+
+**Note:** The `/sse` suffix is required for HTTP+SSE transport. The client will:
+1. Connect to `/index-mcp/sse` via GET to establish SSE stream
+2. Receive an `endpoint` event with the POST URL (`/index-mcp`)
+3. Send JSON-RPC requests to that POST endpoint
 
 **How to find IDE port:**
 - Settings → Build, Execution, Deployment → Debugger → Built-in Server Port
@@ -715,20 +721,32 @@ The plugin registers an `HttpRequestHandler` on the IDE's built-in web server. T
 │   Registered Handlers:                                           │
 │   ┌─────────────────────────────────────────────────────────┐   │
 │   │  /api/mcp/*     →  JetBrains Built-in MCP               │   │
-│   │  /index-mcp     →  Our Plugin (McpRequestHandler)       │   │
+│   │  /index-mcp/sse →  Our Plugin SSE endpoint              │   │
+│   │  /index-mcp     →  Our Plugin JSON-RPC POST endpoint   │   │
 │   │  /api/*         →  Other IDE APIs                       │   │
 │   └─────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 5.2 HTTP Endpoint Design
+### 5.2 HTTP+SSE Endpoint Design
 
-**Endpoint**: `http://localhost:{IDE_PORT}/index-mcp`
+**SSE Endpoint**: `http://localhost:{IDE_PORT}/index-mcp/sse`
+
+| Method | Purpose | Response |
+|--------|---------|----------|
+| GET | Establish SSE stream | SSE stream with `endpoint` event |
+
+**JSON-RPC Endpoint**: `http://localhost:{IDE_PORT}/index-mcp`
 
 | Method | Purpose | Request Body | Response |
 |--------|---------|--------------|----------|
 | POST | JSON-RPC requests | JSON-RPC Request | JSON-RPC Response |
-| GET | Server info / health check | - | Server metadata |
+
+**Connection Flow:**
+1. Client opens GET to `/index-mcp/sse`
+2. Server sends: `event: endpoint\ndata: http://localhost:{port}/index-mcp\n\n`
+3. Client POSTs JSON-RPC to that endpoint
+4. Server responds with JSON-RPC response
 
 **plugin.xml Registration:**
 ```xml

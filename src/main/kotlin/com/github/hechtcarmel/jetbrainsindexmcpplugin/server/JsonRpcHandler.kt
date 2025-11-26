@@ -1,5 +1,6 @@
 package com.github.hechtcarmel.jetbrainsindexmcpplugin.server
 
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.McpConstants
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.history.CommandEntry
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.history.CommandHistoryService
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.history.CommandStatus
@@ -61,9 +62,10 @@ class JsonRpcHandler(
 
     private fun processInitialize(request: JsonRpcRequest): JsonRpcResponse {
         val result = InitializeResult(
+            protocolVersion = McpConstants.MCP_PROTOCOL_VERSION,
             serverInfo = ServerInfo(
-                name = "intellij-index-mcp",
-                version = "1.0.0"
+                name = McpConstants.SERVER_NAME,
+                version = McpConstants.SERVER_VERSION
             ),
             capabilities = ServerCapabilities(
                 tools = ToolCapability(listChanged = false),

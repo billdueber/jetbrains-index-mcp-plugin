@@ -18,7 +18,7 @@
 
 ## Phase 1: Foundation (MVP)
 
-**Goal**: Establish core infrastructure with working HTTP transport and basic navigation tools.
+**Goal**: Establish core infrastructure with working HTTP+SSE transport and basic navigation tools.
 
 ### 1.1 Project Setup & Dependencies
 
@@ -75,22 +75,23 @@
   - `DefinitionResult.kt` - go_to_definition output
   - `SymbolInfoResult.kt` - get_symbol_info output
 
-### 1.3 McpRequestHandler (Built-in Web Server)
+### 1.3 McpRequestHandler (HTTP+SSE Transport)
 
 - [x] **TASK-009**: Implement `McpRequestHandler.kt`
   - Extend `HttpRequestHandler` from IntelliJ Platform
-  - Implement `isSupported()` to match `/index-mcp` path
-  - Implement `process()` to handle GET and POST requests
+  - Implement `isSupported()` to match `/index-mcp` and `/index-mcp/sse` paths
+  - Implement `process()` to handle GET (SSE) and POST (JSON-RPC) requests
   - Inject `JsonRpcHandler` for request processing
 
-- [x] **TASK-010**: Implement request/response handling
-  - Handle POST requests - parse body, call JsonRpcHandler, return response
-  - Handle GET requests - return server info / health check
-  - Set correct content-type headers (application/json)
+- [x] **TASK-010**: Implement HTTP+SSE transport
+  - Handle GET `/index-mcp/sse` - open SSE stream, send `endpoint` event
+  - Handle POST `/index-mcp` - parse body, call JsonRpcHandler, return JSON response
+  - Set correct content-type headers (`text/event-stream` for SSE, `application/json` for POST)
   - Handle errors gracefully with proper HTTP status codes
 
 - [x] **TASK-011**: Write unit tests for McpRequestHandler
-  - Test GET health check response
+  - Test GET SSE stream establishment
+  - Test SSE endpoint event format
   - Test POST JSON-RPC request handling
   - Test error responses
   - Test unsupported paths return false

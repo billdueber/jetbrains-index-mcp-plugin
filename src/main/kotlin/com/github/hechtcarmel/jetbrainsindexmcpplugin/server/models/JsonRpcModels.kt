@@ -1,5 +1,7 @@
 package com.github.hechtcarmel.jetbrainsindexmcpplugin.server.models
 
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -12,11 +14,14 @@ data class JsonRpcRequest(
     val params: JsonObject? = null
 )
 
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class JsonRpcResponse(
     val jsonrpc: String = "2.0",
     val id: JsonElement? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
     val result: JsonElement? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
     val error: JsonRpcError? = null
 )
 

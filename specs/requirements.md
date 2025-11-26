@@ -22,22 +22,22 @@
 
 | ID | Requirement |
 |----|-------------|
-| PLAT-007 | The plugin SHALL implement MCP specification version 2025-03-26 |
+| PLAT-007 | The plugin SHALL implement MCP specification version 2024-11-05 |
 | PLAT-008 | The plugin SHALL use JSON-RPC 2.0 for message format |
-| PLAT-009 | The plugin SHALL support Streamable HTTP transport |
+| PLAT-009 | The plugin SHALL support HTTP+SSE transport |
 
 ---
 
 ## 2. MCP Server Requirements
 
-### 2.1 Transport Layer
+### 2.1 Transport Layer (HTTP+SSE)
 
 | ID | Requirement |
 |----|-------------|
 | SRV-001 | The server SHALL register an HttpRequestHandler on the IDE's built-in web server |
-| SRV-002 | The server SHALL expose endpoints at path `/index-mcp` |
-| SRV-003 | The server SHALL support POST requests for JSON-RPC |
-| SRV-004 | The server SHALL support GET requests for health check / server info |
+| SRV-002 | The server SHALL expose SSE endpoint at path `/index-mcp/sse` |
+| SRV-003 | The server SHALL expose JSON-RPC POST endpoint at path `/index-mcp` |
+| SRV-004 | The SSE endpoint SHALL send an `endpoint` event with the POST URL on connection |
 | SRV-005 | The server SHALL support multiple concurrent client connections |
 
 ### 2.2 Message Types
