@@ -15,6 +15,12 @@ import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.project.GetDependenc
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.project.GetFileStructureTool
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.project.GetIndexStatusTool
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.project.GetProjectStructureTool
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.refactoring.ExtractMethodTool
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.refactoring.ExtractVariableTool
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.refactoring.InlineTool
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.refactoring.MoveElementTool
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.refactoring.RenameSymbolTool
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.refactoring.SafeDeleteTool
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
@@ -267,5 +273,164 @@ class ToolsTest : BasePlatformTestCase() {
         val resultJson = json.parseToJsonElement(textContent).jsonObject
 
         assertNotNull("Result should have dependencies", resultJson["dependencies"])
+    }
+
+    // Phase 3: Refactoring Tools Tests
+
+    fun testRenameSymbolToolMissingParams() = runBlocking {
+        val tool = RenameSymbolTool()
+
+        val result = tool.execute(project, buildJsonObject { })
+        assertTrue("Should error with missing params", result.isError)
+    }
+
+    fun testRenameSymbolToolInvalidFile() = runBlocking {
+        val tool = RenameSymbolTool()
+
+        val result = tool.execute(project, buildJsonObject {
+            put("file", "nonexistent/file.kt")
+            put("line", 1)
+            put("column", 1)
+            put("newName", "newSymbol")
+        })
+
+        assertTrue("Should error with invalid file", result.isError)
+    }
+
+    fun testRenameSymbolToolBlankName() = runBlocking {
+        val tool = RenameSymbolTool()
+
+        val result = tool.execute(project, buildJsonObject {
+            put("file", "test.kt")
+            put("line", 1)
+            put("column", 1)
+            put("newName", "   ")
+        })
+
+        assertTrue("Should error with blank name", result.isError)
+    }
+
+    fun testExtractMethodToolMissingParams() = runBlocking {
+        val tool = ExtractMethodTool()
+
+        val result = tool.execute(project, buildJsonObject { })
+        assertTrue("Should error with missing params", result.isError)
+    }
+
+    fun testExtractMethodToolInvalidFile() = runBlocking {
+        val tool = ExtractMethodTool()
+
+        val result = tool.execute(project, buildJsonObject {
+            put("file", "nonexistent/file.kt")
+            put("startLine", 1)
+            put("endLine", 5)
+            put("methodName", "extractedMethod")
+        })
+
+        assertTrue("Should error with invalid file", result.isError)
+    }
+
+    fun testExtractMethodToolInvalidLineRange() = runBlocking {
+        val tool = ExtractMethodTool()
+
+        val result = tool.execute(project, buildJsonObject {
+            put("file", "test.kt")
+            put("startLine", 10)
+            put("endLine", 5)
+            put("methodName", "extractedMethod")
+        })
+
+        assertTrue("Should error with invalid line range", result.isError)
+    }
+
+    fun testExtractVariableToolMissingParams() = runBlocking {
+        val tool = ExtractVariableTool()
+
+        val result = tool.execute(project, buildJsonObject { })
+        assertTrue("Should error with missing params", result.isError)
+    }
+
+    fun testExtractVariableToolInvalidFile() = runBlocking {
+        val tool = ExtractVariableTool()
+
+        val result = tool.execute(project, buildJsonObject {
+            put("file", "nonexistent/file.kt")
+            put("line", 1)
+            put("column", 1)
+            put("variableName", "newVar")
+        })
+
+        assertTrue("Should error with invalid file", result.isError)
+    }
+
+    fun testInlineToolMissingParams() = runBlocking {
+        val tool = InlineTool()
+
+        val result = tool.execute(project, buildJsonObject { })
+        assertTrue("Should error with missing params", result.isError)
+    }
+
+    fun testInlineToolInvalidFile() = runBlocking {
+        val tool = InlineTool()
+
+        val result = tool.execute(project, buildJsonObject {
+            put("file", "nonexistent/file.kt")
+            put("line", 1)
+            put("column", 1)
+        })
+
+        assertTrue("Should error with invalid file", result.isError)
+    }
+
+    fun testSafeDeleteToolMissingParams() = runBlocking {
+        val tool = SafeDeleteTool()
+
+        val result = tool.execute(project, buildJsonObject { })
+        assertTrue("Should error with missing params", result.isError)
+    }
+
+    fun testSafeDeleteToolInvalidFile() = runBlocking {
+        val tool = SafeDeleteTool()
+
+        val result = tool.execute(project, buildJsonObject {
+            put("file", "nonexistent/file.kt")
+            put("line", 1)
+            put("column", 1)
+        })
+
+        assertTrue("Should error with invalid file", result.isError)
+    }
+
+    fun testMoveElementToolMissingParams() = runBlocking {
+        val tool = MoveElementTool()
+
+        val result = tool.execute(project, buildJsonObject { })
+        assertTrue("Should error with missing params", result.isError)
+    }
+
+    fun testMoveElementToolMissingTarget() = runBlocking {
+        val tool = MoveElementTool()
+
+        val result = tool.execute(project, buildJsonObject {
+            put("file", "test.kt")
+            put("line", 1)
+            put("column", 1)
+            // Neither targetDirectory nor targetClass specified
+        })
+
+        assertTrue("Should error with missing target", result.isError)
+    }
+
+    fun testMoveElementToolInvalidFile() = runBlocking {
+        val tool = MoveElementTool()
+
+        val result = tool.execute(project, buildJsonObject {
+            put("file", "nonexistent/file.kt")
+            put("line", 1)
+            put("column", 1)
+            put("targetDirectory", "some/dir")
+        })
+
+        assertTrue("Should error with invalid file", result.isError)
     }
 }

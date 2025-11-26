@@ -298,3 +298,4 @@ VirtualFileManager   // Virtual file system
 ---
 
 **Template Source**: [JetBrains IntelliJ Platform Plugin Template](https://github.com/JetBrains/intellij-platform-plugin-template)
+- Never run platform tests on your own

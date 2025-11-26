@@ -14,6 +14,12 @@ import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.project.GetDependenc
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.project.GetFileStructureTool
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.project.GetIndexStatusTool
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.project.GetProjectStructureTool
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.refactoring.ExtractMethodTool
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.refactoring.ExtractVariableTool
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.refactoring.InlineTool
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.refactoring.MoveElementTool
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.refactoring.RenameSymbolTool
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.refactoring.SafeDeleteTool
 import junit.framework.TestCase
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -258,7 +264,14 @@ class ToolsUnitTest : TestCase() {
             "get_index_status",
             "get_file_structure",
             "get_project_structure",
-            "get_dependencies"
+            "get_dependencies",
+            // Refactoring tools
+            "rename_symbol",
+            "extract_method",
+            "extract_variable",
+            "inline",
+            "safe_delete",
+            "move_element"
         )
 
         assertEquals("Should have correct number of tools", expectedTools.size, registry.getAllTools().size)
@@ -267,6 +280,123 @@ class ToolsUnitTest : TestCase() {
             val tool = registry.getTool(toolName)
             assertNotNull("$toolName should be registered", tool)
         }
+    }
+
+    // Phase 3: Refactoring Tools Schema Tests
+
+    fun testRenameSymbolToolSchema() {
+        val tool = RenameSymbolTool()
+
+        assertEquals("rename_symbol", tool.name)
+        assertNotNull(tool.description)
+
+        val schema = tool.inputSchema
+        assertEquals("object", schema["type"]?.jsonPrimitive?.content)
+
+        val properties = schema["properties"]?.jsonObject
+        assertNotNull(properties)
+
+        assertNotNull("Should have project_path property", properties?.get("project_path"))
+        assertNotNull("Should have file property", properties?.get("file"))
+        assertNotNull("Should have line property", properties?.get("line"))
+        assertNotNull("Should have column property", properties?.get("column"))
+        assertNotNull("Should have newName property", properties?.get("newName"))
+    }
+
+    fun testExtractMethodToolSchema() {
+        val tool = ExtractMethodTool()
+
+        assertEquals("extract_method", tool.name)
+        assertNotNull(tool.description)
+
+        val schema = tool.inputSchema
+        assertEquals("object", schema["type"]?.jsonPrimitive?.content)
+
+        val properties = schema["properties"]?.jsonObject
+        assertNotNull(properties)
+
+        assertNotNull("Should have project_path property", properties?.get("project_path"))
+        assertNotNull("Should have file property", properties?.get("file"))
+        assertNotNull("Should have startLine property", properties?.get("startLine"))
+        assertNotNull("Should have endLine property", properties?.get("endLine"))
+        assertNotNull("Should have methodName property", properties?.get("methodName"))
+    }
+
+    fun testExtractVariableToolSchema() {
+        val tool = ExtractVariableTool()
+
+        assertEquals("extract_variable", tool.name)
+        assertNotNull(tool.description)
+
+        val schema = tool.inputSchema
+        assertEquals("object", schema["type"]?.jsonPrimitive?.content)
+
+        val properties = schema["properties"]?.jsonObject
+        assertNotNull(properties)
+
+        assertNotNull("Should have project_path property", properties?.get("project_path"))
+        assertNotNull("Should have file property", properties?.get("file"))
+        assertNotNull("Should have line property", properties?.get("line"))
+        assertNotNull("Should have column property", properties?.get("column"))
+        assertNotNull("Should have variableName property", properties?.get("variableName"))
+        assertNotNull("Should have replaceAll property", properties?.get("replaceAll"))
+    }
+
+    fun testInlineToolSchema() {
+        val tool = InlineTool()
+
+        assertEquals("inline", tool.name)
+        assertNotNull(tool.description)
+
+        val schema = tool.inputSchema
+        assertEquals("object", schema["type"]?.jsonPrimitive?.content)
+
+        val properties = schema["properties"]?.jsonObject
+        assertNotNull(properties)
+
+        assertNotNull("Should have project_path property", properties?.get("project_path"))
+        assertNotNull("Should have file property", properties?.get("file"))
+        assertNotNull("Should have line property", properties?.get("line"))
+        assertNotNull("Should have column property", properties?.get("column"))
+    }
+
+    fun testSafeDeleteToolSchema() {
+        val tool = SafeDeleteTool()
+
+        assertEquals("safe_delete", tool.name)
+        assertNotNull(tool.description)
+
+        val schema = tool.inputSchema
+        assertEquals("object", schema["type"]?.jsonPrimitive?.content)
+
+        val properties = schema["properties"]?.jsonObject
+        assertNotNull(properties)
+
+        assertNotNull("Should have project_path property", properties?.get("project_path"))
+        assertNotNull("Should have file property", properties?.get("file"))
+        assertNotNull("Should have line property", properties?.get("line"))
+        assertNotNull("Should have column property", properties?.get("column"))
+        assertNotNull("Should have force property", properties?.get("force"))
+    }
+
+    fun testMoveElementToolSchema() {
+        val tool = MoveElementTool()
+
+        assertEquals("move_element", tool.name)
+        assertNotNull(tool.description)
+
+        val schema = tool.inputSchema
+        assertEquals("object", schema["type"]?.jsonPrimitive?.content)
+
+        val properties = schema["properties"]?.jsonObject
+        assertNotNull(properties)
+
+        assertNotNull("Should have project_path property", properties?.get("project_path"))
+        assertNotNull("Should have file property", properties?.get("file"))
+        assertNotNull("Should have line property", properties?.get("line"))
+        assertNotNull("Should have column property", properties?.get("column"))
+        assertNotNull("Should have targetDirectory property", properties?.get("targetDirectory"))
+        assertNotNull("Should have targetClass property", properties?.get("targetClass"))
     }
 
     fun testToolDefinitionsHaveRequiredFields() {

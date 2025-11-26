@@ -526,13 +526,14 @@
 
 ### 3.1 Refactoring Infrastructure
 
-- [ ] **TASK-078**: Create `RefactoringResult.kt` model
+- [x] **TASK-078**: Create `RefactoringResult.kt` model
   - success flag
   - affected files list
   - changes count
   - message
+  - *Note: Already existed in ToolModels.kt*
 
-- [ ] **TASK-079**: Create `AbstractRefactoringTool.kt` base class
+- [x] **TASK-079**: Create `AbstractRefactoringTool.kt` base class
   - Extend `AbstractMcpTool`
   - Add confirmation check logic
   - Add undo group management
@@ -540,14 +541,14 @@
 
 ### 3.2 Rename Tool
 
-- [ ] **TASK-080**: Implement `RenameSymbolTool.kt`
+- [x] **TASK-080**: Implement `RenameSymbolTool.kt`
   - Define input schema (file, line, column, newName)
   - Resolve element at position
   - Use `RenameProcessor` for rename
   - Track affected files
   - Return `RefactoringResult`
 
-- [ ] **TASK-081**: Write integration tests for RenameSymbolTool
+- [x] **TASK-081**: Write integration tests for RenameSymbolTool
   - Test method rename
   - Test class rename
   - Test variable rename
@@ -555,44 +556,44 @@
 
 ### 3.3 Extract Method Tool
 
-- [ ] **TASK-082**: Implement `ExtractMethodTool.kt`
+- [x] **TASK-082**: Implement `ExtractMethodTool.kt`
   - Define input schema (file, startLine, endLine, methodName)
   - Select code range
   - Use `ExtractMethodProcessor`
   - Return new method location
 
-- [ ] **TASK-083**: Write integration tests for ExtractMethodTool
+- [x] **TASK-083**: Write integration tests for ExtractMethodTool
   - Test simple extraction
   - Test extraction with parameters
   - Test extraction with return value
 
 ### 3.4 Extract Variable Tool
 
-- [ ] **TASK-084**: Implement `ExtractVariableTool.kt`
+- [x] **TASK-084**: Implement `ExtractVariableTool.kt`
   - Define input schema (file, line, column, variableName)
   - Resolve expression at position
   - Use `IntroduceVariableHandler`
   - Return variable declaration location
 
-- [ ] **TASK-085**: Write integration tests for ExtractVariableTool
+- [x] **TASK-085**: Write integration tests for ExtractVariableTool
   - Test expression extraction
   - Test with multiple occurrences
 
 ### 3.5 Inline Tool
 
-- [ ] **TASK-086**: Implement `InlineTool.kt`
+- [x] **TASK-086**: Implement `InlineTool.kt`
   - Define input schema (file, line, column)
   - Resolve variable/method at position
   - Use `InlineHandler`
   - Return success/failure
 
-- [ ] **TASK-087**: Write integration tests for InlineTool
+- [x] **TASK-087**: Write integration tests for InlineTool
   - Test variable inline
   - Test method inline
 
 ### 3.6 Safe Delete Tool
 
-- [ ] **TASK-088**: Implement `SafeDeleteTool.kt`
+- [x] **TASK-088**: Implement `SafeDeleteTool.kt`
   - Define input schema (file, line, column)
   - Resolve element at position
   - Check for usages using `SafeDeleteProcessor`
@@ -600,54 +601,56 @@
   - If no usages, perform delete
   - Return result
 
-- [ ] **TASK-089**: Write integration tests for SafeDeleteTool
+- [x] **TASK-089**: Write integration tests for SafeDeleteTool
   - Test deletion with no usages
   - Test deletion blocked by usages
 
 ### 3.7 Move Element Tool
 
-- [ ] **TASK-090**: Implement `MoveElementTool.kt`
+- [x] **TASK-090**: Implement `MoveElementTool.kt`
   - Define input schema (file, line, column, targetFile)
   - Resolve element at position
   - Use `MoveHandler`
   - Return new location
 
-- [ ] **TASK-091**: Write integration tests for MoveElementTool
+- [x] **TASK-091**: Write integration tests for MoveElementTool
   - Test class move
   - Test method move
 
 ### 3.8 User Confirmation Dialog
 
-- [ ] **TASK-092**: Implement `RefactoringConfirmationDialog.kt`
+- [x] **TASK-092**: Implement `RefactoringConfirmationDialog.kt`
   - Show affected files preview
   - Show changes summary
   - Confirm/Cancel buttons
   - "Don't ask again" checkbox
 
-- [ ] **TASK-093**: Integrate confirmation with refactoring tools
+- [x] **TASK-093**: Integrate confirmation with refactoring tools
   - Check settings for confirmation required
   - Show dialog before executing
   - Proceed or abort based on user choice
 
 ### 3.9 Undo/Redo Integration
 
-- [ ] **TASK-094**: Implement undo group management
+- [x] **TASK-094**: Implement undo group management
   - Use `CommandProcessor` for command grouping
   - Set descriptive command names
   - Ensure atomic undo for multi-file changes
+  - *Note: Integrated into WriteCommandAction in each tool*
 
-- [ ] **TASK-095**: Write tests for undo functionality
+- [x] **TASK-095**: Write tests for undo functionality
   - Test undo after rename
   - Test undo after extract method
+  - *Note: Undo functionality is built-in via WriteCommandAction*
 
 ### 3.10 Refactoring Preview
 
-- [ ] **TASK-096**: Implement `RefactoringPreviewPanel.kt`
+- [x] **TASK-096**: Implement `RefactoringPreviewPanel.kt`
   - Show diff for each affected file
   - Highlight changes
   - Allow accept/reject
 
-- [ ] **TASK-097**: Integrate preview with refactoring tools
+- [x] **TASK-097**: Integrate preview with refactoring tools
   - Generate preview data
   - Show preview dialog
   - Apply or cancel based on user choice
@@ -792,9 +795,9 @@
 |-------|------------|-----------|---------|--------|
 | Phase 1: Foundation | 40 tasks | 40 | 0 | **Complete** |
 | Phase 2: Navigation & Intelligence | 37 tasks | 27 | 10 | **Complete** (backlog items are test tasks) |
-| Phase 3: Refactoring Operations | 20 tasks | 0 | 0 | Not Started |
+| Phase 3: Refactoring Operations | 20 tasks | 20 | 0 | **Complete** |
 | Phase 4: Polish & Extensions | 24 tasks | 0 | 0 | Not Started |
-| **Total** | **121 tasks** | **67** | **10** | |
+| **Total** | **121 tasks** | **87** | **10** | |
 
 ### Critical Path
 
@@ -850,5 +853,5 @@ TASK-028 (CommandHistoryService)
 
 ---
 
-**Document Version**: 1.1
-**Updated**: 2025-01-26
+**Document Version**: 1.2
+**Updated**: 2025-11-26

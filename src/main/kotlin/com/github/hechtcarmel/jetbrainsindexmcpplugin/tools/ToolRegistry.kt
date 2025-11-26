@@ -15,6 +15,12 @@ import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.project.GetDependenc
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.project.GetFileStructureTool
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.project.GetIndexStatusTool
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.project.GetProjectStructureTool
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.refactoring.ExtractMethodTool
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.refactoring.ExtractVariableTool
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.refactoring.InlineTool
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.refactoring.MoveElementTool
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.refactoring.RenameSymbolTool
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.refactoring.SafeDeleteTool
 import com.intellij.openapi.diagnostic.logger
 import java.util.concurrent.ConcurrentHashMap
 
@@ -74,6 +80,14 @@ class ToolRegistry {
         register(GetFileStructureTool())
         register(GetProjectStructureTool())
         register(GetDependenciesTool())
+
+        // Refactoring tools
+        register(RenameSymbolTool())
+        register(ExtractMethodTool())
+        register(ExtractVariableTool())
+        register(InlineTool())
+        register(SafeDeleteTool())
+        register(MoveElementTool())
 
         LOG.info("Registered ${tools.size} built-in MCP tools")
     }
