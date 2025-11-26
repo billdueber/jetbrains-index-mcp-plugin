@@ -23,12 +23,13 @@ import kotlinx.serialization.json.putJsonObject
 
 class ExtractVariableTool : AbstractRefactoringTool() {
 
-    override val name = "extract_variable"
+    override val name = "ide_refactor_extract_variable"
 
     override val description = """
-        Extract an expression at the specified position into a new local variable.
-        The tool will analyze the expression and create a variable declaration, replacing the expression with the variable reference.
-        Optionally replaces all occurrences of the same expression.
+        Extracts an expression into a new local variable, optionally replacing all identical occurrences.
+        Use when simplifying complex expressions or giving meaningful names to computed values.
+        Use when eliminating repeated calculations by storing results in a variable.
+        WARNING: This modifies files. Returns variable declaration location and success/failure status.
     """.trimIndent()
 
     override val inputSchema: JsonObject = buildJsonObject {

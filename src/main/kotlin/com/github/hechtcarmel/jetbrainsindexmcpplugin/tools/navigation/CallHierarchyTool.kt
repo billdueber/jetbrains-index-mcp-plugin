@@ -22,11 +22,13 @@ import kotlinx.serialization.json.putJsonObject
 
 class CallHierarchyTool : AbstractMcpTool() {
 
-    override val name = "call_hierarchy"
+    override val name = "ide_call_hierarchy"
 
     override val description = """
-        Get the call hierarchy for a method - either methods that call it (callers) or methods it calls (callees).
-        Returns a tree structure of calling relationships.
+        Analyzes method call relationships to find callers (methods invoking this method) or callees (methods this method invokes).
+        Use when tracing execution flow, understanding code dependencies, or analyzing impact of method changes.
+        Use when debugging to understand how a method is reached or what it triggers.
+        Returns a tree structure with method signatures, file locations, and line numbers.
     """.trimIndent()
 
     override val inputSchema: JsonObject = buildJsonObject {

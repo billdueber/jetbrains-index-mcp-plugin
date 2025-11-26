@@ -66,7 +66,7 @@
 
 ### 3.1 Navigation Tools
 
-#### 3.1.1 find_usages
+#### 3.1.1 ide_find_references (formerly find_usages)
 
 | ID | Requirement |
 |----|-------------|
@@ -80,7 +80,7 @@
 | NAV-008 | Each usage location SHALL contain: `context` (string, code snippet) |
 | NAV-009 | Each usage location SHALL contain: `type` (string, e.g., METHOD_CALL) |
 
-#### 3.1.2 find_definition
+#### 3.1.2 ide_go_to_definition (formerly find_definition)
 
 | ID | Requirement |
 |----|-------------|
@@ -91,7 +91,7 @@
 | NAV-014 | The tool SHALL return the definition location with line number |
 | NAV-015 | The tool SHALL return a code preview of the definition |
 
-#### 3.1.3 type_hierarchy
+#### 3.1.3 ide_type_hierarchy (formerly type_hierarchy)
 
 | ID | Requirement |
 |----|-------------|
@@ -103,7 +103,7 @@
 | NAV-021 | The tool SHALL return a list of supertypes with name and file |
 | NAV-022 | The tool SHALL return a list of subtypes with name and file |
 
-#### 3.1.4 call_hierarchy
+#### 3.1.4 ide_call_hierarchy (formerly call_hierarchy)
 
 | ID | Requirement |
 |----|-------------|
@@ -113,7 +113,7 @@
 | NAV-026 | The tool SHALL accept input: `direction` (string, "callers" or "callees") |
 | NAV-027 | The tool SHALL return a tree structure of calling/called methods |
 
-#### 3.1.5 find_implementations
+#### 3.1.5 ide_find_implementations (formerly find_implementations)
 
 | ID | Requirement |
 |----|-------------|
@@ -124,7 +124,7 @@
 
 ### 3.2 Refactoring Tools
 
-#### 3.2.1 rename_symbol
+#### 3.2.1 ide_refactor_rename (formerly rename_symbol)
 
 | ID | Requirement |
 |----|-------------|
@@ -137,7 +137,7 @@
 | REF-007 | The tool SHALL return the count of changes made |
 | REF-008 | The tool SHALL update all references to the renamed symbol |
 
-#### 3.2.2 extract_method
+#### 3.2.2 ide_refactor_extract_method (formerly extract_method)
 
 | ID | Requirement |
 |----|-------------|
@@ -147,7 +147,7 @@
 | REF-012 | The tool SHALL accept input: `methodName` (string) |
 | REF-013 | The tool SHALL return the location of the new method |
 
-#### 3.2.3 extract_variable
+#### 3.2.3 ide_refactor_extract_variable (formerly extract_variable)
 
 | ID | Requirement |
 |----|-------------|
@@ -157,7 +157,7 @@
 | REF-017 | The tool SHALL accept input: `variableName` (string) |
 | REF-018 | The tool SHALL return the variable declaration location |
 
-#### 3.2.4 inline
+#### 3.2.4 ide_refactor_inline (formerly inline)
 
 | ID | Requirement |
 |----|-------------|
@@ -166,7 +166,7 @@
 | REF-021 | The tool SHALL accept input: `column` (integer, 1-based column number) |
 | REF-022 | The tool SHALL return success/failure status |
 
-#### 3.2.5 safe_delete
+#### 3.2.5 ide_refactor_safe_delete (formerly safe_delete)
 
 | ID | Requirement |
 |----|-------------|
@@ -175,7 +175,7 @@
 | REF-025 | The tool SHALL accept input: `column` (integer, 1-based column number) |
 | REF-026 | The tool SHALL return success status or list of usages blocking deletion |
 
-#### 3.2.6 move_element
+#### 3.2.6 ide_refactor_move (formerly move_element)
 
 | ID | Requirement |
 |----|-------------|
@@ -187,7 +187,7 @@
 
 ### 3.3 Code Intelligence Tools
 
-#### 3.3.1 get_completions
+#### 3.3.1 ide_code_completions (formerly get_completions)
 
 | ID | Requirement |
 |----|-------------|
@@ -196,7 +196,7 @@
 | INT-003 | The tool SHALL accept input: `column` (integer, 1-based column number) |
 | INT-004 | The tool SHALL return a list of completion items |
 
-#### 3.3.2 get_inspections
+#### 3.3.2 ide_analyze_code (formerly get_inspections)
 
 | ID | Requirement |
 |----|-------------|
@@ -205,7 +205,7 @@
 | INT-007 | The tool MAY accept input: `endLine` (integer, optional) |
 | INT-008 | The tool SHALL return a list of problems with severity |
 
-#### 3.3.3 get_quick_fixes
+#### 3.3.3 ide_list_quick_fixes (formerly get_quick_fixes)
 
 | ID | Requirement |
 |----|-------------|
@@ -214,7 +214,7 @@
 | INT-011 | The tool SHALL accept input: `column` (integer, 1-based column number) |
 | INT-012 | The tool SHALL return a list of applicable fixes with unique IDs |
 
-#### 3.3.4 apply_quick_fix
+#### 3.3.4 ide_apply_quick_fix (formerly apply_quick_fix)
 
 | ID | Requirement |
 |----|-------------|
@@ -224,7 +224,7 @@
 | INT-016 | The tool SHALL accept input: `fixId` (string) |
 | INT-017 | The tool SHALL return the modified code |
 
-#### 3.3.5 get_symbol_info
+#### 3.3.5 ide_inspect_symbol (formerly get_symbol_info)
 
 | ID | Requirement |
 |----|-------------|
@@ -237,26 +237,26 @@
 
 ### 3.4 Project Structure Tools
 
-#### 3.4.1 get_project_structure
+#### 3.4.1 ide_project_structure (formerly get_project_structure)
 
 | ID | Requirement |
 |----|-------------|
 | PRJ-001 | The tool SHALL return the module tree with source roots |
 
-#### 3.4.2 get_file_structure
+#### 3.4.2 ide_file_structure (formerly get_file_structure)
 
 | ID | Requirement |
 |----|-------------|
 | PRJ-002 | The tool SHALL accept input: `file` (string, path relative to project root) |
 | PRJ-003 | The tool SHALL return a tree of classes, methods, and fields |
 
-#### 3.4.3 get_dependencies
+#### 3.4.3 ide_list_dependencies (formerly get_dependencies)
 
 | ID | Requirement |
 |----|-------------|
 | PRJ-004 | The tool SHALL return a list of libraries and versions |
 
-#### 3.4.4 get_index_status
+#### 3.4.4 ide_index_status (formerly get_index_status)
 
 | ID | Requirement |
 |----|-------------|
@@ -431,9 +431,9 @@
 |----|-------------|
 | PH1-001 | Phase 1 SHALL deliver: McpRequestHandler on IDE built-in web server at `/index-mcp` |
 | PH1-002 | Phase 1 SHALL deliver: Tool registry and JSON-RPC routing |
-| PH1-003 | Phase 1 SHALL deliver: `find_usages` tool |
-| PH1-004 | Phase 1 SHALL deliver: `find_definition` tool |
-| PH1-005 | Phase 1 SHALL deliver: `get_symbol_info` tool |
+| PH1-003 | Phase 1 SHALL deliver: `ide_find_references` tool |
+| PH1-004 | Phase 1 SHALL deliver: `ide_go_to_definition` tool |
+| PH1-005 | Phase 1 SHALL deliver: `ide_inspect_symbol` tool |
 | PH1-006 | Phase 1 SHALL deliver: Basic tool window with server URL and status |
 | PH1-007 | Phase 1 SHALL deliver: Unit tests for core functionality |
 
@@ -441,13 +441,13 @@
 
 | ID | Requirement |
 |----|-------------|
-| PH2-001 | Phase 2 SHALL deliver: `type_hierarchy` tool |
-| PH2-002 | Phase 2 SHALL deliver: `call_hierarchy` tool |
-| PH2-003 | Phase 2 SHALL deliver: `find_implementations` tool |
-| PH2-004 | Phase 2 SHALL deliver: `get_completions` tool |
-| PH2-005 | Phase 2 SHALL deliver: `get_quick_fixes` tool |
-| PH2-006 | Phase 2 SHALL deliver: `apply_quick_fix` tool |
-| PH2-007 | Phase 2 SHALL deliver: `get_file_structure` tool |
+| PH2-001 | Phase 2 SHALL deliver: `ide_type_hierarchy` tool |
+| PH2-002 | Phase 2 SHALL deliver: `ide_call_hierarchy` tool |
+| PH2-003 | Phase 2 SHALL deliver: `ide_find_implementations` tool |
+| PH2-004 | Phase 2 SHALL deliver: `ide_code_completions` tool |
+| PH2-005 | Phase 2 SHALL deliver: `ide_list_quick_fixes` tool |
+| PH2-006 | Phase 2 SHALL deliver: `ide_apply_quick_fix` tool |
+| PH2-007 | Phase 2 SHALL deliver: `ide_file_structure` tool |
 | PH2-008 | Phase 2 SHALL deliver: Full command history UI with filtering and search |
 | PH2-009 | Phase 2 SHALL deliver: Resource providers |
 | PH2-010 | Phase 2 SHALL deliver: Integration tests |
@@ -456,12 +456,12 @@
 
 | ID | Requirement |
 |----|-------------|
-| PH3-001 | Phase 3 SHALL deliver: `extract_method` tool |
-| PH3-002 | Phase 3 SHALL deliver: `extract_variable` tool |
-| PH3-003 | Phase 3 SHALL deliver: `inline` tool |
-| PH3-004 | Phase 3 SHALL deliver: `safe_delete` tool |
-| PH3-005 | Phase 3 SHALL deliver: `move_element` tool |
-| PH3-006 | Phase 3 SHALL deliver: `rename_symbol` tool |
+| PH3-001 | Phase 3 SHALL deliver: `ide_refactor_extract_method` tool |
+| PH3-002 | Phase 3 SHALL deliver: `ide_refactor_extract_variable` tool |
+| PH3-003 | Phase 3 SHALL deliver: `ide_refactor_inline` tool |
+| PH3-004 | Phase 3 SHALL deliver: `ide_refactor_safe_delete` tool |
+| PH3-005 | Phase 3 SHALL deliver: `ide_refactor_move` tool |
+| PH3-006 | Phase 3 SHALL deliver: `ide_refactor_rename` tool |
 | PH3-007 | Phase 3 SHALL deliver: User confirmation dialog for write operations |
 | PH3-008 | Phase 3 SHALL deliver: Undo/redo integration |
 | PH3-009 | Phase 3 SHALL deliver: Refactoring preview functionality |

@@ -28,12 +28,13 @@ import kotlinx.serialization.json.putJsonObject
 
 class ExtractMethodTool : AbstractRefactoringTool() {
 
-    override val name = "extract_method"
+    override val name = "ide_refactor_extract_method"
 
     override val description = """
-        Extract a block of code into a new method.
-        Specify the start and end lines of the code to extract, and the name for the new method.
-        The tool will analyze the code, determine parameters and return values, and create the new method.
+        Extracts a code block into a new method, automatically determining parameters and return values.
+        Use when consolidating duplicated code or improving method cohesion.
+        Use when breaking down long methods into smaller, more focused pieces.
+        WARNING: This modifies files. Returns new method location, affected files, and success/failure status.
     """.trimIndent()
 
     override val inputSchema: JsonObject = buildJsonObject {

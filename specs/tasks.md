@@ -72,9 +72,9 @@
 - [x] **TASK-008**: Create tool input/output models in `tools/models/`
   - `PositionInput.kt` - Common file/line/column input
   - `UsageLocation.kt` - Usage search result
-  - `FindUsagesResult.kt` - find_usages output
-  - `DefinitionResult.kt` - find_definition output
-  - `SymbolInfoResult.kt` - get_symbol_info output
+  - `FindUsagesResult.kt` - ide_find_references output
+  - `DefinitionResult.kt` - ide_go_to_definition output
+  - `SymbolInfoResult.kt` - ide_inspect_symbol output
 
 ### 1.3 McpRequestHandler (HTTP+SSE Transport)
 

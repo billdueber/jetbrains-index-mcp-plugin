@@ -25,12 +25,13 @@ import kotlinx.serialization.json.putJsonObject
 
 class MoveElementTool : AbstractRefactoringTool() {
 
-    override val name = "move_element"
+    override val name = "ide_refactor_move"
 
     override val description = """
-        Move a class to a different package/directory.
-        For classes: moves the class file to the target directory and updates all imports/references.
-        For methods: moves the method to the target class (static methods only).
+        Moves a class to a different package/directory, or moves a static method to a different class.
+        Use when reorganizing code structure, changing package hierarchy, or consolidating related code.
+        Use when relocating classes to more appropriate packages.
+        WARNING: This modifies files. Updates all imports and references automatically. Returns new location.
     """.trimIndent()
 
     override val inputSchema: JsonObject = buildJsonObject {

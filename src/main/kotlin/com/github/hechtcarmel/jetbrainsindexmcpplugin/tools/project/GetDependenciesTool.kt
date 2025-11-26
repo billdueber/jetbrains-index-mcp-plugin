@@ -16,11 +16,13 @@ import kotlinx.serialization.json.putJsonObject
 
 class GetDependenciesTool : AbstractMcpTool() {
 
-    override val name = "get_dependencies"
+    override val name = "ide_list_dependencies"
 
     override val description = """
-        Get the list of project dependencies (libraries and their versions).
-        Returns all library dependencies across all modules in the project.
+        Lists all external library dependencies across all modules in the project.
+        Use when checking library versions, understanding project dependencies, or troubleshooting classpath issues.
+        Use when analyzing what third-party libraries are available for use.
+        Returns dependency names (group:artifact format), versions, and scopes (COMPILE, TEST, RUNTIME).
     """.trimIndent()
 
     override val inputSchema: JsonObject = buildJsonObject {

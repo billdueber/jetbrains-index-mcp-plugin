@@ -20,11 +20,13 @@ import kotlinx.serialization.json.putJsonObject
 
 class FindUsagesTool : AbstractMcpTool() {
 
-    override val name = "find_usages"
+    override val name = "ide_find_references"
 
     override val description = """
-        Find all usages of a symbol in the project using IntelliJ's semantic index.
-        Returns a list of locations where the symbol is referenced.
+        Finds all references to a symbol across the entire project using IntelliJ's semantic index.
+        Use when locating where a method, class, variable, or field is called or accessed.
+        Use when understanding code dependencies or preparing for refactoring.
+        Returns file locations with line numbers, column positions, context snippets, and reference types (METHOD_CALL, FIELD_ACCESS, IMPORT, etc.).
     """.trimIndent()
 
     override val inputSchema: JsonObject = buildJsonObject {

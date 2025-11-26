@@ -13,11 +13,13 @@ import kotlinx.serialization.json.putJsonObject
 
 class GetIndexStatusTool : AbstractMcpTool() {
 
-    override val name = "get_index_status"
+    override val name = "ide_index_status"
 
     override val description = """
-        Get the IDE indexing status. Returns whether the IDE is in dumb mode (indexing)
-        or smart mode (ready for full functionality).
+        Checks the IDE's indexing status to determine if code intelligence features are available.
+        Use before calling other tools to verify the IDE is ready for semantic operations.
+        Use when operations fail due to indexing to check if the IDE is still processing files.
+        Returns isDumbMode (true = indexing in progress, limited functionality) and isIndexing flags.
     """.trimIndent()
 
     override val inputSchema: JsonObject = buildJsonObject {

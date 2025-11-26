@@ -20,12 +20,13 @@ import kotlinx.serialization.json.putJsonObject
 
 class RenameSymbolTool : AbstractRefactoringTool() {
 
-    override val name = "rename_symbol"
+    override val name = "ide_refactor_rename"
 
     override val description = """
-        Rename a symbol (variable, method, class, field, etc.) across the entire project.
-        Uses IntelliJ's refactoring engine to safely update all references.
-        Returns the list of affected files and number of changes made.
+        Renames a symbol (variable, method, class, field, parameter) and updates all references across the project.
+        Use when renaming identifiers to improve code clarity or follow naming conventions.
+        Use when refactoring code structure while maintaining correctness.
+        WARNING: This modifies files. Returns affected file list, change count, and success/failure status.
     """.trimIndent()
 
     override val inputSchema: JsonObject = buildJsonObject {

@@ -22,11 +22,13 @@ import java.util.UUID
 
 class GetQuickFixesTool : AbstractMcpTool() {
 
-    override val name = "get_quick_fixes"
+    override val name = "ide_list_quick_fixes"
 
     override val description = """
-        Get available quick fixes at a specific position in a file.
-        Returns a list of fixes with unique IDs that can be applied using apply_quick_fix.
+        Lists available quick fixes and intention actions at a specific code position.
+        Use when looking for automated fixes for errors or warnings detected by inspections.
+        Use when exploring available code transformations or improvements at cursor position.
+        Returns fix IDs (for use with ide_apply_quick_fix), names, and descriptions. Fix IDs expire after 5 minutes.
     """.trimIndent()
 
     override val inputSchema: JsonObject = buildJsonObject {

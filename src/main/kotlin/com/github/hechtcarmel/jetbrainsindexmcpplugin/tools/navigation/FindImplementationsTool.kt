@@ -22,11 +22,13 @@ import kotlinx.serialization.json.putJsonObject
 
 class FindImplementationsTool : AbstractMcpTool() {
 
-    override val name = "find_implementations"
+    override val name = "ide_find_implementations"
 
     override val description = """
-        Find implementations of an interface, abstract class, or method.
-        Returns a list of classes implementing the interface or methods overriding the given method.
+        Finds all concrete implementations of an interface, abstract class, or abstract/interface method.
+        Use when locating classes that implement an interface or extend an abstract class.
+        Use when finding all overriding methods for polymorphic behavior analysis.
+        Returns implementation locations with class/method names, file paths, line numbers, and element kinds.
     """.trimIndent()
 
     override val inputSchema: JsonObject = buildJsonObject {

@@ -22,11 +22,13 @@ import kotlinx.serialization.json.putJsonObject
 
 class GetFileStructureTool : AbstractMcpTool() {
 
-    override val name = "get_file_structure"
+    override val name = "ide_file_structure"
 
     override val description = """
-        Get the structure of a file including classes, methods, fields, and their hierarchy.
-        Returns a tree structure showing all code elements in the file.
+        Parses and returns the structural outline of a source file (classes, methods, fields, and their hierarchy).
+        Use when exploring unfamiliar files to understand their organization without reading full source.
+        Use when generating documentation or analyzing class composition.
+        Returns a tree of FileElements with name, kind (CLASS, METHOD, FIELD, etc.), line numbers, modifiers, and types.
     """.trimIndent()
 
     override val inputSchema: JsonObject = buildJsonObject {

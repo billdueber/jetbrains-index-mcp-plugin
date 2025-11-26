@@ -24,11 +24,13 @@ import kotlinx.serialization.json.putJsonObject
 
 class GetInspectionsTool : AbstractMcpTool() {
 
-    override val name = "get_inspections"
+    override val name = "ide_analyze_code"
 
     override val description = """
-        Get code inspection results (errors, warnings, and suggestions) for a file.
-        Optionally filter by line range. Returns a list of problems with severity levels.
+        Runs IntelliJ's code inspections to detect errors, warnings, and code quality issues in a file.
+        Use when checking for compilation errors, potential bugs, or code style violations.
+        Use when verifying code changes haven't introduced new problems.
+        Returns problems with severity (ERROR, WARNING, WEAK_WARNING, INFO), messages, and precise locations.
     """.trimIndent()
 
     override val inputSchema: JsonObject = buildJsonObject {

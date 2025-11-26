@@ -927,11 +927,13 @@ abstract class AbstractMcpTool : McpTool {
 ```kotlin
 class FindUsagesTool : AbstractMcpTool() {
 
-    override val name = "find_usages"
+    override val name = "ide_find_references"
 
     override val description = """
-        Find all usages of a symbol in the project using IntelliJ's semantic index.
-        Returns a list of locations where the symbol is referenced.
+        Finds all references to a symbol across the entire project using IntelliJ's semantic index.
+        Use when locating where a method, class, variable, or field is called or accessed.
+        Use when understanding code dependencies or preparing for refactoring.
+        Returns file locations with line numbers, column positions, context snippets, and reference types (METHOD_CALL, FIELD_ACCESS, IMPORT, etc.).
     """.trimIndent()
 
     override val inputSchema = buildJsonObject {
@@ -1033,33 +1035,33 @@ class FindUsagesTool : AbstractMcpTool() {
 ```kotlin
 // In ToolRegistry.kt
 fun registerBuiltInTools(project: Project) {
-    // Navigation tools
-    register(FindUsagesTool())
-    register(FindDefinitionTool())
-    register(TypeHierarchyTool())
-    register(CallHierarchyTool())
-    register(FindImplementationsTool())
+    // Navigation tools (ide_* prefix)
+    register(FindUsagesTool())        // ide_find_references
+    register(FindDefinitionTool())    // ide_go_to_definition
+    register(TypeHierarchyTool())     // ide_type_hierarchy
+    register(CallHierarchyTool())     // ide_call_hierarchy
+    register(FindImplementationsTool()) // ide_find_implementations
 
-    // Intelligence tools
-    register(GetSymbolInfoTool())
-    register(GetCompletionsTool())
-    register(GetInspectionsTool())
-    register(GetQuickFixesTool())
-    register(ApplyQuickFixTool())
+    // Intelligence tools (ide_* prefix)
+    register(GetSymbolInfoTool())     // ide_inspect_symbol
+    register(GetCompletionsTool())    // ide_code_completions
+    register(GetInspectionsTool())    // ide_analyze_code
+    register(GetQuickFixesTool())     // ide_list_quick_fixes
+    register(ApplyQuickFixTool())     // ide_apply_quick_fix
 
-    // Project tools
-    register(GetProjectStructureTool())
-    register(GetFileStructureTool())
-    register(GetDependenciesTool())
-    register(GetIndexStatusTool())
+    // Project tools (ide_* prefix)
+    register(GetProjectStructureTool()) // ide_project_structure
+    register(GetFileStructureTool())    // ide_file_structure
+    register(GetDependenciesTool())     // ide_list_dependencies
+    register(GetIndexStatusTool())      // ide_index_status
 
-    // Refactoring tools
-    register(RenameSymbolTool())
-    register(ExtractMethodTool())
-    register(ExtractVariableTool())
-    register(InlineTool())
-    register(SafeDeleteTool())
-    register(MoveElementTool())
+    // Refactoring tools (ide_refactor_* prefix)
+    register(RenameSymbolTool())      // ide_refactor_rename
+    register(ExtractMethodTool())     // ide_refactor_extract_method
+    register(ExtractVariableTool())   // ide_refactor_extract_variable
+    register(InlineTool())            // ide_refactor_inline
+    register(SafeDeleteTool())        // ide_refactor_safe_delete
+    register(MoveElementTool())       // ide_refactor_move
 }
 ```
 

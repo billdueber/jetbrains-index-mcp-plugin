@@ -22,13 +22,13 @@ import kotlinx.serialization.json.putJsonObject
 
 class SafeDeleteTool : AbstractRefactoringTool() {
 
-    override val name = "safe_delete"
+    override val name = "ide_refactor_safe_delete"
 
     override val description = """
-        Safely delete a symbol (method, class, field, variable, etc.) from the project.
-        First checks if the symbol has any usages. If usages exist, returns the list of blocking usages.
-        If no usages exist or force=true, deletes the element.
-        Use with caution: force=true will delete the element even if it has usages.
+        Safely deletes a symbol after checking for usages. If usages exist, returns them instead of deleting.
+        Use when removing unused code like methods, classes, fields, or variables.
+        Use force=true with caution to delete even when usages exist (may break compilation).
+        WARNING: This modifies files. Returns blocking usages if found, or success status if deleted.
     """.trimIndent()
 
     override val inputSchema: JsonObject = buildJsonObject {

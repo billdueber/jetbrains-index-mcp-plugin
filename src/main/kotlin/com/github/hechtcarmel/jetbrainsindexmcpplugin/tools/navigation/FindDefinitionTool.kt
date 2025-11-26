@@ -19,11 +19,13 @@ import kotlinx.serialization.json.putJsonObject
 
 class FindDefinitionTool : AbstractMcpTool() {
 
-    override val name = "find_definition"
+    override val name = "ide_go_to_definition"
 
     override val description = """
-        Find the definition of a symbol at a given location. Returns the file path,
-        line number, column, and a code preview of the definition.
+        Navigates to the definition/declaration of a symbol at a given source location.
+        Use when needing to understand where a method, class, variable, or field is declared.
+        Use when jumping from a usage to its original definition.
+        Returns the definition's file path, line number, column, symbol name, and a multi-line code preview.
     """.trimIndent()
 
     override val inputSchema: JsonObject = buildJsonObject {

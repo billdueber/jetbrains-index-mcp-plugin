@@ -20,11 +20,13 @@ import kotlinx.serialization.json.putJsonObject
 
 class TypeHierarchyTool : AbstractMcpTool() {
 
-    override val name = "type_hierarchy"
+    override val name = "ide_type_hierarchy"
 
     override val description = """
-        Get the type hierarchy (supertypes and subtypes) for a class or interface.
-        Returns the element itself, its supertypes (superclass and interfaces), and subtypes (implementing/extending classes).
+        Retrieves the complete type hierarchy for a class or interface, showing inheritance relationships.
+        Use when exploring class inheritance chains, understanding polymorphism, or finding all subclasses.
+        Use when analyzing interface implementations or abstract class extensions.
+        Returns the target element with its supertypes (superclass, interfaces) and subtypes (implementing/extending classes).
     """.trimIndent()
 
     override val inputSchema: JsonObject = buildJsonObject {

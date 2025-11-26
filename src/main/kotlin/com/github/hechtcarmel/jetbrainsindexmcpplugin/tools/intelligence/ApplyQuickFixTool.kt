@@ -20,11 +20,13 @@ import kotlinx.serialization.json.putJsonObject
 
 class ApplyQuickFixTool : AbstractMcpTool() {
 
-    override val name = "apply_quick_fix"
+    override val name = "ide_apply_quick_fix"
 
     override val description = """
-        Apply a quick fix obtained from get_quick_fixes.
-        Uses the fix ID returned by get_quick_fixes to apply the fix.
+        Applies a quick fix or intention action using its ID obtained from ide_list_quick_fixes.
+        Use after calling ide_list_quick_fixes to automatically fix errors, warnings, or apply code improvements.
+        Use for automated code corrections like adding imports, fixing typos, or applying suggested changes.
+        Returns success status, affected files, and a description of the applied fix.
     """.trimIndent()
 
     override val inputSchema: JsonObject = buildJsonObject {

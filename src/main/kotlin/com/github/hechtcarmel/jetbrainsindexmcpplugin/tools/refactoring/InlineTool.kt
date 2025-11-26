@@ -25,12 +25,13 @@ import kotlinx.serialization.json.putJsonObject
 
 class InlineTool : AbstractRefactoringTool() {
 
-    override val name = "inline"
+    override val name = "ide_refactor_inline"
 
     override val description = """
-        Inline a variable or method at the specified position.
-        For variables: replaces all usages with the variable's initializer expression and removes the variable declaration.
-        For methods: replaces all calls with the method body.
+        Inlines a variable or method, replacing all usages with the actual value/body and removing the declaration.
+        Use when simplifying code by eliminating unnecessary intermediate variables.
+        Use when a method is trivial and inlining improves readability.
+        WARNING: This modifies files. Removes the original declaration. Returns affected files and change count.
     """.trimIndent()
 
     override val inputSchema: JsonObject = buildJsonObject {

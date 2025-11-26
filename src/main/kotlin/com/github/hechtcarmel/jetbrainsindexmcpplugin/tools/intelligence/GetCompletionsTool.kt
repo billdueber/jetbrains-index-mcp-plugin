@@ -23,11 +23,13 @@ import kotlinx.serialization.json.putJsonObject
 
 class GetCompletionsTool : AbstractMcpTool() {
 
-    override val name = "get_completions"
+    override val name = "ide_code_completions"
 
     override val description = """
-        Get code completion suggestions at a specific position in a file.
-        Returns a list of completion items based on the context (available methods, fields, classes).
+        Generates context-aware code completion suggestions at a specific position in a file.
+        Use when needing to see available methods, fields, or classes at a given cursor position.
+        Use when exploring API options or discovering available members on an object.
+        Returns completion items with text, type (METHOD, FIELD, CLASS), return type details, and documentation.
     """.trimIndent()
 
     override val inputSchema: JsonObject = buildJsonObject {

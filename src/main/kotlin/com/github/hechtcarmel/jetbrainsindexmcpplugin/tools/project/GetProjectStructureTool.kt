@@ -14,11 +14,13 @@ import kotlinx.serialization.json.putJsonObject
 
 class GetProjectStructureTool : AbstractMcpTool() {
 
-    override val name = "get_project_structure"
+    override val name = "ide_project_structure"
 
     override val description = """
-        Get the project structure including all modules and their source roots.
-        Returns the module tree with source, test, and resource directories.
+        Retrieves the project's module structure including all source roots, test roots, and resource directories.
+        Use when understanding project layout, locating source directories, or configuring build paths.
+        Use at the start of a session to understand the overall project organization.
+        Returns project name, base path, and a list of modules with their source, test, and resource roots.
     """.trimIndent()
 
     override val inputSchema: JsonObject = buildJsonObject {

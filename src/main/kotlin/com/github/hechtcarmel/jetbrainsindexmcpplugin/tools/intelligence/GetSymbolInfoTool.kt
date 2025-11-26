@@ -20,10 +20,13 @@ import kotlinx.serialization.json.putJsonObject
 
 class GetSymbolInfoTool : AbstractMcpTool() {
 
-    override val name = "get_symbol_info"
+    override val name = "ide_inspect_symbol"
 
     override val description = """
-        Get information about a symbol including its name, kind, type, documentation, and modifiers.
+        Retrieves comprehensive information about a symbol at a specific code location.
+        Use when needing to understand what a symbol represents, its type signature, or access modifiers.
+        Use when looking up documentation for methods, classes, fields, or variables.
+        Returns symbol name, kind (CLASS, METHOD, FIELD, etc.), type, documentation, modifiers, containing class, and source location.
     """.trimIndent()
 
     override val inputSchema: JsonObject = buildJsonObject {
