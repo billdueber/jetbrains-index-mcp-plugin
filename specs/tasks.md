@@ -657,130 +657,84 @@
 
 ---
 
-## Phase 4: Polish & Extensions
+## Phase 4: Polish & Release
 
-**Goal**: Performance optimization, extension point, documentation, and marketplace preparation.
+**Goal**: Documentation and marketplace preparation.
 
-### 4.1 Performance Optimization
+### 4.1 Client Configuration Generator
 
-- [ ] **TASK-098**: Profile tool execution times
-  - Add timing instrumentation
-  - Identify slow operations
-  - Document baseline performance
-
-- [ ] **TASK-099**: Optimize PSI operations
-  - Use stub indexes where possible
-  - Cache frequently accessed data
-  - Minimize read action scope
-
-- [ ] **TASK-100**: Optimize JSON serialization
-  - Use streaming where appropriate
-  - Reduce object allocations
-  - Profile and optimize hot paths
-
-- [ ] **TASK-101**: Add request throttling
-  - Implement request queue
-  - Add configurable rate limiting
-  - Handle burst requests gracefully
-
-### 4.2 Extension Point
-
-- [ ] **TASK-102**: Define `mcpTool` extension point in plugin.xml
-  - Configure interface
-  - Set dynamic=true
-
-- [ ] **TASK-103**: Update ToolRegistry to load extensions
-  - Implement `registerExtensionTools()`
-  - Handle extension point listener for dynamic registration
-
-- [ ] **TASK-104**: Create extension point documentation
-  - Document interface requirements
-  - Provide example implementation
-  - Document registration process
-
-- [ ] **TASK-105**: Write tests for extension point
-  - Test dynamic tool registration
-  - Test tool execution from extension
-
-### 4.3 Client Configuration Generator
-
-- [ ] **TASK-106**: Create `ClientConfigGenerator.kt`
+- [ ] **TASK-098**: Create `ClientConfigGenerator.kt`
   - Generate Claude Desktop config
   - Generate Cursor config
   - Generate VS Code config (generic MCP)
 
-- [ ] **TASK-107**: Add "Copy Config" action to tool window
+- [ ] **TASK-099**: Add "Copy Config" action to tool window
   - Show config type selector
   - Generate and copy to clipboard
   - Show success notification
 
-### 4.4 Documentation
+### 4.2 Documentation
 
-- [ ] **TASK-108**: Update README.md
+- [ ] **TASK-100**: Update README.md
   - Add feature overview
   - Add installation instructions
   - Add usage guide
   - Add configuration guide
 
-- [ ] **TASK-109**: Create USAGE.md
+- [ ] **TASK-101**: Create USAGE.md
   - Document each tool with examples
   - Document each resource
   - Document error codes
 
-- [ ] **TASK-110**: Create EXTENSION.md
-  - Document extension point
-  - Provide example plugin
-  - Document best practices
-
-- [ ] **TASK-111**: Add inline documentation
+- [ ] **TASK-102**: Add inline documentation
   - KDoc for public APIs
   - Usage examples in KDoc
 
-### 4.5 Marketplace Preparation
+### 4.3 Marketplace Preparation
 
-- [ ] **TASK-112**: Create plugin icon (pluginIcon.svg)
+- [ ] **TASK-103**: Create plugin icon (pluginIcon.svg)
   - Design 40x40 icon
   - Follow JetBrains guidelines
 
-- [ ] **TASK-113**: Write plugin description for marketplace
+- [ ] **TASK-104**: Write plugin description for marketplace
   - Feature highlights
   - Screenshots
   - Compatibility info
 
-- [ ] **TASK-114**: Update CHANGELOG.md
+- [ ] **TASK-105**: Update CHANGELOG.md
   - Document all features
   - Version history
 
-- [ ] **TASK-115**: Configure plugin signing
+- [ ] **TASK-106**: Configure plugin signing
   - Set up certificate
   - Configure signing in build.gradle.kts
 
-- [ ] **TASK-116**: Run plugin verifier
+- [ ] **TASK-107**: Run plugin verifier
   - Fix any compatibility issues
   - Ensure API compatibility
 
-- [ ] **TASK-117**: Prepare release workflow
+- [ ] **TASK-108**: Prepare release workflow
   - Configure GitHub Actions for release
   - Set up marketplace publishing
 
-### 4.6 Final Testing
+### 4.4 Final Testing
 
-- [ ] **TASK-118**: End-to-end testing with Claude Desktop
+- [ ] **TASK-109**: End-to-end testing with Claude Desktop
   - Test all tools manually
   - Verify error handling
   - Test multi-instance support
 
-- [ ] **TASK-119**: End-to-end testing with Cursor
+- [ ] **TASK-110**: End-to-end testing with Cursor
   - Test tool discovery
   - Test tool execution
   - Verify compatibility
 
-- [ ] **TASK-120**: Performance testing
+- [ ] **TASK-111**: Performance testing
   - Test with large projects
   - Test concurrent requests
   - Measure response times
 
-- [ ] **TASK-121**: Stress testing
+- [ ] **TASK-112**: Stress testing
   - Rapid request sequences
   - Memory usage monitoring
   - Connection handling
@@ -796,8 +750,8 @@
 | Phase 1: Foundation | 40 tasks | 40 | 0 | **Complete** |
 | Phase 2: Navigation & Intelligence | 37 tasks | 27 | 10 | **Complete** (backlog items are test tasks) |
 | Phase 3: Refactoring Operations | 20 tasks | 20 | 0 | **Complete** |
-| Phase 4: Polish & Extensions | 24 tasks | 0 | 0 | Not Started |
-| **Total** | **121 tasks** | **87** | **10** | |
+| Phase 4: Polish & Release | 15 tasks | 0 | 0 | Not Started |
+| **Total** | **112 tasks** | **87** | **10** | |
 
 ### Critical Path
 
@@ -819,7 +773,7 @@ The following tasks are on the critical path and block other work:
 | M4: Full Navigation | TASK-041 through TASK-066 complete |
 | M5: Full GUI | TASK-067 through TASK-077 complete |
 | M6: Refactoring | TASK-078 through TASK-097 complete |
-| M7: Release Ready | All tasks complete |
+| M7: Release Ready | TASK-098 through TASK-112 complete |
 
 ---
 

@@ -19,8 +19,7 @@
 9. [Settings & Configuration](#9-settings--configuration)
 10. [Threading Strategy](#10-threading-strategy)
 11. [Error Handling](#11-error-handling)
-12. [Extension Points](#12-extension-points)
-13. [Testing Strategy](#13-testing-strategy)
+12. [Testing Strategy](#12-testing-strategy)
 
 ---
 
@@ -495,7 +494,6 @@ class ToolRegistry {
     fun getToolDefinitions(): List<ToolDefinition>
 
     fun registerBuiltInTools(project: Project)
-    fun registerExtensionTools()
 }
 ```
 
@@ -1417,14 +1415,6 @@ class McpSettings : PersistentStateComponent<McpSettings.State> {
             displayType="BALLOON"/>
     </extensions>
 
-    <!-- Extension Point for Custom Tools -->
-    <extensionPoints>
-        <extensionPoint
-            name="mcpTool"
-            interface="...tools.McpTool"
-            dynamic="true"/>
-    </extensionPoints>
-
     <actions>
         <group id="McpServer.Actions">
             <action id="McpServer.CopyUrl"
@@ -1574,56 +1564,9 @@ object ErrorResponseBuilder {
 
 ---
 
-## 12. Extension Points
+## 12. Testing Strategy
 
-### 12.1 McpTool Extension Point
-
-Third-party plugins can register custom tools:
-
-```xml
-<!-- In third-party plugin.xml -->
-<extensions defaultExtensionNs="com.github.hechtcarmel.jetbrainsindexmcpplugin">
-    <mcpTool implementation="com.example.MyCustomTool"/>
-</extensions>
-```
-
-```kotlin
-// In third-party plugin
-class MyCustomTool : McpTool {
-    override val name = "my_custom_tool"
-    override val description = "Does something custom"
-    override val inputSchema = buildJsonObject { /* ... */ }
-
-    override suspend fun execute(
-        project: Project,
-        arguments: JsonObject
-    ): ToolCallResult {
-        // Implementation
-    }
-}
-```
-
-### 12.2 Extension Loading
-
-```kotlin
-// In ToolRegistry
-fun registerExtensionTools() {
-    val extensionPoint = Extensions.getRootArea()
-        .getExtensionPointIfRegistered<McpTool>(
-            "com.github.hechtcarmel.jetbrainsindexmcpplugin.mcpTool"
-        )
-
-    extensionPoint?.extensions?.forEach { tool ->
-        register(tool)
-    }
-}
-```
-
----
-
-## 13. Testing Strategy
-
-### 13.1 Test Categories
+### 12.1 Test Categories
 
 | Category | Framework | Coverage |
 |----------|-----------|----------|
@@ -1631,7 +1574,7 @@ fun registerExtensionTools() {
 | Integration Tests | IntelliJ Test Framework | PSI operations, Full flows |
 | UI Tests | IntelliJ UI Test Robot | Tool window, Settings |
 
-### 13.2 Test Structure
+### 12.2 Test Structure
 
 ```
 src/test/kotlin/
@@ -1656,7 +1599,7 @@ src/test/kotlin/
     └── ToolExecutionIntegrationTest.kt
 ```
 
-### 13.3 Example Test
+### 12.3 Example Test
 
 ```kotlin
 class FindUsagesToolTest : BasePlatformTestCase() {

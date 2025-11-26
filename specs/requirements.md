@@ -389,20 +389,7 @@
 
 ---
 
-## 9. Extension Point Requirements
-
-| ID | Requirement |
-|----|-------------|
-| EXT-001 | The plugin SHALL provide an extension point named `mcpTool` |
-| EXT-002 | The extension point SHALL allow third-party plugins to register custom MCP tools |
-| EXT-003 | The extension point interface SHALL require: `name` (String) |
-| EXT-004 | The extension point interface SHALL require: `description` (String) |
-| EXT-005 | The extension point interface SHALL require: `inputSchema` (JsonSchema) |
-| EXT-006 | The extension point interface SHALL require: `execute(project, arguments)` method |
-
----
-
-## 10. Dependencies
+## 9. Dependencies
 
 | ID | Requirement |
 |----|-------------|
@@ -413,7 +400,7 @@
 
 ---
 
-## 11. IntelliJ Platform Dependencies
+## 10. IntelliJ Platform Dependencies
 
 | ID | Requirement |
 |----|-------------|
@@ -423,7 +410,7 @@
 
 ---
 
-## 12. Implementation Phases
+## 11. Implementation Phases
 
 ### Phase 1: Foundation (MVP)
 
@@ -466,15 +453,13 @@
 | PH3-008 | Phase 3 SHALL deliver: Undo/redo integration |
 | PH3-009 | Phase 3 SHALL deliver: Refactoring preview functionality |
 
-### Phase 4: Polish & Extensions
+### Phase 4: Polish & Release
 
 | ID | Requirement |
 |----|-------------|
-| PH4-001 | Phase 4 SHALL deliver: Performance optimization |
-| PH4-002 | Phase 4 SHALL deliver: `mcpTool` extension point |
-| PH4-003 | Phase 4 SHALL deliver: Documentation and examples |
-| PH4-004 | Phase 4 SHALL deliver: Client configuration generator (for Claude, Cursor, VS Code) |
-| PH4-005 | Phase 4 SHALL deliver: Marketplace preparation |
+| PH4-001 | Phase 4 SHALL deliver: Documentation and examples |
+| PH4-002 | Phase 4 SHALL deliver: Client configuration generator (for Claude, Cursor, VS Code) |
+| PH4-003 | Phase 4 SHALL deliver: Marketplace preparation |
 
 ---
 
