@@ -24,6 +24,53 @@ import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.refactoring.SafeDele
 import com.intellij.openapi.diagnostic.logger
 import java.util.concurrent.ConcurrentHashMap
 
+/**
+ * Registry for MCP tools available to AI assistants.
+ *
+ * The registry manages the lifecycle of tools and provides thread-safe access
+ * for tool lookup and definition generation.
+ *
+ * ## Built-in Tools
+ *
+ * The registry automatically registers 20 built-in tools in these categories:
+ *
+ * **Navigation:**
+ * - `ide_find_references` - Find all usages of a symbol
+ * - `ide_go_to_definition` - Navigate to symbol definition
+ * - `ide_type_hierarchy` - Get class inheritance hierarchy
+ * - `ide_call_hierarchy` - Analyze method call relationships
+ * - `ide_find_implementations` - Find interface/method implementations
+ *
+ * **Intelligence:**
+ * - `ide_get_symbol_info` - Get symbol metadata and docs
+ * - `ide_get_completions` - Get code completions
+ * - `ide_get_inspections` - Run code inspections
+ * - `ide_get_quick_fixes` - List available quick fixes
+ * - `ide_apply_quick_fix` - Apply a quick fix
+ *
+ * **Project:**
+ * - `ide_get_project_structure` - Get module structure
+ * - `ide_get_file_structure` - Get file outline
+ * - `ide_get_dependencies` - List project dependencies
+ * - `ide_index_status` - Check indexing status
+ *
+ * **Refactoring:**
+ * - `ide_refactor_rename` - Rename symbol
+ * - `ide_extract_method` - Extract method from code
+ * - `ide_extract_variable` - Extract expression to variable
+ * - `ide_inline` - Inline variable or method
+ * - `ide_safe_delete` - Safely delete element
+ * - `ide_move_element` - Move element to new location
+ *
+ * ## Custom Tool Registration
+ *
+ * Custom tools can be registered via:
+ * - Programmatic registration using [register]
+ * - Extension point `com.github.hechtcarmel.jetbrainsindexmcpplugin.mcpTool`
+ *
+ * @see McpTool
+ * @see McpServerService
+ */
 class ToolRegistry {
 
     companion object {
@@ -32,24 +79,52 @@ class ToolRegistry {
 
     private val tools = ConcurrentHashMap<String, McpTool>()
 
+    /**
+     * Registers a tool with the registry.
+     *
+     * If a tool with the same name already exists, it will be replaced.
+     *
+     * @param tool The tool to register
+     */
     fun register(tool: McpTool) {
         tools[tool.name] = tool
         LOG.info("Registered MCP tool: ${tool.name}")
     }
 
+    /**
+     * Removes a tool from the registry.
+     *
+     * @param toolName The name of the tool to remove
+     */
     fun unregister(toolName: String) {
         tools.remove(toolName)
         LOG.info("Unregistered MCP tool: $toolName")
     }
 
+    /**
+     * Gets a tool by name.
+     *
+     * @param name The tool name (e.g., `ide_find_references`)
+     * @return The tool, or null if not found
+     */
     fun getTool(name: String): McpTool? {
         return tools[name]
     }
 
+    /**
+     * Returns all registered tools.
+     *
+     * @return List of all tools
+     */
     fun getAllTools(): List<McpTool> {
         return tools.values.toList()
     }
 
+    /**
+     * Gets tool definitions for the MCP `tools/list` response.
+     *
+     * @return List of tool definitions with name, description, and schema
+     */
     fun getToolDefinitions(): List<ToolDefinition> {
         return tools.values.map { tool ->
             ToolDefinition(
@@ -60,6 +135,11 @@ class ToolRegistry {
         }
     }
 
+    /**
+     * Registers all built-in tools.
+     *
+     * This is called automatically during [McpServerService] initialization.
+     */
     fun registerBuiltInTools() {
         // Navigation tools
         register(FindUsagesTool())

@@ -67,6 +67,10 @@
                 class="com.github.hechtcarmel.jetbrainsindexmcpplugin.actions.CopyServerUrlAction"
                 text="Copy Server URL"
                 description="Copy the MCP server URL to clipboard"/>
+            <action id="McpServer.CopyConfig"
+                class="com.github.hechtcarmel.jetbrainsindexmcpplugin.actions.CopyClientConfigAction"
+                text="Copy Client Config..."
+                description="Copy MCP client configuration for AI assistants"/>
             <action id="McpServer.ClearHistory"
                 class="com.github.hechtcarmel.jetbrainsindexmcpplugin.actions.ClearHistoryAction"
                 text="Clear History"
