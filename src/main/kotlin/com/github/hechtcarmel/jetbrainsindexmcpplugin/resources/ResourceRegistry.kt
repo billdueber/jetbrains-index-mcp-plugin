@@ -50,6 +50,8 @@ class ResourceRegistry {
     fun registerBuiltInResources() {
         register(IndexStatusResource())
         register(ProjectStructureResource())
+        register(FileContentResource())
+        register(SymbolInfoResource())
         LOG.info("Registered ${resources.size} built-in MCP resources")
     }
 

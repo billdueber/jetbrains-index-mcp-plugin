@@ -1,10 +1,20 @@
 package com.github.hechtcarmel.jetbrainsindexmcpplugin.tools
 
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.server.models.ToolDefinition
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.intelligence.ApplyQuickFixTool
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.intelligence.GetCompletionsTool
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.intelligence.GetInspectionsTool
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.intelligence.GetQuickFixesTool
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.intelligence.GetSymbolInfoTool
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.navigation.CallHierarchyTool
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.navigation.FindImplementationsTool
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.navigation.FindUsagesTool
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.navigation.GoToDefinitionTool
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.navigation.TypeHierarchyTool
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.project.GetDependenciesTool
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.project.GetFileStructureTool
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.project.GetIndexStatusTool
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.project.GetProjectStructureTool
 import com.intellij.openapi.diagnostic.logger
 import java.util.concurrent.ConcurrentHashMap
 
@@ -48,12 +58,22 @@ class ToolRegistry {
         // Navigation tools
         register(FindUsagesTool())
         register(GoToDefinitionTool())
+        register(TypeHierarchyTool())
+        register(CallHierarchyTool())
+        register(FindImplementationsTool())
 
         // Intelligence tools
         register(GetSymbolInfoTool())
+        register(GetCompletionsTool())
+        register(GetInspectionsTool())
+        register(GetQuickFixesTool())
+        register(ApplyQuickFixTool())
 
         // Project tools
         register(GetIndexStatusTool())
+        register(GetFileStructureTool())
+        register(GetProjectStructureTool())
+        register(GetDependenciesTool())
 
         LOG.info("Registered ${tools.size} built-in MCP tools")
     }

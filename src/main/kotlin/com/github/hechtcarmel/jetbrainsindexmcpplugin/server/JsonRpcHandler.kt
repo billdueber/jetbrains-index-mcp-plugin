@@ -3,7 +3,9 @@ package com.github.hechtcarmel.jetbrainsindexmcpplugin.server
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.history.CommandEntry
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.history.CommandHistoryService
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.history.CommandStatus
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.resources.FileContentResource
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.resources.ResourceRegistry
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.resources.SymbolInfoResource
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.server.models.*
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.ToolRegistry
 import com.intellij.openapi.diagnostic.logger
@@ -210,7 +212,28 @@ class JsonRpcHandler(
         val project = projectResult.project!!
 
         return try {
-            val content = resource.read(project)
+            // Handle parameterized resources
+            val content = when (resource) {
+                is FileContentResource -> {
+                    // Extract path from URI: file://content/{path}
+                    val path = extractPathFromUri(uri, "file://content/")
+                    if (path != null) {
+                        resource.readWithPath(project, path)
+                    } else {
+                        resource.read(project)
+                    }
+                }
+                is SymbolInfoResource -> {
+                    // Extract FQN from URI: symbol://info/{fqn}
+                    val fqn = extractPathFromUri(uri, "symbol://info/")
+                    if (fqn != null) {
+                        resource.readWithFqn(project, fqn)
+                    } else {
+                        resource.read(project)
+                    }
+                }
+                else -> resource.read(project)
+            }
             val result = ResourceReadResult(contents = listOf(content))
 
             JsonRpcResponse(
@@ -220,6 +243,14 @@ class JsonRpcHandler(
         } catch (e: Exception) {
             LOG.error("Resource read failed: $uri", e)
             createInternalErrorResponse(request.id, e.message ?: "Unknown error")
+        }
+    }
+
+    private fun extractPathFromUri(uri: String, prefix: String): String? {
+        return if (uri.startsWith(prefix) && uri.length > prefix.length) {
+            uri.substring(prefix.length)
+        } else {
+            null
         }
     }
 
