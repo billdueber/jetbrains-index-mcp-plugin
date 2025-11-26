@@ -34,31 +34,19 @@
 
 | ID | Requirement |
 |----|-------------|
-| SRV-001 | The server SHALL expose a single HTTP endpoint supporting POST and GET requests |
-| SRV-002 | The server SHALL auto-assign a port from the range 8080-8180 |
-| SRV-003 | The server SHALL persist port assignments to `~/.mcp-jetbrains/ports.json` |
-| SRV-004 | The server SHALL support multiple concurrent client connections |
-| SRV-005 | The server SHALL handle port conflicts by trying the next available port |
-| SRV-006 | The server SHALL notify the user via IDE notification when port conflicts occur |
+| SRV-001 | The server SHALL register an HttpRequestHandler on the IDE's built-in web server |
+| SRV-002 | The server SHALL expose endpoints at path `/index-mcp` |
+| SRV-003 | The server SHALL support POST requests for JSON-RPC |
+| SRV-004 | The server SHALL support GET requests for health check / server info |
+| SRV-005 | The server SHALL support multiple concurrent client connections |
 
-### 2.2 Port Registry File Format
-
-| ID | Requirement |
-|----|-------------|
-| SRV-007 | The port registry file SHALL be JSON format |
-| SRV-008 | Each registry entry SHALL contain: `port` (integer) |
-| SRV-009 | Each registry entry SHALL contain: `projectPath` (string) |
-| SRV-010 | Each registry entry SHALL contain: `projectName` (string) |
-| SRV-011 | Each registry entry SHALL contain: `pid` (integer) |
-| SRV-012 | Each registry entry SHALL contain: `startedAt` (ISO 8601 timestamp) |
-
-### 2.3 Message Types
+### 2.2 Message Types
 
 | ID | Requirement |
 |----|-------------|
-| SRV-013 | The server SHALL handle Request messages (with unique ID) |
-| SRV-014 | The server SHALL send Response messages (matching request ID) |
-| SRV-015 | The server SHALL handle Notification messages (no response expected) |
+| SRV-006 | The server SHALL handle Request messages (with unique ID) |
+| SRV-007 | The server SHALL send Response messages (matching request ID) |
+| SRV-008 | The server SHALL handle Notification messages (no response expected) |
 
 ---
 
@@ -429,14 +417,13 @@
 
 | ID | Requirement |
 |----|-------------|
-| PH1-001 | Phase 1 SHALL deliver: Streamable HTTP transport |
-| PH1-002 | Phase 1 SHALL deliver: Port manager with auto-assignment and registry |
-| PH1-003 | Phase 1 SHALL deliver: Tool registry and JSON-RPC routing |
-| PH1-004 | Phase 1 SHALL deliver: `find_usages` tool |
-| PH1-005 | Phase 1 SHALL deliver: `go_to_definition` tool |
-| PH1-006 | Phase 1 SHALL deliver: `get_symbol_info` tool |
-| PH1-007 | Phase 1 SHALL deliver: Basic tool window with server URL and status |
-| PH1-008 | Phase 1 SHALL deliver: Unit tests for core functionality |
+| PH1-001 | Phase 1 SHALL deliver: McpRequestHandler on IDE built-in web server at `/index-mcp` |
+| PH1-002 | Phase 1 SHALL deliver: Tool registry and JSON-RPC routing |
+| PH1-003 | Phase 1 SHALL deliver: `find_usages` tool |
+| PH1-004 | Phase 1 SHALL deliver: `go_to_definition` tool |
+| PH1-005 | Phase 1 SHALL deliver: `get_symbol_info` tool |
+| PH1-006 | Phase 1 SHALL deliver: Basic tool window with server URL and status |
+| PH1-007 | Phase 1 SHALL deliver: Unit tests for core functionality |
 
 ### Phase 2: Navigation & Intelligence
 

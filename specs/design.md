@@ -35,18 +35,28 @@
 └─────────────────────────────────┬───────────────────────────────────────────┘
                                   │
                                   │ HTTP POST/GET (JSON-RPC 2.0)
+                                  │ http://localhost:{IDE_PORT}/index-mcp
                                   │
 ┌─────────────────────────────────▼───────────────────────────────────────────┐
 │                         IntelliJ IDEA Instance                               │
+│                                                                              │
 │  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │              IDE Built-in Web Server (port 63342, etc.)               │  │
+│  │  ┌─────────────────────────────────────────────────────────────────┐  │  │
+│  │  │  /api/mcp/*     → Built-in JetBrains MCP (2025.2+)              │  │  │
+│  │  │  /index-mcp/*   → Our Plugin MCP Server                         │  │  │
+│  │  └─────────────────────────────────────────────────────────────────┘  │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│                                  │                                           │
+│  ┌───────────────────────────────▼───────────────────────────────────────┐  │
 │  │                    MCP Plugin Architecture                             │  │
 │  │                                                                        │  │
 │  │  ┌─────────────────────────────────────────────────────────────────┐  │  │
 │  │  │                    Transport Layer                               │  │  │
-│  │  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐  │  │  │
-│  │  │  │ HttpServer  │  │PortManager  │  │  JsonRpcHandler         │  │  │  │
-│  │  │  │ (Ktor)      │  │             │  │                         │  │  │  │
-│  │  │  └─────────────┘  └─────────────┘  └─────────────────────────┘  │  │  │
+│  │  │  ┌───────────────────────┐  ┌───────────────────────────────┐  │  │  │
+│  │  │  │  McpRequestHandler    │  │     JsonRpcHandler            │  │  │  │
+│  │  │  │  (HttpRequestHandler) │  │                               │  │  │  │
+│  │  │  └───────────────────────┘  └───────────────────────────────┘  │  │  │
 │  │  └─────────────────────────────────────────────────────────────────┘  │  │
 │  │                                  │                                     │  │
 │  │  ┌─────────────────────────────────────────────────────────────────┐  │  │
@@ -82,12 +92,52 @@
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 1.2 Component Interaction Flow
+### 1.2 Multi-Instance Support
+
+Each IntelliJ IDE instance has its own built-in web server on a unique port:
 
 ```
-┌─────────┐      ┌──────────┐      ┌─────────────┐      ┌──────────────┐
-│  Client │─────▶│HttpServer│─────▶│JsonRpcHandler│─────▶│ToolRegistry  │
-└─────────┘      └──────────┘      └─────────────┘      └──────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              User's Machine                                  │
+│                                                                              │
+│  ┌─────────────────────┐  ┌─────────────────────┐  ┌─────────────────────┐  │
+│  │   IntelliJ #1       │  │   IntelliJ #2       │  │   IntelliJ #3       │  │
+│  │   Project: myapp    │  │   Project: api      │  │   Project: web      │  │
+│  │   Port: 63342       │  │   Port: 63343       │  │   Port: 63344       │  │
+│  │   /index-mcp        │  │   /index-mcp        │  │   /index-mcp        │  │
+│  └─────────────────────┘  └─────────────────────┘  └─────────────────────┘  │
+│                                                                              │
+│  Client connects to specific IDE via port:                                   │
+│  - http://localhost:63342/index-mcp  → IntelliJ #1 (myapp)                  │
+│  - http://localhost:63343/index-mcp  → IntelliJ #2 (api)                    │
+│  - http://localhost:63344/index-mcp  → IntelliJ #3 (web)                    │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Client Configuration Example (Claude Desktop):**
+```json
+{
+  "mcpServers": {
+    "intellij-myapp": {
+      "url": "http://localhost:63342/index-mcp"
+    },
+    "intellij-api": {
+      "url": "http://localhost:63343/index-mcp"
+    }
+  }
+}
+```
+
+**How to find IDE port:**
+- Settings → Build, Execution, Deployment → Debugger → Built-in Server Port
+- Or check IDE status bar / About dialog
+
+### 1.3 Component Interaction Flow
+
+```
+┌─────────┐      ┌────────────────┐      ┌─────────────┐      ┌──────────────┐
+│  Client │─────▶│McpRequestHandler│─────▶│JsonRpcHandler│─────▶│ToolRegistry  │
+└─────────┘      └────────────────┘      └─────────────┘      └──────────────┘
                                           │                     │
                                           ▼                     ▼
                                    ┌─────────────┐      ┌──────────────┐
@@ -111,11 +161,9 @@ src/main/kotlin/com/github/hechtcarmel/jetbrainsindexmcpplugin/
 ├── McpBundle.kt                           # Resource bundle accessor
 │
 ├── server/                                # MCP Server components
-│   ├── McpServerService.kt                # Main server service (project-level)
-│   ├── HttpTransport.kt                   # Ktor HTTP server implementation
-│   ├── JsonRpcHandler.kt                  # JSON-RPC 2.0 message handling
-│   ├── PortManager.kt                     # Port allocation and registry
-│   └── PortRegistry.kt                    # Port registry file management
+│   ├── McpServerService.kt                # Main server service (application-level)
+│   ├── McpRequestHandler.kt               # HttpRequestHandler for /index-mcp
+│   └── JsonRpcHandler.kt                  # JSON-RPC 2.0 message handling
 │
 ├── tools/                                 # MCP Tool implementations
 │   ├── ToolRegistry.kt                    # Tool registration and lookup
@@ -211,90 +259,120 @@ src/main/resources/
 
 ### 3.1 McpServerService
 
-**Responsibility**: Main project-level service managing the MCP server lifecycle.
+**Responsibility**: Application-level service managing tool and resource registries.
 
 ```kotlin
-@Service(Service.Level.PROJECT)
-class McpServerService(private val project: Project) : Disposable {
+@Service(Service.Level.APPLICATION)
+class McpServerService : Disposable {
 
-    private var httpTransport: HttpTransport? = null
     private val toolRegistry: ToolRegistry = ToolRegistry()
     private val resourceRegistry: ResourceRegistry = ResourceRegistry()
+    private val jsonRpcHandler: JsonRpcHandler
 
-    val isRunning: Boolean
-        get() = httpTransport?.isRunning == true
+    init {
+        jsonRpcHandler = JsonRpcHandler(toolRegistry, resourceRegistry)
+        toolRegistry.registerBuiltInTools()
+    }
 
-    val serverUrl: String?
-        get() = httpTransport?.serverUrl
+    fun getToolRegistry(): ToolRegistry = toolRegistry
+    fun getResourceRegistry(): ResourceRegistry = resourceRegistry
+    fun getJsonRpcHandler(): JsonRpcHandler = jsonRpcHandler
 
-    val port: Int?
-        get() = httpTransport?.port
+    fun getServerUrl(project: Project): String {
+        val port = BuiltInServerManager.getInstance().port
+        return "http://localhost:$port/index-mcp"
+    }
 
-    fun start(): Result<Int>
-    fun stop()
-    fun restart(): Result<Int>
-
-    override fun dispose()
+    override fun dispose() {
+        // Cleanup if needed
+    }
 
     companion object {
-        fun getInstance(project: Project): McpServerService =
-            project.service<McpServerService>()
+        fun getInstance(): McpServerService = service()
     }
 }
 ```
 
-### 3.2 HttpTransport
+### 3.2 McpRequestHandler
 
-**Responsibility**: Manages the Ktor HTTP server for MCP communication.
-
-```kotlin
-class HttpTransport(
-    private val project: Project,
-    private val jsonRpcHandler: JsonRpcHandler,
-    private val portManager: PortManager
-) {
-    private var server: ApplicationEngine? = null
-
-    val isRunning: Boolean
-    val serverUrl: String?
-    val port: Int?
-
-    suspend fun start(): Result<Int>
-    suspend fun stop()
-
-    private fun Application.configureRouting()
-    private suspend fun handleMcpRequest(call: ApplicationCall)
-    private suspend fun handleMcpGet(call: ApplicationCall)
-}
-```
-
-### 3.3 PortManager
-
-**Responsibility**: Allocates and manages port assignments across IDE instances.
+**Responsibility**: Handles HTTP requests on `/index-mcp` path via IDE's built-in web server.
 
 ```kotlin
-class PortManager {
+class McpRequestHandler : HttpRequestHandler() {
+
     companion object {
-        const val PORT_RANGE_START = 8080
-        const val PORT_RANGE_END = 8180
-        val REGISTRY_FILE: Path = Path.of(System.getProperty("user.home"))
-            .resolve(".mcp-jetbrains")
-            .resolve("ports.json")
+        const val MCP_PATH = "/index-mcp"
     }
 
-    fun allocatePort(projectPath: String, projectName: String): Result<Int>
-    fun releasePort(port: Int)
-    fun isPortAvailable(port: Int): Boolean
-    fun getRegisteredInstances(): List<PortRegistryEntry>
+    override fun isSupported(request: FullHttpRequest): Boolean {
+        return request.uri().startsWith(MCP_PATH)
+    }
 
-    private fun findAvailablePort(): Int?
-    private fun readRegistry(): PortRegistry
-    private fun writeRegistry(registry: PortRegistry)
-    private fun cleanStaleEntries(registry: PortRegistry): PortRegistry
+    override fun process(
+        urlDecoder: QueryStringDecoder,
+        request: FullHttpRequest,
+        context: ChannelHandlerContext
+    ): Boolean {
+        val path = urlDecoder.path()
+
+        return when {
+            request.method() == HttpMethod.GET && path == MCP_PATH -> {
+                handleGetRequest(request, context)
+                true
+            }
+            request.method() == HttpMethod.POST && path == MCP_PATH -> {
+                handlePostRequest(request, context)
+                true
+            }
+            else -> false
+        }
+    }
+
+    private fun handleGetRequest(
+        request: FullHttpRequest,
+        context: ChannelHandlerContext
+    ) {
+        // Return server info / health check
+        val serverInfo = buildJsonObject {
+            put("name", "intellij-index-mcp")
+            put("version", "1.0.0")
+            put("status", "running")
+        }
+        sendJsonResponse(context, serverInfo.toString())
+    }
+
+    private fun handlePostRequest(
+        request: FullHttpRequest,
+        context: ChannelHandlerContext
+    ) {
+        val body = request.content().toString(Charsets.UTF_8)
+        val mcpService = McpServerService.getInstance()
+
+        // Process JSON-RPC request
+        val response = runBlocking {
+            mcpService.getJsonRpcHandler().handleRequest(body)
+        }
+
+        sendJsonResponse(context, response)
+    }
+
+    private fun sendJsonResponse(
+        context: ChannelHandlerContext,
+        json: String
+    ) {
+        val response = DefaultFullHttpResponse(
+            HttpVersion.HTTP_1_1,
+            HttpResponseStatus.OK,
+            Unpooled.copiedBuffer(json, Charsets.UTF_8)
+        )
+        response.headers().set(HttpHeaderNames.CONTENT_TYPE, "application/json")
+        response.headers().set(HttpHeaderNames.CONTENT_LENGTH, response.content().readableBytes())
+        context.writeAndFlush(response)
+    }
 }
 ```
 
-### 3.4 JsonRpcHandler
+### 3.3 JsonRpcHandler
 
 **Responsibility**: Parses JSON-RPC 2.0 messages and routes to appropriate handlers.
 
@@ -321,7 +399,7 @@ class JsonRpcHandler(
 }
 ```
 
-### 3.5 ToolRegistry
+### 3.4 ToolRegistry
 
 **Responsibility**: Manages registration and lookup of MCP tools.
 
@@ -340,7 +418,7 @@ class ToolRegistry {
 }
 ```
 
-### 3.6 CommandHistoryService
+### 3.5 CommandHistoryService
 
 **Responsibility**: Records and manages command execution history.
 
@@ -457,25 +535,7 @@ data class ResourceContent(
 )
 ```
 
-### 4.3 Port Registry Models
-
-```kotlin
-@Serializable
-data class PortRegistry(
-    val instances: MutableList<PortRegistryEntry> = mutableListOf()
-)
-
-@Serializable
-data class PortRegistryEntry(
-    val port: Int,
-    val projectPath: String,
-    val projectName: String,
-    val pid: Long,
-    val startedAt: String  // ISO 8601
-)
-```
-
-### 4.4 Command History Models
+### 4.3 Command History Models
 
 ```kotlin
 data class CommandEntry(
@@ -503,7 +563,7 @@ data class CommandFilter(
 )
 ```
 
-### 4.5 Tool Input/Output Models
+### 4.4 Tool Input/Output Models
 
 ```kotlin
 // Common input for position-based tools
@@ -584,38 +644,41 @@ data class RefactoringResult(
 
 ## 5. MCP Server Implementation
 
-### 5.1 Server Lifecycle
+### 5.1 Server Architecture
+
+The plugin registers an `HttpRequestHandler` on the IDE's built-in web server. The server is always available when the IDE is running - no separate start/stop lifecycle.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    Server State Machine                          │
+│                    IDE Built-in Web Server                       │
 │                                                                  │
-│   ┌─────────┐     start()     ┌─────────┐                       │
-│   │ STOPPED │────────────────▶│STARTING │                       │
-│   └─────────┘                 └────┬────┘                       │
-│        ▲                          │                             │
-│        │                          │ success                     │
-│        │                          ▼                             │
-│        │       stop()       ┌─────────┐                         │
-│        └────────────────────│ RUNNING │                         │
-│                             └────┬────┘                         │
-│                                  │                              │
-│                                  │ error                        │
-│                                  ▼                              │
-│                             ┌─────────┐                         │
-│                             │  ERROR  │                         │
-│                             └─────────┘                         │
+│   Port: Configured in Settings (default 63342)                  │
+│   Find via: Settings → Debugger → Built-in Server Port          │
+│                                                                  │
+│   Registered Handlers:                                           │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │  /api/mcp/*     →  JetBrains Built-in MCP               │   │
+│   │  /index-mcp     →  Our Plugin (McpRequestHandler)       │   │
+│   │  /api/*         →  Other IDE APIs                       │   │
+│   └─────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ### 5.2 HTTP Endpoint Design
 
-**Single Endpoint**: `http://localhost:{port}/mcp`
+**Endpoint**: `http://localhost:{IDE_PORT}/index-mcp`
 
 | Method | Purpose | Request Body | Response |
 |--------|---------|--------------|----------|
 | POST | JSON-RPC requests | JSON-RPC Request | JSON-RPC Response |
 | GET | Server info / health check | - | Server metadata |
+
+**plugin.xml Registration:**
+```xml
+<extensions defaultExtensionNs="com.intellij">
+    <httpRequestHandler implementation="...server.McpRequestHandler"/>
+</extensions>
+```
 
 ### 5.3 Request Processing Pipeline
 
@@ -668,42 +731,6 @@ suspend fun handleMcpRequest(call: ApplicationCall) {
 
     // 5. Respond
     call.respond(HttpStatusCode.OK, Json.encodeToString(response))
-}
-```
-
-### 5.4 Port Allocation Algorithm
-
-```kotlin
-fun allocatePort(projectPath: String, projectName: String): Result<Int> {
-    val registry = readRegistry()
-    val cleanedRegistry = cleanStaleEntries(registry)
-
-    // Check if this project already has a port
-    val existingEntry = cleanedRegistry.instances.find {
-        it.projectPath == projectPath && isProcessRunning(it.pid)
-    }
-    if (existingEntry != null) {
-        return Result.success(existingEntry.port)
-    }
-
-    // Find available port
-    val allocatedPorts = cleanedRegistry.instances.map { it.port }.toSet()
-    for (port in PORT_RANGE_START..PORT_RANGE_END) {
-        if (port !in allocatedPorts && isPortAvailable(port)) {
-            val entry = PortRegistryEntry(
-                port = port,
-                projectPath = projectPath,
-                projectName = projectName,
-                pid = ProcessHandle.current().pid(),
-                startedAt = Instant.now().toString()
-            )
-            cleanedRegistry.instances.add(entry)
-            writeRegistry(cleanedRegistry)
-            return Result.success(port)
-        }
-    }
-
-    return Result.failure(NoAvailablePortException())
 }
 ```
 
