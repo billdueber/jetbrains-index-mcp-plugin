@@ -104,8 +104,18 @@ class JsonRpcHandler(
         val tool = toolRegistry.getTool(toolName)
             ?: return createMethodNotFoundResponse(request.id, "Tool not found: $toolName")
 
-        val project = getCurrentProject()
-            ?: return createInternalErrorResponse(request.id, "No project available")
+        // Extract optional project_path from arguments
+        val projectPath = arguments["project_path"]?.jsonPrimitive?.contentOrNull
+
+        val projectResult = resolveProject(projectPath)
+        if (projectResult.isError) {
+            return JsonRpcResponse(
+                id = request.id,
+                result = json.encodeToJsonElement(projectResult.errorResult!!)
+            )
+        }
+
+        val project = projectResult.project!!
 
         // Record command in history
         val commandEntry = CommandEntry(
@@ -186,8 +196,18 @@ class JsonRpcHandler(
         val resource = resourceRegistry.getResource(uri)
             ?: return createMethodNotFoundResponse(request.id, "Resource not found: $uri")
 
-        val project = getCurrentProject()
-            ?: return createInternalErrorResponse(request.id, "No project available")
+        // Extract optional project_path from params
+        val projectPath = params["project_path"]?.jsonPrimitive?.contentOrNull
+
+        val projectResult = resolveProject(projectPath)
+        if (projectResult.isError) {
+            return JsonRpcResponse(
+                id = request.id,
+                result = json.encodeToJsonElement(projectResult.errorResult!!)
+            )
+        }
+
+        val project = projectResult.project!!
 
         return try {
             val content = resource.read(project)
@@ -207,6 +227,89 @@ class JsonRpcHandler(
         return JsonRpcResponse(
             id = request.id,
             result = JsonObject(emptyMap())
+        )
+    }
+
+    private data class ProjectResolutionResult(
+        val project: Project? = null,
+        val errorResult: ToolCallResult? = null,
+        val isError: Boolean = false
+    )
+
+    private fun resolveProject(projectPath: String?): ProjectResolutionResult {
+        val openProjects = ProjectManager.getInstance().openProjects
+            .filter { !it.isDefault }
+
+        // No projects open
+        if (openProjects.isEmpty()) {
+            return ProjectResolutionResult(
+                isError = true,
+                errorResult = ToolCallResult(
+                    content = listOf(ContentBlock.Text(
+                        text = json.encodeToString(buildJsonObject {
+                            put("error", "no_project_open")
+                            put("message", "No project is currently open in the IDE.")
+                        })
+                    )),
+                    isError = true
+                )
+            )
+        }
+
+        // If project_path is provided, find matching project
+        if (projectPath != null) {
+            val matchingProject = openProjects.find { it.basePath == projectPath }
+            return if (matchingProject != null) {
+                ProjectResolutionResult(project = matchingProject)
+            } else {
+                ProjectResolutionResult(
+                    isError = true,
+                    errorResult = ToolCallResult(
+                        content = listOf(ContentBlock.Text(
+                            text = json.encodeToString(buildJsonObject {
+                                put("error", "project_not_found")
+                                put("message", "No open project matches the specified path: $projectPath")
+                                put("available_projects", buildJsonArray {
+                                    openProjects.forEach { proj ->
+                                        add(buildJsonObject {
+                                            put("name", proj.name)
+                                            put("path", proj.basePath ?: "")
+                                        })
+                                    }
+                                })
+                            })
+                        )),
+                        isError = true
+                    )
+                )
+            }
+        }
+
+        // Only one project open - use it
+        if (openProjects.size == 1) {
+            return ProjectResolutionResult(project = openProjects.first())
+        }
+
+        // Multiple projects open, no path specified - return error with list
+        return ProjectResolutionResult(
+            isError = true,
+            errorResult = ToolCallResult(
+                content = listOf(ContentBlock.Text(
+                    text = json.encodeToString(buildJsonObject {
+                        put("error", "multiple_projects_open")
+                        put("message", "Multiple projects are open. Please specify 'project_path' parameter with one of the available project paths.")
+                        put("available_projects", buildJsonArray {
+                            openProjects.forEach { proj ->
+                                add(buildJsonObject {
+                                    put("name", proj.name)
+                                    put("path", proj.basePath ?: "")
+                                })
+                            }
+                        })
+                    })
+                )),
+                isError = true
+            )
         )
     }
 

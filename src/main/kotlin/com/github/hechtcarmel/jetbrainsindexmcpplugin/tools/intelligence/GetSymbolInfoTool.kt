@@ -29,6 +29,10 @@ class GetSymbolInfoTool : AbstractMcpTool() {
     override val inputSchema: JsonObject = buildJsonObject {
         put("type", "object")
         putJsonObject("properties") {
+            putJsonObject("project_path") {
+                put("type", "string")
+                put("description", "Absolute path to the project root. Required when multiple projects are open.")
+            }
             putJsonObject("file") {
                 put("type", "string")
                 put("description", "Path to the file relative to project root")

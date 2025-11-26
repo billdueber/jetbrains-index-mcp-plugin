@@ -9,6 +9,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonObject
 
 class GetIndexStatusTool : AbstractMcpTool() {
 
@@ -21,7 +22,12 @@ class GetIndexStatusTool : AbstractMcpTool() {
 
     override val inputSchema: JsonObject = buildJsonObject {
         put("type", "object")
-        put("properties", buildJsonObject { })
+        putJsonObject("properties") {
+            putJsonObject("project_path") {
+                put("type", "string")
+                put("description", "Absolute path to the project root. Required when multiple projects are open.")
+            }
+        }
         put("required", buildJsonArray { })
     }
 

@@ -17,6 +17,10 @@ import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiManager
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonObject
 
 abstract class AbstractMcpTool : McpTool {
 
@@ -24,6 +28,19 @@ abstract class AbstractMcpTool : McpTool {
         ignoreUnknownKeys = true
         encodeDefaults = true
         prettyPrint = false
+    }
+
+    companion object {
+        /**
+         * Creates the project_path property definition for tool input schemas.
+         * This should be added to all tool schemas to document the optional project_path parameter.
+         */
+        fun projectPathProperty(): Pair<String, JsonObject> {
+            return "project_path" to buildJsonObject {
+                put("type", "string")
+                put("description", "Absolute path to the project root. Required when multiple projects are open, optional otherwise.")
+            }
+        }
     }
 
     protected fun requireSmartMode(project: Project) {

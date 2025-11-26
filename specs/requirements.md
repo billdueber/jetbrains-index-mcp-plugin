@@ -48,6 +48,18 @@
 | SRV-007 | The server SHALL send Response messages (matching request ID) |
 | SRV-008 | The server SHALL handle Notification messages (no response expected) |
 
+### 2.3 Multi-Project Support
+
+| ID | Requirement |
+|----|-------------|
+| SRV-009 | All tool calls SHALL accept an optional `project_path` parameter (absolute path to project root) |
+| SRV-010 | If `project_path` is provided, the server SHALL use that project for the operation |
+| SRV-011 | If `project_path` is NOT provided and only ONE project is open, the server SHALL use that project |
+| SRV-012 | If `project_path` is NOT provided and MULTIPLE projects are open, the server SHALL return an error with a list of available projects |
+| SRV-013 | The error response for multiple projects SHALL include `available_projects` array with each project's `name` and `path` |
+| SRV-014 | The error response SHALL include a clear message instructing the client to specify `project_path` |
+| SRV-015 | If `project_path` is provided but no matching project is found, the server SHALL return a "project not found" error |
+
 ---
 
 ## 3. MCP Tool Requirements

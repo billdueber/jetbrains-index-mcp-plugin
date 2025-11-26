@@ -132,7 +132,64 @@ Each IntelliJ IDE instance has its own built-in web server on a unique port:
 - Settings → Build, Execution, Deployment → Debugger → Built-in Server Port
 - Or check IDE status bar / About dialog
 
-### 1.3 Component Interaction Flow
+### 1.3 Multi-Project Resolution
+
+When multiple projects are open in a single IDE instance, the server must determine which project to use:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        Multi-Project Resolution Flow                         │
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                    Tool Call Request                                 │   │
+│  │                                                                      │   │
+│  │   {                                                                  │   │
+│  │     "name": "find_usages",                                          │   │
+│  │     "arguments": {                                                   │   │
+│  │       "project_path": "/path/to/project",  ← OPTIONAL               │   │
+│  │       "file": "src/Main.kt",                                        │   │
+│  │       "line": 10, "column": 5                                       │   │
+│  │     }                                                                │   │
+│  │   }                                                                  │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                  │                                          │
+│                                  ▼                                          │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                    Project Resolution Logic                          │   │
+│  │                                                                      │   │
+│  │   if (project_path provided) {                                      │   │
+│  │       → Find project matching path                                   │   │
+│  │       → Error if not found                                          │   │
+│  │   } else if (only 1 project open) {                                 │   │
+│  │       → Use that project                                            │   │
+│  │   } else {                                                          │   │
+│  │       → Return error with available projects list                   │   │
+│  │   }                                                                  │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                  │                                          │
+│                                  ▼                                          │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │         Error Response (when multiple projects, no path)             │   │
+│  │                                                                      │   │
+│  │   {                                                                  │   │
+│  │     "isError": true,                                                │   │
+│  │     "content": [{                                                    │   │
+│  │       "type": "text",                                               │   │
+│  │       "text": {                                                      │   │
+│  │         "error": "multiple_projects_open",                          │   │
+│  │         "message": "Multiple projects are open. Please specify...", │   │
+│  │         "available_projects": [                                      │   │
+│  │           {"name": "myapp", "path": "/Users/dev/myapp"},            │   │
+│  │           {"name": "api", "path": "/Users/dev/api"}                 │   │
+│  │         ]                                                            │   │
+│  │       }                                                              │   │
+│  │     }]                                                               │   │
+│  │   }                                                                  │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 1.4 Component Interaction Flow
 
 ```
 ┌─────────┐      ┌────────────────┐      ┌─────────────┐      ┌──────────────┐
