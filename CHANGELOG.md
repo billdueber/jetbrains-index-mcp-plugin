@@ -2,6 +2,8 @@
 
 # IDE Index MCP Server Changelog
 
+## [Unreleased]
+
 ## [1.1.0] - 2025-11-27
 
 ### Changed
