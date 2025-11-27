@@ -1,6 +1,6 @@
 <!-- Keep a Changelog guide -> https://keepachangelog.com -->
 
-# IntelliJ Index MCP Plugin Changelog
+# IDE Index MCP Server Changelog
 
 ## [1.1.0] - 2025-11-27
 

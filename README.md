@@ -1,13 +1,13 @@
-# IntelliJ Index MCP Server
+# IDE Index MCP Server
 
 ![Build](https://github.com/hechtcarmel/jetbrains-index-mcp-plugin/workflows/Build/badge.svg)
 [![Version](https://img.shields.io/jetbrains/plugin/v/MARKETPLACE_ID.svg)](https://plugins.jetbrains.com/plugin/MARKETPLACE_ID)
 [![Downloads](https://img.shields.io/jetbrains/plugin/d/MARKETPLACE_ID.svg)](https://plugins.jetbrains.com/plugin/MARKETPLACE_ID)
 
-An IntelliJ Platform plugin that exposes an **MCP (Model Context Protocol) server**, enabling AI coding assistants like Claude, Cursor, and Windsurf to leverage the IDE's powerful indexing and refactoring capabilities.
+A JetBrains IDE plugin that exposes an **MCP (Model Context Protocol) server**, enabling AI coding assistants like Claude, Cursor, and Windsurf to leverage the IDE's powerful indexing and refactoring capabilities. Works with IntelliJ IDEA, WebStorm, PyCharm, and other JetBrains IDEs.
 
 <!-- Plugin description -->
-**IntelliJ Index MCP Server** provides AI coding assistants with access to IntelliJ IDEA's powerful code intelligence features through the Model Context Protocol (MCP).
+**IDE Index MCP Server** provides AI coding assistants with access to IntelliJ IDEA's powerful code intelligence features through the Model Context Protocol (MCP).
 
 ### Features
 
@@ -44,7 +44,7 @@ Perfect for AI-assisted development workflows where accuracy and safety matter.
 
 ### Using the IDE built-in plugin system
 
-<kbd>Settings/Preferences</kbd> > <kbd>Plugins</kbd> > <kbd>Marketplace</kbd> > <kbd>Search for "IntelliJ Index MCP Server"</kbd> > <kbd>Install</kbd>
+<kbd>Settings/Preferences</kbd> > <kbd>Plugins</kbd> > <kbd>Marketplace</kbd> > <kbd>Search for "IDE Index MCP Server"</kbd> > <kbd>Install</kbd>
 
 ### Using JetBrains Marketplace
 

@@ -1,4 +1,4 @@
-# IntelliJ Index MCP Plugin - Development Guide
+# IDE Index MCP Server - Development Guide
 
 An IntelliJ Platform plugin that exposes an MCP (Model Context Protocol) server, enabling coding agents to leverage the IDE's powerful indexing and refactoring capabilities.
 

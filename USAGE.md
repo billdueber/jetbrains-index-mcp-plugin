@@ -1,6 +1,6 @@
-# IntelliJ Index MCP Server - Tool Reference
+# IDE Index MCP Server - Tool Reference
 
-This document provides detailed documentation for all MCP tools and resources available in the IntelliJ Index MCP Server plugin.
+This document provides detailed documentation for all MCP tools and resources available in the IDE Index MCP Server plugin.
 
 ## Table of Contents
 

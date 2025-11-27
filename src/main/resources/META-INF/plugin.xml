@@ -1,10 +1,10 @@
 <!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
 <idea-plugin>
     <id>com.github.hechtcarmel.jetbrainsindexmcpplugin</id>
-    <name>IntelliJ Index MCP Server</name>
+    <name>IDE Index MCP Server</name>
     <vendor email="hechtcarmel@gmail.com" url="https://github.com/hechtcarmel">hechtcarmel</vendor>
     <description><![CDATA[
-<h2>IntelliJ Index MCP Server</h2>
+<h2>IDE Index MCP Server</h2>
 
 <p>Expose your IDE's powerful indexing and refactoring capabilities to AI coding assistants via the
 <a href="https://modelcontextprotocol.io">Model Context Protocol (MCP)</a>.</p>
