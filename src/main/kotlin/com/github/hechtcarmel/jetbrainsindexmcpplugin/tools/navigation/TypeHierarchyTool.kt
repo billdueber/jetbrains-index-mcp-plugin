@@ -19,6 +19,10 @@ import kotlinx.serialization.json.putJsonObject
 
 class TypeHierarchyTool : AbstractMcpTool() {
 
+    companion object {
+        private const val MAX_HIERARCHY_DEPTH = 100
+    }
+
     override val name = "ide_type_hierarchy"
 
     override val description = """
@@ -129,7 +133,14 @@ class TypeHierarchyTool : AbstractMcpTool() {
         return null
     }
 
-    private fun getSupertypes(project: Project, psiClass: PsiClass, visited: MutableSet<String> = mutableSetOf()): List<TypeElement> {
+    private fun getSupertypes(
+        project: Project,
+        psiClass: PsiClass,
+        visited: MutableSet<String> = mutableSetOf(),
+        depth: Int = 0
+    ): List<TypeElement> {
+        if (depth > MAX_HIERARCHY_DEPTH) return emptyList()
+
         val supertypes = mutableListOf<TypeElement>()
         val className = psiClass.qualifiedName ?: psiClass.name ?: return supertypes
 
@@ -140,7 +151,7 @@ class TypeHierarchyTool : AbstractMcpTool() {
         // Try resolved superclass first
         val superClass = psiClass.superClass
         if (superClass != null && superClass.qualifiedName != "java.lang.Object") {
-            val superSupertypes = getSupertypes(project, superClass, visited)
+            val superSupertypes = getSupertypes(project, superClass, visited, depth + 1)
             supertypes.add(TypeElement(
                 name = superClass.qualifiedName ?: superClass.name ?: "unknown",
                 file = superClass.containingFile?.virtualFile?.let { getRelativePath(project, it) },
@@ -152,7 +163,7 @@ class TypeHierarchyTool : AbstractMcpTool() {
             psiClass.extendsList?.referenceElements?.forEach { ref ->
                 val resolved = ref.resolve() as? PsiClass
                 if (resolved != null && resolved.qualifiedName != "java.lang.Object") {
-                    val superSupertypes = getSupertypes(project, resolved, visited)
+                    val superSupertypes = getSupertypes(project, resolved, visited, depth + 1)
                     supertypes.add(TypeElement(
                         name = resolved.qualifiedName ?: resolved.name ?: "unknown",
                         file = resolved.containingFile?.virtualFile?.let { getRelativePath(project, it) },
@@ -177,7 +188,7 @@ class TypeHierarchyTool : AbstractMcpTool() {
         val interfaces = psiClass.interfaces
         if (interfaces.isNotEmpty()) {
             interfaces.forEach { iface ->
-                val ifaceSupertypes = getSupertypes(project, iface, visited)
+                val ifaceSupertypes = getSupertypes(project, iface, visited, depth + 1)
                 supertypes.add(TypeElement(
                     name = iface.qualifiedName ?: iface.name ?: "unknown",
                     file = iface.containingFile?.virtualFile?.let { getRelativePath(project, it) },
@@ -190,7 +201,7 @@ class TypeHierarchyTool : AbstractMcpTool() {
             psiClass.implementsList?.referenceElements?.forEach { ref ->
                 val resolved = ref.resolve() as? PsiClass
                 if (resolved != null) {
-                    val ifaceSupertypes = getSupertypes(project, resolved, visited)
+                    val ifaceSupertypes = getSupertypes(project, resolved, visited, depth + 1)
                     supertypes.add(TypeElement(
                         name = resolved.qualifiedName ?: resolved.name ?: "unknown",
                         file = resolved.containingFile?.virtualFile?.let { getRelativePath(project, it) },

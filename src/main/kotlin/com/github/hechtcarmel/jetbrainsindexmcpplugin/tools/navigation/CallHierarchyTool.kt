@@ -84,6 +84,8 @@ class CallHierarchyTool : AbstractMcpTool() {
         private const val DEFAULT_DEPTH = 3
         private const val MAX_DEPTH = 5
         private const val MAX_RESULTS_PER_LEVEL = 20
+        private const val MAX_STACK_DEPTH = 50
+        private const val MAX_SUPER_METHODS = 10
     }
 
     override suspend fun execute(project: Project, arguments: JsonObject): ToolCallResult {
@@ -149,8 +151,10 @@ class CallHierarchyTool : AbstractMcpTool() {
         project: Project,
         method: PsiMethod,
         depth: Int,
-        visited: MutableSet<String>
+        visited: MutableSet<String>,
+        stackDepth: Int = 0
     ): List<CallElement> {
+        if (stackDepth > MAX_STACK_DEPTH) return emptyList()
         if (depth <= 0) return emptyList()
 
         val methodKey = getMethodKey(method)
@@ -160,8 +164,9 @@ class CallHierarchyTool : AbstractMcpTool() {
         return try {
             // Collect all methods to search: the method itself + all super methods it overrides
             // This is crucial because callers might call through interface/parent class references
+            // Limit super methods to prevent exponential growth
             val methodsToSearch = mutableSetOf(method)
-            methodsToSearch.addAll(method.findDeepestSuperMethods())
+            methodsToSearch.addAll(method.findDeepestSuperMethods().take(MAX_SUPER_METHODS))
 
             val allReferences = mutableListOf<PsiElement>()
             for (methodToSearch in methodsToSearch) {
@@ -179,7 +184,7 @@ class CallHierarchyTool : AbstractMcpTool() {
 
                     if (containingMethod != null && containingMethod != method && !methodsToSearch.contains(containingMethod)) {
                         val children = if (depth > 1) {
-                            findCallersRecursive(project, containingMethod, depth - 1, visited)
+                            findCallersRecursive(project, containingMethod, depth - 1, visited, stackDepth + 1)
                         } else {
                             null
                         }
@@ -198,8 +203,10 @@ class CallHierarchyTool : AbstractMcpTool() {
         project: Project,
         method: PsiMethod,
         depth: Int,
-        visited: MutableSet<String>
+        visited: MutableSet<String>,
+        stackDepth: Int = 0
     ): List<CallElement> {
+        if (stackDepth > MAX_STACK_DEPTH) return emptyList()
         if (depth <= 0) return emptyList()
 
         val methodKey = getMethodKey(method)
@@ -216,7 +223,7 @@ class CallHierarchyTool : AbstractMcpTool() {
                         val calledMethod = methodCall.resolveMethod()
                         if (calledMethod != null) {
                             val children = if (depth > 1) {
-                                findCalleesRecursive(project, calledMethod, depth - 1, visited)
+                                findCalleesRecursive(project, calledMethod, depth - 1, visited, stackDepth + 1)
                             } else {
                                 null
                             }
