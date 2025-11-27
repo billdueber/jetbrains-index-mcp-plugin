@@ -4,6 +4,17 @@
 
 ## [Unreleased]
 
+## [1.2.0] - 2025-11-27
+
+### Fixed
+- Type hierarchy now shows supertypes even when PSI type resolution fails
+- Call hierarchy now finds callers through interface/parent class references
+- Call hierarchy handles unresolved method calls and parameter types gracefully
+
+### Changed
+- Extracted shared `findClassByName()` utility to `AbstractMcpTool` base class
+- Improved error messages to include project name
+
 ## [1.1.0] - 2025-11-27
 
 ### Changed
