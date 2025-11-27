@@ -48,7 +48,8 @@ data class TypeHierarchyResult(
 data class TypeElement(
     val name: String,
     val file: String?,
-    val kind: String
+    val kind: String,
+    val supertypes: List<TypeElement>? = null
 )
 
 // call_hierarchy output

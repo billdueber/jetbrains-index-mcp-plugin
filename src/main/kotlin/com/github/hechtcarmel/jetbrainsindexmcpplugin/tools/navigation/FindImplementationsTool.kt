@@ -140,7 +140,8 @@ class FindImplementationsTool : AbstractMcpTool() {
 
     private fun findClassImplementations(project: Project, psiClass: PsiClass): List<ImplementationLocation> {
         return try {
-            ClassInheritorsSearch.search(psiClass, false)
+            // true = search all inheritors (not just direct)
+            ClassInheritorsSearch.search(psiClass, true)
                 .findAll()
                 .take(100)
                 .mapNotNull { inheritor ->

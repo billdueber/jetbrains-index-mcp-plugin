@@ -83,6 +83,11 @@ for detailed documentation, examples, and troubleshooting guides.</p>
 
     <resource-bundle>messages.McpBundle</resource-bundle>
 
+    <!-- Declare Kotlin K1/K2 plugin mode compatibility -->
+    <extensions defaultExtensionNs="org.jetbrains.kotlin">
+        <supportsKotlinPluginMode supportsK2="true"/>
+    </extensions>
+
     <extensions defaultExtensionNs="com.intellij">
         <!-- Application-level MCP Server Service -->
         <applicationService serviceImplementation="com.github.hechtcarmel.jetbrainsindexmcpplugin.server.McpServerService"/>

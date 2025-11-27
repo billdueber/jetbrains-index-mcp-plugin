@@ -123,26 +123,35 @@ class TypeHierarchyTool : AbstractMcpTool() {
         return null
     }
 
-    private fun getSupertypes(project: Project, psiClass: PsiClass): List<TypeElement> {
+    private fun getSupertypes(project: Project, psiClass: PsiClass, visited: MutableSet<String> = mutableSetOf()): List<TypeElement> {
         val supertypes = mutableListOf<TypeElement>()
+        val className = psiClass.qualifiedName ?: psiClass.name ?: return supertypes
 
-        // Add superclass
+        // Prevent infinite recursion
+        if (className in visited) return supertypes
+        visited.add(className)
+
+        // Add superclass with its own supertypes (recursive)
         psiClass.superClass?.let { superClass ->
             if (superClass.qualifiedName != "java.lang.Object") {
+                val superSupertypes = getSupertypes(project, superClass, visited)
                 supertypes.add(TypeElement(
                     name = superClass.qualifiedName ?: superClass.name ?: "unknown",
                     file = superClass.containingFile?.virtualFile?.let { getRelativePath(project, it) },
-                    kind = getClassKind(superClass)
+                    kind = getClassKind(superClass),
+                    supertypes = superSupertypes.takeIf { it.isNotEmpty() }
                 ))
             }
         }
 
-        // Add interfaces
+        // Add interfaces with their own supertypes (recursive)
         psiClass.interfaces.forEach { iface ->
+            val ifaceSupertypes = getSupertypes(project, iface, visited)
             supertypes.add(TypeElement(
                 name = iface.qualifiedName ?: iface.name ?: "unknown",
                 file = iface.containingFile?.virtualFile?.let { getRelativePath(project, it) },
-                kind = "INTERFACE"
+                kind = "INTERFACE",
+                supertypes = ifaceSupertypes.takeIf { it.isNotEmpty() }
             ))
         }
 
@@ -151,9 +160,10 @@ class TypeHierarchyTool : AbstractMcpTool() {
 
     private fun getSubtypes(project: Project, psiClass: PsiClass): List<TypeElement> {
         return try {
-            ClassInheritorsSearch.search(psiClass, false)
+            // true = search in all scopes (not just direct inheritors)
+            ClassInheritorsSearch.search(psiClass, true)
                 .findAll()
-                .take(50) // Limit to prevent huge results
+                .take(100) // Limit to prevent huge results
                 .map { subClass ->
                     TypeElement(
                         name = subClass.qualifiedName ?: subClass.name ?: "unknown",

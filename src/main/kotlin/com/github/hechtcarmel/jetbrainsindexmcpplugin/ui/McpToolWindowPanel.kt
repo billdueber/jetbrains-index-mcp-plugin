@@ -113,12 +113,22 @@ class McpToolWindowPanel(
         sb.appendLine(entry.parameters.toString())
         sb.appendLine()
 
-        if (entry.status == CommandStatus.SUCCESS && entry.result != null) {
-            sb.appendLine("Result:")
-            sb.appendLine(entry.result)
-        } else if (entry.status == CommandStatus.ERROR && entry.error != null) {
+        // Show error if present (for ERROR status)
+        if (entry.error != null) {
             sb.appendLine("Error:")
             sb.appendLine(entry.error)
+            sb.appendLine()
+        }
+
+        // Show result if present (for SUCCESS status, or as fallback for ERROR)
+        if (entry.result != null) {
+            sb.appendLine("Result:")
+            sb.appendLine(entry.result)
+        }
+
+        // If neither error nor result, show a message for ERROR status
+        if (entry.error == null && entry.result == null && entry.status == CommandStatus.ERROR) {
+            sb.appendLine("Error: (no details available)")
         }
 
         entry.affectedFiles?.let { files ->

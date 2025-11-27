@@ -47,9 +47,17 @@ class CommandHistoryService(private val project: Project) {
         val entry = history.find { it.id == id } ?: return
 
         entry.status = status
-        entry.result = result
         entry.durationMs = durationMs
         entry.affectedFiles = affectedFiles
+
+        // Store result in appropriate field based on status
+        if (status == CommandStatus.ERROR) {
+            entry.error = result
+            entry.result = null
+        } else {
+            entry.result = result
+            entry.error = null
+        }
 
         notifyListeners(CommandHistoryEvent.CommandUpdated(entry))
         LOG.debug("Updated command status: ${entry.toolName} -> $status")

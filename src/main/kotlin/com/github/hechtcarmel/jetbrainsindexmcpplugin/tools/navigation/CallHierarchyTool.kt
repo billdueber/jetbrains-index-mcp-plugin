@@ -58,6 +58,10 @@ class CallHierarchyTool : AbstractMcpTool() {
                     add(JsonPrimitive("callees"))
                 }
             }
+            putJsonObject("depth") {
+                put("type", "integer")
+                put("description", "How many levels deep to traverse the call hierarchy (default: 3, max: 5)")
+            }
         }
         putJsonArray("required") {
             add(JsonPrimitive("file"))
@@ -65,6 +69,12 @@ class CallHierarchyTool : AbstractMcpTool() {
             add(JsonPrimitive("column"))
             add(JsonPrimitive("direction"))
         }
+    }
+
+    companion object {
+        private const val DEFAULT_DEPTH = 3
+        private const val MAX_DEPTH = 5
+        private const val MAX_RESULTS_PER_LEVEL = 20
     }
 
     override suspend fun execute(project: Project, arguments: JsonObject): ToolCallResult {
@@ -76,6 +86,7 @@ class CallHierarchyTool : AbstractMcpTool() {
             ?: return createErrorResult("Missing required parameter: column")
         val direction = arguments["direction"]?.jsonPrimitive?.content
             ?: return createErrorResult("Missing required parameter: direction")
+        val depth = (arguments["depth"]?.jsonPrimitive?.int ?: DEFAULT_DEPTH).coerceIn(1, MAX_DEPTH)
 
         if (direction !in listOf("callers", "callees")) {
             return createErrorResult("direction must be 'callers' or 'callees'")
@@ -91,11 +102,12 @@ class CallHierarchyTool : AbstractMcpTool() {
                 ?: return@readAction createErrorResult("No method found at position")
 
             val methodElement = createCallElement(project, method)
+            val visited = mutableSetOf<String>()
 
             val calls = if (direction == "callers") {
-                findCallers(project, method)
+                findCallersRecursive(project, method, depth, visited)
             } else {
-                findCallees(project, method)
+                findCalleesRecursive(project, method, depth, visited)
             }
 
             createJsonResult(CallHierarchyResult(
@@ -124,17 +136,33 @@ class CallHierarchyTool : AbstractMcpTool() {
         return null
     }
 
-    private fun findCallers(project: Project, method: PsiMethod): List<CallElement> {
+    private fun findCallersRecursive(
+        project: Project,
+        method: PsiMethod,
+        depth: Int,
+        visited: MutableSet<String>
+    ): List<CallElement> {
+        if (depth <= 0) return emptyList()
+
+        val methodKey = getMethodKey(method)
+        if (methodKey in visited) return emptyList()
+        visited.add(methodKey)
+
         return try {
             MethodReferencesSearch.search(method)
                 .findAll()
-                .take(50) // Limit results
+                .take(MAX_RESULTS_PER_LEVEL)
                 .mapNotNull { reference ->
                     val refElement = reference.element
                     val containingMethod = PsiTreeUtil.getParentOfType(refElement, PsiMethod::class.java)
 
                     if (containingMethod != null && containingMethod != method) {
-                        createCallElement(project, containingMethod)
+                        val children = if (depth > 1) {
+                            findCallersRecursive(project, containingMethod, depth - 1, visited)
+                        } else {
+                            null
+                        }
+                        createCallElement(project, containingMethod, children)
                     } else {
                         null
                     }
@@ -145,18 +173,33 @@ class CallHierarchyTool : AbstractMcpTool() {
         }
     }
 
-    private fun findCallees(project: Project, method: PsiMethod): List<CallElement> {
+    private fun findCalleesRecursive(
+        project: Project,
+        method: PsiMethod,
+        depth: Int,
+        visited: MutableSet<String>
+    ): List<CallElement> {
+        if (depth <= 0) return emptyList()
+
+        val methodKey = getMethodKey(method)
+        if (methodKey in visited) return emptyList()
+        visited.add(methodKey)
+
         val callees = mutableListOf<CallElement>()
 
         try {
             method.body?.let { body ->
-                // Find all method calls within the method body
                 PsiTreeUtil.findChildrenOfType(body, com.intellij.psi.PsiMethodCallExpression::class.java)
-                    .take(50) // Limit results
+                    .take(MAX_RESULTS_PER_LEVEL)
                     .forEach { methodCall ->
                         methodCall.resolveMethod()?.let { calledMethod ->
-                            val element = createCallElement(project, calledMethod)
-                            if (element !in callees) {
+                            val children = if (depth > 1) {
+                                findCalleesRecursive(project, calledMethod, depth - 1, visited)
+                            } else {
+                                null
+                            }
+                            val element = createCallElement(project, calledMethod, children)
+                            if (callees.none { it.name == element.name && it.file == element.file && it.line == element.line }) {
                                 callees.add(element)
                             }
                         }
@@ -166,10 +209,21 @@ class CallHierarchyTool : AbstractMcpTool() {
             // Handle gracefully
         }
 
-        return callees.distinctBy { it.name + it.file + it.line }
+        return callees
     }
 
-    private fun createCallElement(project: Project, method: PsiMethod): CallElement {
+    private fun getMethodKey(method: PsiMethod): String {
+        val className = method.containingClass?.qualifiedName ?: ""
+        val methodName = method.name
+        val params = method.parameterList.parameters.joinToString(",") { it.type.canonicalText }
+        return "$className.$methodName($params)"
+    }
+
+    private fun createCallElement(
+        project: Project,
+        method: PsiMethod,
+        children: List<CallElement>? = null
+    ): CallElement {
         val containingFile = method.containingFile?.virtualFile
         val document = method.containingFile?.let {
             PsiDocumentManager.getInstance(project).getDocument(it)
@@ -195,7 +249,8 @@ class CallHierarchyTool : AbstractMcpTool() {
         return CallElement(
             name = methodName,
             file = containingFile?.let { getRelativePath(project, it) } ?: "unknown",
-            line = lineNumber
+            line = lineNumber,
+            children = children?.takeIf { it.isNotEmpty() }
         )
     }
 }
