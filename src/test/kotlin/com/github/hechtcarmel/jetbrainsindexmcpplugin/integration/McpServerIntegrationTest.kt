@@ -1,5 +1,6 @@
 package com.github.hechtcarmel.jetbrainsindexmcpplugin.integration
 
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.constants.ToolNames
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.resources.ResourceRegistry
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.server.JsonRpcHandler
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.server.models.JsonRpcRequest
@@ -113,7 +114,7 @@ class McpServerIntegrationTest : BasePlatformTestCase() {
         val result = response.result!!.jsonObject
         val tools = result["tools"]?.jsonArray
         assertNotNull("Result should have tools array", tools)
-        assertTrue("Should have at least 14 tools", tools!!.size >= 14)
+        assertTrue("Should have at least 20 tools", tools!!.size >= 20)
     }
 
     fun testToolsListContainsNavigationTools() = runBlocking {
@@ -130,11 +131,11 @@ class McpServerIntegrationTest : BasePlatformTestCase() {
         val toolNames = tools?.map { it.jsonObject["name"]?.jsonPrimitive?.content }
 
         val expectedNavigationTools = listOf(
-            "find_usages",
-            "find_definition",
-            "type_hierarchy",
-            "call_hierarchy",
-            "find_implementations"
+            ToolNames.FIND_REFERENCES,
+            ToolNames.FIND_DEFINITION,
+            ToolNames.TYPE_HIERARCHY,
+            ToolNames.CALL_HIERARCHY,
+            ToolNames.FIND_IMPLEMENTATIONS
         )
 
         expectedNavigationTools.forEach { toolName ->
@@ -156,11 +157,11 @@ class McpServerIntegrationTest : BasePlatformTestCase() {
         val toolNames = tools?.map { it.jsonObject["name"]?.jsonPrimitive?.content }
 
         val expectedIntelligenceTools = listOf(
-            "get_symbol_info",
-            "get_completions",
-            "get_inspections",
-            "get_quick_fixes",
-            "apply_quick_fix"
+            ToolNames.INSPECT_SYMBOL,
+            ToolNames.CODE_COMPLETIONS,
+            ToolNames.ANALYZE_CODE,
+            ToolNames.LIST_QUICK_FIXES,
+            ToolNames.APPLY_QUICK_FIX
         )
 
         expectedIntelligenceTools.forEach { toolName ->
@@ -182,10 +183,10 @@ class McpServerIntegrationTest : BasePlatformTestCase() {
         val toolNames = tools?.map { it.jsonObject["name"]?.jsonPrimitive?.content }
 
         val expectedProjectTools = listOf(
-            "get_index_status",
-            "get_file_structure",
-            "get_project_structure",
-            "get_dependencies"
+            ToolNames.INDEX_STATUS,
+            ToolNames.FILE_STRUCTURE,
+            ToolNames.PROJECT_STRUCTURE,
+            ToolNames.LIST_DEPENDENCIES
         )
 
         expectedProjectTools.forEach { toolName ->
@@ -200,7 +201,7 @@ class McpServerIntegrationTest : BasePlatformTestCase() {
             id = JsonPrimitive(20),
             method = "tools/call",
             params = buildJsonObject {
-                put("name", "get_index_status")
+                put("name", ToolNames.INDEX_STATUS)
                 put("arguments", buildJsonObject { })
             }
         )
@@ -208,8 +209,8 @@ class McpServerIntegrationTest : BasePlatformTestCase() {
         val responseJson = handler.handleRequest(json.encodeToString(JsonRpcRequest.serializer(), request))
         val response = json.decodeFromString<JsonRpcResponse>(responseJson)
 
-        assertNull("get_index_status should not return JSON-RPC error", response.error)
-        assertNotNull("get_index_status should return result", response.result)
+        assertNull("${ToolNames.INDEX_STATUS} should not return JSON-RPC error", response.error)
+        assertNotNull("${ToolNames.INDEX_STATUS} should return result", response.result)
     }
 
     fun testToolsCallGetProjectStructure() = runBlocking {
@@ -217,7 +218,7 @@ class McpServerIntegrationTest : BasePlatformTestCase() {
             id = JsonPrimitive(21),
             method = "tools/call",
             params = buildJsonObject {
-                put("name", "get_project_structure")
+                put("name", ToolNames.PROJECT_STRUCTURE)
                 put("arguments", buildJsonObject { })
             }
         )
@@ -225,8 +226,8 @@ class McpServerIntegrationTest : BasePlatformTestCase() {
         val responseJson = handler.handleRequest(json.encodeToString(JsonRpcRequest.serializer(), request))
         val response = json.decodeFromString<JsonRpcResponse>(responseJson)
 
-        assertNull("get_project_structure should not return JSON-RPC error", response.error)
-        assertNotNull("get_project_structure should return result", response.result)
+        assertNull("${ToolNames.PROJECT_STRUCTURE} should not return JSON-RPC error", response.error)
+        assertNotNull("${ToolNames.PROJECT_STRUCTURE} should return result", response.result)
     }
 
     fun testToolsCallGetDependencies() = runBlocking {
@@ -234,7 +235,7 @@ class McpServerIntegrationTest : BasePlatformTestCase() {
             id = JsonPrimitive(22),
             method = "tools/call",
             params = buildJsonObject {
-                put("name", "get_dependencies")
+                put("name", ToolNames.LIST_DEPENDENCIES)
                 put("arguments", buildJsonObject { })
             }
         )
@@ -242,8 +243,8 @@ class McpServerIntegrationTest : BasePlatformTestCase() {
         val responseJson = handler.handleRequest(json.encodeToString(JsonRpcRequest.serializer(), request))
         val response = json.decodeFromString<JsonRpcResponse>(responseJson)
 
-        assertNull("get_dependencies should not return JSON-RPC error", response.error)
-        assertNotNull("get_dependencies should return result", response.result)
+        assertNull("${ToolNames.LIST_DEPENDENCIES} should not return JSON-RPC error", response.error)
+        assertNotNull("${ToolNames.LIST_DEPENDENCIES} should return result", response.result)
     }
 
     fun testToolsCallNonExistentTool() = runBlocking {

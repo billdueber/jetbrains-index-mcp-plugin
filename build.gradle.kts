@@ -32,20 +32,25 @@ repositories {
 
 // Dependencies are managed with Gradle version catalog - read more: https://docs.gradle.org/current/userguide/platforms.html#sub:version-catalog
 dependencies {
-    // MCP Kotlin SDK
-    implementation(libs.mcp.kotlin.sdk)
+    // MCP Kotlin SDK - exclude kotlinx-coroutines to use IntelliJ Platform's bundled version
+    implementation(libs.mcp.kotlin.sdk) {
+        exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core")
+        exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core-jvm")
+        exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-bom")
+        exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-slf4j")
+    }
 
     // Kotlinx Serialization
     implementation(libs.kotlinx.serialization.json)
 
-    // Kotlinx Coroutines
-    implementation(libs.kotlinx.coroutines.core)
-
     // Testing
     testImplementation(libs.junit)
     testImplementation(libs.opentest4j)
-    testImplementation(libs.mockk)
-    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.mockk) {
+        exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core")
+        exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core-jvm")
+        exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-bom")
+    }
 
     // IntelliJ Platform Gradle Plugin Dependencies Extension - read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-dependencies-extension.html
     intellijPlatform {

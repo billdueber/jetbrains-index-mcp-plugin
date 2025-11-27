@@ -38,7 +38,7 @@ class ResourcesTest : BasePlatformTestCase() {
         assertNotNull(content.text)
 
         val resultJson = json.parseToJsonElement(content.text!!).jsonObject
-        assertNotNull("Result should have projectName", resultJson["projectName"])
+        assertNotNull("Result should have name", resultJson["name"])
         assertNotNull("Result should have basePath", resultJson["basePath"])
         assertNotNull("Result should have modules", resultJson["modules"])
     }

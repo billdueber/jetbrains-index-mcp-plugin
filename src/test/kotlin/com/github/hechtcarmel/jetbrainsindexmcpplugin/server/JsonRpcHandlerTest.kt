@@ -1,5 +1,6 @@
 package com.github.hechtcarmel.jetbrainsindexmcpplugin.server
 
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.constants.ToolNames
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.resources.ResourceRegistry
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.server.models.JsonRpcRequest
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.server.models.JsonRpcResponse
@@ -40,7 +41,7 @@ class JsonRpcHandlerTest : BasePlatformTestCase() {
             id = JsonPrimitive(9),
             method = "tools/call",
             params = buildJsonObject {
-                put("name", "get_index_status")
+                put("name", ToolNames.INDEX_STATUS)
                 put("arguments", buildJsonObject { })
             }
         )
@@ -48,7 +49,7 @@ class JsonRpcHandlerTest : BasePlatformTestCase() {
         val responseJson = handler.handleRequest(json.encodeToString(JsonRpcRequest.serializer(), request))
         val response = json.decodeFromString<JsonRpcResponse>(responseJson)
 
-        assertNull("get_index_status should not return JSON-RPC error", response.error)
-        assertNotNull("get_index_status should return result", response.result)
+        assertNull("${ToolNames.INDEX_STATUS} should not return JSON-RPC error", response.error)
+        assertNotNull("${ToolNames.INDEX_STATUS} should return result", response.result)
     }
 }

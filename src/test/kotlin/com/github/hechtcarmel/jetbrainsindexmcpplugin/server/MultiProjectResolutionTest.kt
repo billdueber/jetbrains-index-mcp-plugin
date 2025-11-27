@@ -1,5 +1,6 @@
 package com.github.hechtcarmel.jetbrainsindexmcpplugin.server
 
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.constants.ToolNames
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.resources.ResourceRegistry
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.server.models.JsonRpcRequest
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.server.models.JsonRpcResponse
@@ -43,7 +44,7 @@ class MultiProjectResolutionTest : BasePlatformTestCase() {
             id = JsonPrimitive(1),
             method = "tools/call",
             params = buildJsonObject {
-                put("name", "get_index_status")
+                put("name", ToolNames.INDEX_STATUS)
                 put("arguments", buildJsonObject { })
             }
         )
@@ -65,7 +66,7 @@ class MultiProjectResolutionTest : BasePlatformTestCase() {
             id = JsonPrimitive(2),
             method = "tools/call",
             params = buildJsonObject {
-                put("name", "get_index_status")
+                put("name", ToolNames.INDEX_STATUS)
                 put("arguments", buildJsonObject {
                     put("project_path", projectPath ?: "")
                 })
@@ -87,7 +88,7 @@ class MultiProjectResolutionTest : BasePlatformTestCase() {
             id = JsonPrimitive(3),
             method = "tools/call",
             params = buildJsonObject {
-                put("name", "get_index_status")
+                put("name", ToolNames.INDEX_STATUS)
                 put("arguments", buildJsonObject {
                     put("project_path", "/non/existent/project/path")
                 })

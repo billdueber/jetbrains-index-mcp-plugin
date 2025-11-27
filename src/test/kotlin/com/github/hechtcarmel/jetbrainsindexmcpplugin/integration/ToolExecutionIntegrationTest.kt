@@ -1,5 +1,6 @@
 package com.github.hechtcarmel.jetbrainsindexmcpplugin.integration
 
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.constants.ToolNames
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.server.models.ContentBlock
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.ToolRegistry
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.intelligence.ApplyQuickFixTool
@@ -268,20 +269,30 @@ class ToolExecutionIntegrationTest : BasePlatformTestCase() {
         registry.registerBuiltInTools()
 
         val expectedTools = listOf(
-            "find_usages",
-            "find_definition",
-            "type_hierarchy",
-            "call_hierarchy",
-            "find_implementations",
-            "get_symbol_info",
-            "get_completions",
-            "get_inspections",
-            "get_quick_fixes",
-            "apply_quick_fix",
-            "get_index_status",
-            "get_file_structure",
-            "get_project_structure",
-            "get_dependencies"
+            // Navigation tools
+            ToolNames.FIND_REFERENCES,
+            ToolNames.FIND_DEFINITION,
+            ToolNames.TYPE_HIERARCHY,
+            ToolNames.CALL_HIERARCHY,
+            ToolNames.FIND_IMPLEMENTATIONS,
+            // Intelligence tools
+            ToolNames.INSPECT_SYMBOL,
+            ToolNames.CODE_COMPLETIONS,
+            ToolNames.ANALYZE_CODE,
+            ToolNames.LIST_QUICK_FIXES,
+            ToolNames.APPLY_QUICK_FIX,
+            // Project tools
+            ToolNames.INDEX_STATUS,
+            ToolNames.FILE_STRUCTURE,
+            ToolNames.PROJECT_STRUCTURE,
+            ToolNames.LIST_DEPENDENCIES,
+            // Refactoring tools
+            ToolNames.REFACTOR_RENAME,
+            ToolNames.REFACTOR_EXTRACT_METHOD,
+            ToolNames.REFACTOR_EXTRACT_VARIABLE,
+            ToolNames.REFACTOR_INLINE,
+            ToolNames.REFACTOR_SAFE_DELETE,
+            ToolNames.REFACTOR_MOVE
         )
 
         assertEquals("Should have correct number of tools", expectedTools.size, registry.getAllTools().size)
