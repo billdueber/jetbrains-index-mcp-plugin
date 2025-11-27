@@ -3,6 +3,7 @@ package com.github.hechtcarmel.jetbrainsindexmcpplugin.actions
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.McpBundle
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.McpConstants
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.history.CommandHistoryService
+import com.intellij.icons.AllIcons
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
 import com.intellij.openapi.actionSystem.AnAction
@@ -15,7 +16,7 @@ import java.io.File
 class ExportHistoryAction : AnAction(
     McpBundle.message("toolWindow.exportHistory"),
     "Export command history to file",
-    null
+    AllIcons.ToolbarDecorator.Export
 ) {
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return

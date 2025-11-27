@@ -3,6 +3,7 @@ package com.github.hechtcarmel.jetbrainsindexmcpplugin.actions
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.McpBundle
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.McpConstants
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.ui.McpToolWindowPanel
+import com.intellij.icons.AllIcons
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.wm.ToolWindowManager
@@ -10,7 +11,7 @@ import com.intellij.openapi.wm.ToolWindowManager
 class RefreshAction : AnAction(
     McpBundle.message("toolWindow.refresh"),
     "Refresh server status and history",
-    null
+    AllIcons.Actions.Refresh
 ) {
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return

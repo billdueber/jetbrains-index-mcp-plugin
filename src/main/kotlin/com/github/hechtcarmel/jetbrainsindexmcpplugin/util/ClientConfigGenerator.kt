@@ -6,6 +6,7 @@ import com.github.hechtcarmel.jetbrainsindexmcpplugin.server.McpServerService
  * Generates MCP client configuration snippets for various AI coding assistants.
  *
  * This utility generates ready-to-use configuration for:
+ * - Claude Code (CLI)
  * - Claude Desktop
  * - Cursor
  * - VS Code (generic MCP)
@@ -19,6 +20,7 @@ object ClientConfigGenerator {
      * Supported MCP client types.
      */
     enum class ClientType(val displayName: String) {
+        CLAUDE_CODE("Claude Code (CLI)"),
         CLAUDE_DESKTOP("Claude Desktop"),
         CURSOR("Cursor"),
         VSCODE("VS Code (Generic MCP)"),
@@ -36,11 +38,22 @@ object ClientConfigGenerator {
         val serverUrl = McpServerService.getInstance().getServerUrl()
 
         return when (clientType) {
+            ClientType.CLAUDE_CODE -> generateClaudeCodeConfig(serverUrl, serverName)
             ClientType.CLAUDE_DESKTOP -> generateClaudeDesktopConfig(serverUrl, serverName)
             ClientType.CURSOR -> generateCursorConfig(serverUrl, serverName)
             ClientType.VSCODE -> generateVSCodeConfig(serverUrl, serverName)
             ClientType.WINDSURF -> generateWindsurfConfig(serverUrl, serverName)
         }
+    }
+
+    /**
+     * Generates Claude Code CLI command.
+     *
+     * Run this command in your terminal to add the MCP server.
+     * Use --scope user for global or --scope project for project-local.
+     */
+    private fun generateClaudeCodeConfig(serverUrl: String, serverName: String): String {
+        return "claude mcp add --transport http $serverName $serverUrl --scope user"
     }
 
     /**
@@ -120,6 +133,14 @@ object ClientConfigGenerator {
      */
     fun getConfigLocationHint(clientType: ClientType): String {
         return when (clientType) {
+            ClientType.CLAUDE_CODE -> """
+                Run this command in your terminal:
+                • --scope user: Adds globally for all projects
+                • --scope project: Adds to current project only
+
+                To remove: claude mcp remove intellij-index
+            """.trimIndent()
+
             ClientType.CLAUDE_DESKTOP -> """
                 Add to your Claude Desktop configuration file:
                 • macOS: ~/Library/Application Support/Claude/claude_desktop_config.json

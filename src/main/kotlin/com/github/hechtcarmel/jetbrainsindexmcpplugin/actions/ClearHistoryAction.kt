@@ -3,6 +3,7 @@ package com.github.hechtcarmel.jetbrainsindexmcpplugin.actions
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.McpBundle
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.McpConstants
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.history.CommandHistoryService
+import com.intellij.icons.AllIcons
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
 import com.intellij.openapi.actionSystem.AnAction
@@ -12,7 +13,7 @@ import com.intellij.openapi.ui.Messages
 class ClearHistoryAction : AnAction(
     McpBundle.message("toolWindow.clearHistory"),
     "Clear command history",
-    null
+    AllIcons.Actions.GC
 ) {
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return

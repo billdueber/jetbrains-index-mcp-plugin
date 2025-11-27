@@ -3,6 +3,7 @@ package com.github.hechtcarmel.jetbrainsindexmcpplugin.actions
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.McpBundle
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.McpConstants
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.server.McpServerService
+import com.intellij.icons.AllIcons
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
 import com.intellij.openapi.actionSystem.AnAction
@@ -13,7 +14,7 @@ import java.awt.datatransfer.StringSelection
 class CopyServerUrlAction : AnAction(
     McpBundle.message("toolWindow.copyUrl"),
     "Copy the MCP server URL to clipboard",
-    null
+    AllIcons.Actions.Copy
 ) {
     override fun actionPerformed(e: AnActionEvent) {
         val url = McpServerService.getInstance().getServerUrl()
