@@ -63,15 +63,31 @@ Download the [latest release](https://github.com/hechtcarmel/jetbrains-index-mcp
 4. **Configure your AI assistant** with the server URL: `http://localhost:{PORT}/index-mcp/sse`
 5. **Use the tool window** (bottom panel: "Index MCP Server") to copy configuration or monitor commands
 
-### Using the "Copy Client Config" Action
+### Using the "Install on Coding Agents" Button
 
 The easiest way to configure your AI assistant:
-1. Open the "Index MCP Server" tool window
-2. Click the **"Copy Client Config..."** action in the toolbar
-3. Select your AI assistant from the popup
-4. Paste the configuration into the appropriate config file
+1. Open the "Index MCP Server" tool window (bottom panel)
+2. Click the prominent **"Install on Coding Agents"** button on the right side of the toolbar
+3. A popup appears with two sections:
+   - **Install Now** - For Claude Code CLI: Runs the installation command automatically
+   - **Copy Configuration** - For other clients: Copies the JSON config to your clipboard
+4. For "Copy Configuration" clients, paste the config into the appropriate config file
 
 ## Client Configuration
+
+### Claude Code (CLI)
+
+Run this command in your terminal:
+
+```bash
+claude mcp add --transport http intellij-index http://localhost:63342/index-mcp/sse --scope user
+```
+
+Options:
+- `--scope user` - Adds globally for all projects
+- `--scope project` - Adds to current project only
+
+To remove: `claude mcp remove intellij-index`
 
 ### Claude Desktop
 
@@ -226,10 +242,11 @@ The plugin adds an "Index MCP Server" tool window (bottom panel) that shows:
 
 | Action | Description |
 |--------|-------------|
+| Refresh | Refresh server status and command history |
 | Copy URL | Copy the MCP server URL to clipboard |
-| Copy Client Config | Generate and copy configuration for AI assistants |
 | Clear History | Clear the command history |
 | Export History | Export history to JSON or CSV file |
+| **Install on Coding Agents** | Install MCP server on AI assistants (prominent button on right) |
 
 ## Error Codes
 
