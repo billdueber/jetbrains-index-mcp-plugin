@@ -32,17 +32,11 @@
 
 <h4>Code Intelligence</h4>
 <ul>
-    <li><b>Code Completions</b> - Get intelligent completion suggestions</li>
-    <li><b>Code Analysis</b> - Run inspections and detect issues</li>
-    <li><b>Quick Fixes</b> - List and apply available fixes</li>
-    <li><b>Symbol Info</b> - Get documentation and type information</li>
+    <li><b>Diagnostics</b> - Analyze code for problems and available improvements</li>
 </ul>
 
 <h4>Project Insights</h4>
 <ul>
-    <li><b>Project Structure</b> - Query module and source root layout</li>
-    <li><b>File Structure</b> - Get class, method, and field outlines</li>
-    <li><b>Dependencies</b> - List project libraries and versions</li>
     <li><b>Index Status</b> - Check if IDE indexing is complete</li>
 </ul>
 
@@ -68,7 +62,7 @@
 <h3>🔧 How It Works</h3>
 <p>The plugin runs an MCP server on your IDE's built-in web server, exposing tools that leverage
 IntelliJ's semantic understanding of your code. AI assistants connect via HTTP+SSE transport and
-can invoke any of the 20 available tools to perform accurate refactoring, navigation, and code analysis.</p>
+can invoke any of the 13 available tools to perform accurate refactoring, navigation, and code analysis.</p>
 
 <h3>📚 Documentation</h3>
 <p>See the <a href="https://github.com/hechtcarmel/jetbrains-index-mcp-plugin">GitHub repository</a>
@@ -76,7 +70,7 @@ for detailed documentation, examples, and troubleshooting guides.</p>
 
 <h3>🔒 Privacy</h3>
 <p>All processing happens locally within your IDE. No code is sent to external servers by this plugin.</p>
-]]></description>
+]]>    </description>
 
     <!-- Platform dependency (required) -->
     <depends>com.intellij.modules.platform</depends>
@@ -91,68 +85,39 @@ for detailed documentation, examples, and troubleshooting guides.</p>
 
     <extensions defaultExtensionNs="com.intellij">
         <!-- Application-level MCP Server Service -->
-        <applicationService
-            serviceImplementation="com.github.hechtcarmel.jetbrainsindexmcpplugin.server.McpServerService"/>
+        <applicationService serviceImplementation="com.github.hechtcarmel.jetbrainsindexmcpplugin.server.McpServerService"/>
 
         <!-- Project-level Command History Service -->
-        <projectService
-            serviceImplementation="com.github.hechtcarmel.jetbrainsindexmcpplugin.history.CommandHistoryService"/>
+        <projectService serviceImplementation="com.github.hechtcarmel.jetbrainsindexmcpplugin.history.CommandHistoryService"/>
 
         <!-- HTTP Request Handler for /index-mcp endpoint -->
-        <httpRequestHandler
-            implementation="com.github.hechtcarmel.jetbrainsindexmcpplugin.server.McpRequestHandler"/>
+        <httpRequestHandler implementation="com.github.hechtcarmel.jetbrainsindexmcpplugin.server.McpRequestHandler"/>
 
         <!-- Tool Window -->
-        <toolWindow
-            id="Index MCP Server"
-            anchor="bottom"
-            icon="com.github.hechtcarmel.jetbrainsindexmcpplugin.icons.McpIcons.ToolWindow"
-            factoryClass="com.github.hechtcarmel.jetbrainsindexmcpplugin.ui.McpToolWindowFactory"/>
+        <toolWindow id="Index MCP Server" anchor="bottom" icon="com.github.hechtcarmel.jetbrainsindexmcpplugin.icons.McpIcons.ToolWindow" factoryClass="com.github.hechtcarmel.jetbrainsindexmcpplugin.ui.McpToolWindowFactory"/>
 
         <!-- Settings -->
-        <applicationService
-            serviceImplementation="com.github.hechtcarmel.jetbrainsindexmcpplugin.settings.McpSettings"/>
-        <applicationConfigurable
-            id="mcp.settings"
-            displayName="Index MCP Server"
-            instance="com.github.hechtcarmel.jetbrainsindexmcpplugin.settings.McpSettingsConfigurable"/>
+        <applicationService serviceImplementation="com.github.hechtcarmel.jetbrainsindexmcpplugin.settings.McpSettings"/>
+        <applicationConfigurable id="mcp.settings" displayName="Index MCP Server" instance="com.github.hechtcarmel.jetbrainsindexmcpplugin.settings.McpSettingsConfigurable"/>
 
         <!-- Startup Activity -->
-        <postStartupActivity
-            implementation="com.github.hechtcarmel.jetbrainsindexmcpplugin.startup.McpServerStartupActivity"/>
+        <postStartupActivity implementation="com.github.hechtcarmel.jetbrainsindexmcpplugin.startup.McpServerStartupActivity"/>
 
         <!-- Notification Group -->
-        <notificationGroup
-            id="Index MCP Server"
-            displayType="BALLOON"/>
+        <notificationGroup id="Index MCP Server" displayType="BALLOON"/>
     </extensions>
 
     <!-- Extension Point for Custom Tools -->
     <extensionPoints>
-        <extensionPoint
-            name="mcpTool"
-            interface="com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.McpTool"
-            dynamic="true"/>
+        <extensionPoint name="mcpTool" interface="com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.McpTool" dynamic="true"/>
     </extensionPoints>
 
     <actions>
         <group id="McpServer.Actions" text="Index MCP Server">
-            <action id="McpServer.CopyUrl"
-                class="com.github.hechtcarmel.jetbrainsindexmcpplugin.actions.CopyServerUrlAction"
-                text="Copy Server URL"
-                description="Copy the MCP server URL to clipboard"/>
-            <action id="McpServer.CopyConfig"
-                class="com.github.hechtcarmel.jetbrainsindexmcpplugin.actions.CopyClientConfigAction"
-                text="Copy Client Config..."
-                description="Copy MCP client configuration for AI assistants"/>
-            <action id="McpServer.ClearHistory"
-                class="com.github.hechtcarmel.jetbrainsindexmcpplugin.actions.ClearHistoryAction"
-                text="Clear History"
-                description="Clear command history"/>
-            <action id="McpServer.ExportHistory"
-                class="com.github.hechtcarmel.jetbrainsindexmcpplugin.actions.ExportHistoryAction"
-                text="Export History..."
-                description="Export command history to file"/>
+            <action id="McpServer.CopyUrl" class="com.github.hechtcarmel.jetbrainsindexmcpplugin.actions.CopyServerUrlAction" text="Copy Server URL" description="Copy the MCP server URL to clipboard"/>
+            <action id="McpServer.CopyConfig" class="com.github.hechtcarmel.jetbrainsindexmcpplugin.actions.CopyClientConfigAction" text="Copy Client Config..." description="Copy MCP client configuration for AI assistants"/>
+            <action id="McpServer.ClearHistory" class="com.github.hechtcarmel.jetbrainsindexmcpplugin.actions.ClearHistoryAction" text="Clear History" description="Clear command history"/>
+            <action id="McpServer.ExportHistory" class="com.github.hechtcarmel.jetbrainsindexmcpplugin.actions.ExportHistoryAction" text="Export History..." description="Export command history to file"/>
         </group>
     </actions>
 </idea-plugin>

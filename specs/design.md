@@ -1670,3 +1670,4 @@ dependencies {
 |---------|------|-------------|
 | 1.0 | 2025-01-25 | Initial design document |
 | 1.1 | 2025-01-26 | Updated HTTP+SSE transport implementation, added @EncodeDefault annotation for JSON-RPC serialization |
+| 1.2 | 2025-11-27 | Reduced tool count from 20 to 13; merged ide_analyze_code and ide_list_quick_fixes into ide_diagnostics; removed 7 tools |

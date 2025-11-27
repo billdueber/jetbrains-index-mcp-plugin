@@ -2,6 +2,32 @@
 
 # IntelliJ Index MCP Plugin Changelog
 
+## [1.1.0] - 2025-11-27
+
+### Changed
+- **BREAKING**: Reduced tool count from 20 to 13 for a more focused, reliable API
+- Merged `ide_analyze_code` and `ide_list_quick_fixes` into new `ide_diagnostics` tool
+  - Returns both code problems and available intentions in a single response
+  - More efficient than making two separate calls
+
+### Removed
+- `ide_project_structure` - Functionality available through other IDE tools
+- `ide_file_structure` - Functionality available through other IDE tools
+- `ide_list_dependencies` - Functionality available through other IDE tools
+- `ide_inspect_symbol` - Limited usefulness in practice
+- `ide_code_completions` - Limited usefulness in practice
+- `ide_analyze_code` - Merged into `ide_diagnostics`
+- `ide_list_quick_fixes` - Merged into `ide_diagnostics`
+- `ide_apply_quick_fix` - Removed due to EDT threading issues
+
+### Added
+- `ide_diagnostics` - New unified tool for code analysis
+  - Returns problems with severity (ERROR, WARNING, WEAK_WARNING, INFO)
+  - Returns available intentions/quick fixes at specified position
+  - Supports optional line range filtering for problems
+
+---
+
 ## [1.0.0] - 2025-11-27
 
 ### Added
@@ -29,17 +55,10 @@
 - `ide_refactor_safe_delete` - Safely delete unused elements
 - `ide_refactor_move` - Move elements to different files
 
-#### Code Intelligence Tools (5 tools)
-- `ide_code_completions` - Get code completion suggestions
-- `ide_analyze_code` - Run code inspections on file/range
-- `ide_list_quick_fixes` - Get available quick fixes at position
-- `ide_apply_quick_fix` - Apply a specific quick fix
-- `ide_inspect_symbol` - Get symbol information and documentation
+#### Code Intelligence Tools (1 tool)
+- `ide_diagnostics` - Analyze code for problems and available intentions
 
-#### Project Structure Tools (4 tools)
-- `ide_project_structure` - Get project module tree
-- `ide_file_structure` - Get file's class/method/field structure
-- `ide_list_dependencies` - Get project library dependencies
+#### Project Structure Tools (1 tool)
 - `ide_index_status` - Check IDE indexing status (dumb/smart mode)
 
 #### MCP Resources (4 resources)

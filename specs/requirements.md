@@ -424,3 +424,4 @@
 | Version | Date | Description |
 |---------|------|-------------|
 | 1.0 | 2025-01-25 | Initial requirements extraction from init.md |
+| 1.1 | 2025-11-27 | Reduced tool count from 20 to 13; removed 8 tools, added ide_diagnostics |
