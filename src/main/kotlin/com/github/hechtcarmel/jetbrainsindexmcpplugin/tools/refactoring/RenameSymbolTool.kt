@@ -6,9 +6,14 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.project.Project
+import com.intellij.psi.PsiClass
 import com.intellij.psi.PsiDocumentManager
+import com.intellij.psi.PsiField
+import com.intellij.psi.PsiMethod
+import com.intellij.psi.PsiNamedElement
+import com.intellij.psi.PsiParameter
 import com.intellij.psi.search.searches.ReferencesSearch
-import com.intellij.refactoring.rename.RenameProcessor
+import com.intellij.refactoring.rename.RenamePsiElementProcessor
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -18,6 +23,13 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 
+/**
+ * Headless rename tool that performs renaming without showing any dialogs.
+ * This implementation:
+ * 1. Uses direct PSI manipulation instead of RenameProcessor.run() to avoid dialogs
+ * 2. Automatically renames related elements (constructor parameters, getters/setters) without prompting
+ * 3. Supports all nameable elements: classes, methods, fields, parameters, variables
+ */
 class RenameSymbolTool : AbstractRefactoringTool() {
 
     override val name = "ide_refactor_rename"
@@ -26,6 +38,7 @@ class RenameSymbolTool : AbstractRefactoringTool() {
         Renames a symbol (variable, method, class, field, parameter) and updates all references across the project.
         Use when renaming identifiers to improve code clarity or follow naming conventions.
         Use when refactoring code structure while maintaining correctness.
+        Automatically renames related elements (constructor parameters, getters/setters) without prompting.
         WARNING: This modifies files. Returns affected file list, change count, and success/failure status.
     """.trimIndent()
 
@@ -88,55 +101,83 @@ class RenameSymbolTool : AbstractRefactoringTool() {
             return createErrorResult("New name is the same as the current name")
         }
 
-        // Collect affected files first
+        // Collect all elements to rename (main element + related elements like constructor params)
+        val elementsToRename = mutableMapOf<PsiNamedElement, String>()
         val affectedFiles = mutableSetOf<String>()
 
         try {
             readAction {
-                // Add the file containing the declaration
-                element.containingFile?.virtualFile?.let { vf ->
-                    trackAffectedFile(project, vf, affectedFiles)
-                }
+                // Add the main element
+                elementsToRename[element] = newName
 
-                // Find all references and track their files
-                val references = ReferencesSearch.search(element).findAll()
-                for (reference in references) {
-                    reference.element.containingFile?.virtualFile?.let { vf ->
+                // Find related elements that should also be renamed
+                findRelatedElementsToRename(element, oldName, newName, elementsToRename)
+
+                // Collect all affected files for all elements
+                for ((elem, _) in elementsToRename) {
+                    elem.containingFile?.virtualFile?.let { vf ->
                         trackAffectedFile(project, vf, affectedFiles)
+                    }
+
+                    val references = ReferencesSearch.search(elem).findAll()
+                    for (reference in references) {
+                        reference.element.containingFile?.virtualFile?.let { vf ->
+                            trackAffectedFile(project, vf, affectedFiles)
+                        }
                     }
                 }
             }
 
-            // Perform the rename using RenameProcessor
+            // Perform the rename using headless PSI manipulation
             var success = false
             var errorMessage: String? = null
             var changesCount = 0
 
             ApplicationManager.getApplication().invokeAndWait {
-                try {
-                    val processor = RenameProcessor(
-                        project,
-                        element,
-                        newName,
-                        false, // searchInComments
-                        false  // searchTextOccurrences
-                    )
+                WriteCommandAction.writeCommandAction(project)
+                    .withName("Rename: $oldName to $newName")
+                    .withGroupId("MCP Refactoring")
+                    .run<Throwable> {
+                        try {
+                            // Rename all references first (before changing declarations)
+                            for ((elem, targetName) in elementsToRename) {
+                                val references = ReferencesSearch.search(elem).findAll()
+                                for (reference in references) {
+                                    if (reference.element.isValid) {
+                                        try {
+                                            reference.handleElementRename(targetName)
+                                            changesCount++
+                                        } catch (e: Exception) {
+                                            // Some references may not support direct rename
+                                        }
+                                    }
+                                }
+                            }
 
-                    // Find usages
-                    val usages = processor.findUsages()
-                    changesCount = usages.size + 1 // +1 for the declaration itself
+                            // Now rename the declarations themselves
+                            for ((elem, targetName) in elementsToRename) {
+                                if (elem.isValid) {
+                                    // Use RenamePsiElementProcessor for proper rename handling
+                                    val processor = RenamePsiElementProcessor.forElement(elem)
+                                    val substitutor = processor.substituteElementToRename(elem, null)
+                                    val elementToRename = substitutor ?: elem
 
-                    // Run the refactoring
-                    processor.run()
+                                    if (elementToRename is PsiNamedElement && elementToRename.isValid) {
+                                        elementToRename.setName(targetName)
+                                        changesCount++
+                                    }
+                                }
+                            }
 
-                    // Commit and save
-                    PsiDocumentManager.getInstance(project).commitAllDocuments()
-                    FileDocumentManager.getInstance().saveAllDocuments()
+                            // Commit and save
+                            PsiDocumentManager.getInstance(project).commitAllDocuments()
+                            FileDocumentManager.getInstance().saveAllDocuments()
 
-                    success = true
-                } catch (e: Exception) {
-                    errorMessage = e.message
-                }
+                            success = true
+                        } catch (e: Exception) {
+                            errorMessage = e.message
+                        }
+                    }
             }
 
             return if (success) {
@@ -145,7 +186,8 @@ class RenameSymbolTool : AbstractRefactoringTool() {
                         success = true,
                         affectedFiles = affectedFiles.toList(),
                         changesCount = changesCount,
-                        message = "Successfully renamed '$oldName' to '$newName'"
+                        message = "Successfully renamed '$oldName' to '$newName'" +
+                            if (elementsToRename.size > 1) " (including ${elementsToRename.size - 1} related element(s))" else ""
                     )
                 )
             } else {
@@ -154,6 +196,126 @@ class RenameSymbolTool : AbstractRefactoringTool() {
 
         } catch (e: Exception) {
             return createErrorResult("Rename failed: ${e.message}")
+        }
+    }
+
+    /**
+     * Finds related elements that should be renamed together with the main element.
+     * This includes:
+     * - Constructor parameters that match field names
+     * - Getter/setter methods that follow naming conventions
+     * - Overriding/implementing methods
+     */
+    private fun findRelatedElementsToRename(
+        element: PsiNamedElement,
+        oldName: String,
+        newName: String,
+        elementsToRename: MutableMap<PsiNamedElement, String>
+    ) {
+        when (element) {
+            is PsiField -> {
+                // Find constructor parameters with the same name
+                findMatchingConstructorParameters(element, oldName, newName, elementsToRename)
+                // Find getter/setter methods
+                findMatchingAccessorMethods(element, oldName, newName, elementsToRename)
+            }
+            is PsiParameter -> {
+                // If this is a constructor parameter, check if there's a matching field
+                val method = element.declarationScope
+                if (method is PsiMethod && method.isConstructor) {
+                    findMatchingField(method.containingClass, oldName, newName, elementsToRename)
+                }
+            }
+            is PsiMethod -> {
+                // Find overriding/implementing methods in subclasses
+                findOverridingMethods(element, newName, elementsToRename)
+            }
+        }
+    }
+
+    /**
+     * Finds constructor parameters that match a field name.
+     */
+    private fun findMatchingConstructorParameters(
+        field: PsiField,
+        oldName: String,
+        newName: String,
+        elementsToRename: MutableMap<PsiNamedElement, String>
+    ) {
+        val containingClass = field.containingClass ?: return
+
+        for (constructor in containingClass.constructors) {
+            for (parameter in constructor.parameterList.parameters) {
+                if (parameter.name == oldName) {
+                    elementsToRename[parameter] = newName
+                }
+            }
+        }
+    }
+
+    /**
+     * Finds getter/setter methods that match a field name.
+     */
+    private fun findMatchingAccessorMethods(
+        field: PsiField,
+        oldName: String,
+        newName: String,
+        elementsToRename: MutableMap<PsiNamedElement, String>
+    ) {
+        val containingClass = field.containingClass ?: return
+        val capitalizedOldName = oldName.replaceFirstChar { it.uppercase() }
+        val capitalizedNewName = newName.replaceFirstChar { it.uppercase() }
+
+        // Look for getters: getFieldName(), isFieldName() (for booleans)
+        val getterNames = listOf("get$capitalizedOldName", "is$capitalizedOldName")
+        val setterName = "set$capitalizedOldName"
+
+        for (method in containingClass.methods) {
+            val methodName = method.name
+            when {
+                methodName in getterNames && method.parameterList.parametersCount == 0 -> {
+                    val newGetterName = if (methodName.startsWith("is")) "is$capitalizedNewName" else "get$capitalizedNewName"
+                    elementsToRename[method] = newGetterName
+                }
+                methodName == setterName && method.parameterList.parametersCount == 1 -> {
+                    elementsToRename[method] = "set$capitalizedNewName"
+                }
+            }
+        }
+    }
+
+    /**
+     * Finds a field that matches a constructor parameter name.
+     */
+    private fun findMatchingField(
+        containingClass: PsiClass?,
+        oldName: String,
+        newName: String,
+        elementsToRename: MutableMap<PsiNamedElement, String>
+    ) {
+        containingClass ?: return
+
+        for (field in containingClass.fields) {
+            if (field.name == oldName) {
+                elementsToRename[field] = newName
+                // Also rename related accessor methods for the field
+                findMatchingAccessorMethods(field, oldName, newName, elementsToRename)
+            }
+        }
+    }
+
+    /**
+     * Finds methods that override or implement the given method.
+     */
+    private fun findOverridingMethods(
+        method: PsiMethod,
+        newName: String,
+        elementsToRename: MutableMap<PsiNamedElement, String>
+    ) {
+        // Find all methods that override this one
+        val overridingMethods = com.intellij.psi.search.searches.OverridingMethodsSearch.search(method).findAll()
+        for (overridingMethod in overridingMethods) {
+            elementsToRename[overridingMethod] = newName
         }
     }
 }
