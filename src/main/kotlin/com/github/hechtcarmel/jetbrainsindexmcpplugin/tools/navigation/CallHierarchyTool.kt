@@ -9,6 +9,7 @@ import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiMethod
 import com.intellij.psi.PsiNamedElement
+import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.search.searches.MethodReferencesSearch
 import com.intellij.psi.util.PsiTreeUtil
 import kotlinx.serialization.json.JsonObject
@@ -157,14 +158,26 @@ class CallHierarchyTool : AbstractMcpTool() {
         visited.add(methodKey)
 
         return try {
-            MethodReferencesSearch.search(method)
-                .findAll()
+            // Collect all methods to search: the method itself + all super methods it overrides
+            // This is crucial because callers might call through interface/parent class references
+            val methodsToSearch = mutableSetOf(method)
+            methodsToSearch.addAll(method.findDeepestSuperMethods())
+
+            val allReferences = mutableListOf<PsiElement>()
+            for (methodToSearch in methodsToSearch) {
+                MethodReferencesSearch.search(methodToSearch, GlobalSearchScope.projectScope(project), true)
+                    .findAll()
+                    .forEach { reference ->
+                        allReferences.add(reference.element)
+                    }
+            }
+
+            allReferences
                 .take(MAX_RESULTS_PER_LEVEL)
-                .mapNotNull { reference ->
-                    val refElement = reference.element
+                .mapNotNull { refElement ->
                     val containingMethod = PsiTreeUtil.getParentOfType(refElement, PsiMethod::class.java)
 
-                    if (containingMethod != null && containingMethod != method) {
+                    if (containingMethod != null && containingMethod != method && !methodsToSearch.contains(containingMethod)) {
                         val children = if (depth > 1) {
                             findCallersRecursive(project, containingMethod, depth - 1, visited)
                         } else {
