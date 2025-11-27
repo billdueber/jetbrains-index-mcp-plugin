@@ -4,7 +4,7 @@
     <name>IDE Index MCP Server</name>
     <vendor email="hechtcarmel@gmail.com" url="https://github.com/hechtcarmel">hechtcarmel</vendor>
     <description><![CDATA[
-<h2>IDE Index MCP Server</h2>
+MCP server for AI coding assistants.
 
 <p>Expose your IDE's powerful indexing and refactoring capabilities to AI coding assistants via the
 <a href="https://modelcontextprotocol.io">Model Context Protocol (MCP)</a>.</p>
