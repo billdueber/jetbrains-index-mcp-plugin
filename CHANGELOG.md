@@ -4,10 +4,40 @@
 
 ## [Unreleased]
 
+## [1.4.0] - 2025-11-28
+
+### Added
+- `ide_find_symbol` - New navigation tool to search for symbols (classes, methods, fields) by name
+  - Supports substring and CamelCase fuzzy matching
+  - Configurable result limit and library inclusion
+- `ide_find_super_methods` - New navigation tool to find the full inheritance hierarchy of overridden methods
+  - Shows all parent methods from interfaces and abstract classes
+  - Returns hierarchy chain ordered by depth
+- "Sync External Changes" setting to handle externally modified files
+  - Enable when AI tools modify files and searches miss newly created content
+- Reinstall command support for Claude Code CLI configuration
+
+### Changed
+- **BREAKING**: Server name changed from `intellij-index-mcp` to `jetbrains-index-mcp`
+  - Update your client configurations to use the new server name
+- Refactoring operations now execute immediately without confirmation dialog
+  - Better suited for AI agent workflows
+  - All operations still support undo via Ctrl/Cmd+Z
+- Tool count increased from 9 to 11 with new navigation capabilities
+
+### Removed
+- **BREAKING**: MCP resources framework completely removed
+  - `project://structure` - Use file exploration tools instead
+  - `file://content/{path}` - Use standard file reading
+  - `symbol://info/{fqn}` - Use `ide_find_symbol` or `ide_find_definition`
+  - `index://status` - Use `ide_index_status` tool instead
+
+---
+
 ## [1.3.0] - 2025-11-28
 
 ### Changed
-- **BREAKING**: Reduced tool count from 13 to 9 for a more focused API
+- Reduced tool count from 13 to 9 for a more focused API
 - Refactoring tools now limited to rename and safe delete
 
 ### Removed

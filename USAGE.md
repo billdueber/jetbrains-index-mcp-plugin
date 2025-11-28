@@ -6,9 +6,20 @@ This document provides detailed documentation for all MCP tools available in the
 
 - [Common Parameters](#common-parameters)
 - [Navigation Tools](#navigation-tools)
+  - [ide_find_references](#ide_find_references)
+  - [ide_find_definition](#ide_find_definition)
+  - [ide_type_hierarchy](#ide_type_hierarchy)
+  - [ide_call_hierarchy](#ide_call_hierarchy)
+  - [ide_find_implementations](#ide_find_implementations)
+  - [ide_find_symbol](#ide_find_symbol)
+  - [ide_find_super_methods](#ide_find_super_methods)
 - [Code Intelligence Tools](#code-intelligence-tools)
+  - [ide_diagnostics](#ide_diagnostics)
 - [Project Structure Tools](#project-structure-tools)
+  - [ide_index_status](#ide_index_status)
 - [Refactoring Tools](#refactoring-tools)
+  - [ide_refactor_rename](#ide_refactor_rename)
+  - [ide_refactor_safe_delete](#ide_refactor_safe_delete)
 - [Error Handling](#error-handling)
 
 ---
@@ -258,6 +269,7 @@ Analyzes method call relationships to find callers or callees.
 | `line` | integer | Yes | 1-based line number |
 | `column` | integer | Yes | 1-based column number |
 | `direction` | string | Yes | `"callers"` or `"callees"` |
+| `depth` | integer | No | How deep to traverse (default: 3, max: 5) |
 
 **Example Request:**
 
@@ -630,447 +642,6 @@ Analyzes a file for code problems (errors, warnings) and available intentions/qu
 
 ### ide_index_status
 
-Gets detailed information about a symbol including type, documentation, and modifiers.
-
-**Use when:**
-- Understanding what a symbol represents
-- Getting documentation for a method or class
-- Checking modifiers and visibility
-
-**Parameters:**
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `file` | string | Yes | Path to the file relative to project root |
-| `line` | integer | Yes | 1-based line number |
-| `column` | integer | Yes | 1-based column number |
-
-**Example Request:**
-
-```json
-{
-  "method": "tools/call",
-  "params": {
-    "name": "ide_get_symbol_info",
-    "arguments": {
-      "file": "src/main/java/com/example/UserService.java",
-      "line": 15,
-      "column": 17
-    }
-  }
-}
-```
-
-**Example Response:**
-
-```json
-{
-  "name": "findUser",
-  "kind": "METHOD",
-  "type": "User",
-  "containingClass": "com.example.UserService",
-  "modifiers": ["public"],
-  "parameters": [
-    {
-      "name": "id",
-      "type": "String"
-    }
-  ],
-  "documentation": "Finds a user by their unique identifier.\n\n@param id the user ID\n@return the User object, or null if not found"
-}
-```
-
----
-
-### ide_get_completions
-
-Gets code completions at a given position.
-
-**Use when:**
-- Suggesting what can be typed next
-- Finding available methods on an object
-- Discovering API options
-
-**Parameters:**
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `file` | string | Yes | Path to the file relative to project root |
-| `line` | integer | Yes | 1-based line number |
-| `column` | integer | Yes | 1-based column number |
-
-**Example Request:**
-
-```json
-{
-  "method": "tools/call",
-  "params": {
-    "name": "ide_get_completions",
-    "arguments": {
-      "file": "src/main/java/com/example/App.java",
-      "line": 20,
-      "column": 25
-    }
-  }
-}
-```
-
-**Example Response:**
-
-```json
-{
-  "completions": [
-    {
-      "text": "findUser",
-      "displayText": "findUser(String id)",
-      "type": "METHOD",
-      "returnType": "User",
-      "documentation": "Finds a user by ID"
-    },
-    {
-      "text": "findAllUsers",
-      "displayText": "findAllUsers()",
-      "type": "METHOD",
-      "returnType": "List<User>",
-      "documentation": "Returns all users"
-    }
-  ]
-}
-```
-
----
-
-### ide_get_inspections
-
-Runs code inspections on a file or range to find problems.
-
-**Use when:**
-- Finding code issues
-- Checking code quality
-- Identifying potential bugs
-
-**Parameters:**
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `file` | string | Yes | Path to the file relative to project root |
-| `startLine` | integer | No | Start line for range inspection (1-based) |
-| `endLine` | integer | No | End line for range inspection (1-based) |
-
-**Example Request:**
-
-```json
-{
-  "method": "tools/call",
-  "params": {
-    "name": "ide_get_inspections",
-    "arguments": {
-      "file": "src/main/java/com/example/UserService.java"
-    }
-  }
-}
-```
-
-**Example Response:**
-
-```json
-{
-  "problems": [
-    {
-      "message": "Field 'logger' can be made final",
-      "severity": "WARNING",
-      "line": 8,
-      "column": 12,
-      "inspectionId": "FieldMayBeFinal"
-    },
-    {
-      "message": "Unused import 'java.util.Date'",
-      "severity": "WARNING",
-      "line": 3,
-      "column": 1,
-      "inspectionId": "UnusedImport"
-    }
-  ],
-  "totalCount": 2
-}
-```
-
-**Severity Values:**
-- `ERROR` - Compilation error
-- `WARNING` - Potential problem
-- `WEAK_WARNING` - Minor issue
-- `INFO` - Informational
-
----
-
-### ide_get_quick_fixes
-
-Gets available quick fixes at a specific position.
-
-**Use when:**
-- Finding ways to fix a problem
-- Getting IDE suggestions
-- Automating code corrections
-
-**Parameters:**
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `file` | string | Yes | Path to the file relative to project root |
-| `line` | integer | Yes | 1-based line number |
-| `column` | integer | Yes | 1-based column number |
-
-**Example Request:**
-
-```json
-{
-  "method": "tools/call",
-  "params": {
-    "name": "ide_get_quick_fixes",
-    "arguments": {
-      "file": "src/main/java/com/example/App.java",
-      "line": 15,
-      "column": 10
-    }
-  }
-}
-```
-
-**Example Response:**
-
-```json
-{
-  "fixes": [
-    {
-      "fixId": "fix_001",
-      "description": "Add 'final' modifier",
-      "familyName": "Add modifier"
-    },
-    {
-      "fixId": "fix_002",
-      "description": "Remove unused variable",
-      "familyName": "Remove unused element"
-    }
-  ]
-}
-```
-
----
-
-### ide_apply_quick_fix
-
-Applies a quick fix at a position.
-
-**Use when:**
-- Automatically fixing code issues
-- Applying IDE suggestions
-
-**Parameters:**
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `file` | string | Yes | Path to the file relative to project root |
-| `line` | integer | Yes | 1-based line number |
-| `column` | integer | Yes | 1-based column number |
-| `fixId` | string | Yes | The fix ID from `ide_get_quick_fixes` |
-
-**Example Request:**
-
-```json
-{
-  "method": "tools/call",
-  "params": {
-    "name": "ide_apply_quick_fix",
-    "arguments": {
-      "file": "src/main/java/com/example/App.java",
-      "line": 15,
-      "column": 10,
-      "fixId": "fix_001"
-    }
-  }
-}
-```
-
-**Example Response:**
-
-```json
-{
-  "success": true,
-  "message": "Applied fix: Add 'final' modifier",
-  "affectedFiles": ["src/main/java/com/example/App.java"]
-}
-```
-
----
-
-## Project Structure Tools
-
-### ide_get_project_structure
-
-Gets the project module structure with source roots.
-
-**Parameters:**
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| (none) | | | No parameters required |
-
-**Example Request:**
-
-```json
-{
-  "method": "tools/call",
-  "params": {
-    "name": "ide_get_project_structure",
-    "arguments": {}
-  }
-}
-```
-
-**Example Response:**
-
-```json
-{
-  "projectName": "my-application",
-  "basePath": "/Users/dev/my-application",
-  "modules": [
-    {
-      "name": "app",
-      "sourceRoots": [
-        "src/main/java",
-        "src/main/kotlin"
-      ],
-      "testSourceRoots": [
-        "src/test/java",
-        "src/test/kotlin"
-      ],
-      "resourceRoots": [
-        "src/main/resources"
-      ]
-    }
-  ]
-}
-```
-
----
-
-### ide_get_file_structure
-
-Gets the structure of a file (classes, methods, fields).
-
-**Use when:**
-- Understanding file organization
-- Getting an overview of a class
-- Navigating large files
-
-**Parameters:**
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `file` | string | Yes | Path to the file relative to project root |
-
-**Example Request:**
-
-```json
-{
-  "method": "tools/call",
-  "params": {
-    "name": "ide_get_file_structure",
-    "arguments": {
-      "file": "src/main/java/com/example/UserService.java"
-    }
-  }
-}
-```
-
-**Example Response:**
-
-```json
-{
-  "file": "src/main/java/com/example/UserService.java",
-  "elements": [
-    {
-      "name": "UserService",
-      "kind": "CLASS",
-      "line": 8,
-      "modifiers": ["public"],
-      "children": [
-        {
-          "name": "repository",
-          "kind": "FIELD",
-          "line": 10,
-          "type": "UserRepository",
-          "modifiers": ["private", "final"]
-        },
-        {
-          "name": "findUser",
-          "kind": "METHOD",
-          "line": 15,
-          "returnType": "User",
-          "parameters": ["String id"],
-          "modifiers": ["public"]
-        },
-        {
-          "name": "saveUser",
-          "kind": "METHOD",
-          "line": 22,
-          "returnType": "void",
-          "parameters": ["User user"],
-          "modifiers": ["public"]
-        }
-      ]
-    }
-  ]
-}
-```
-
----
-
-### ide_get_dependencies
-
-Gets the project dependencies (libraries and versions).
-
-**Parameters:**
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| (none) | | | No parameters required |
-
-**Example Request:**
-
-```json
-{
-  "method": "tools/call",
-  "params": {
-    "name": "ide_get_dependencies",
-    "arguments": {}
-  }
-}
-```
-
-**Example Response:**
-
-```json
-{
-  "dependencies": [
-    {
-      "name": "org.springframework:spring-core",
-      "version": "6.1.0",
-      "scope": "COMPILE"
-    },
-    {
-      "name": "junit:junit",
-      "version": "4.13.2",
-      "scope": "TEST"
-    }
-  ]
-}
-```
-
----
-
-### ide_index_status
-
 Checks if the IDE is in dumb mode (indexing) or smart mode.
 
 **Use when:**
@@ -1110,7 +681,7 @@ Checks if the IDE is in dumb mode (indexing) or smart mode.
 
 ## Refactoring Tools
 
-> **Warning**: All refactoring tools modify source files. Changes can be undone with Ctrl/Cmd+Z.
+> **Note**: All refactoring tools modify source files. Changes can be undone with Ctrl/Cmd+Z.
 
 ### ide_refactor_rename
 
@@ -1164,7 +735,7 @@ Renames a symbol and updates all references across the project.
 
 ---
 
-### ide_safe_delete
+### ide_refactor_safe_delete
 
 Safely deletes an element, first checking for usages.
 
@@ -1180,6 +751,7 @@ Safely deletes an element, first checking for usages.
 | `file` | string | Yes | Path to the file |
 | `line` | integer | Yes | 1-based line number |
 | `column` | integer | Yes | 1-based column number |
+| `force` | boolean | No | Force deletion even if usages exist (default: false) |
 
 **Example Request:**
 
@@ -1187,7 +759,7 @@ Safely deletes an element, first checking for usages.
 {
   "method": "tools/call",
   "params": {
-    "name": "ide_safe_delete",
+    "name": "ide_refactor_safe_delete",
     "arguments": {
       "file": "src/main/java/com/example/LegacyHelper.java",
       "line": 8,
