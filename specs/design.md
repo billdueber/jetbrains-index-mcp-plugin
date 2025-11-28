@@ -14,12 +14,11 @@
 4. [Data Models](#4-data-models)
 5. [MCP Server Implementation](#5-mcp-server-implementation)
 6. [Tool Implementation](#6-tool-implementation)
-7. [Resource Providers](#7-resource-providers)
-8. [GUI Components](#8-gui-components)
-9. [Settings & Configuration](#9-settings--configuration)
-10. [Threading Strategy](#10-threading-strategy)
-11. [Error Handling](#11-error-handling)
-12. [Testing Strategy](#12-testing-strategy)
+7. [GUI Components](#7-gui-components)
+8. [Settings & Configuration](#8-settings--configuration)
+9. [Threading Strategy](#9-threading-strategy)
+10. [Error Handling](#10-error-handling)
+11. [Testing Strategy](#11-testing-strategy)
 
 ---
 
@@ -249,14 +248,6 @@ src/main/kotlin/com/github/hechtcarmel/jetbrainsindexmcpplugin/
 │   └── project/                           # Project structure tools
 │       └── GetIndexStatusTool.kt
 │
-├── resources/                             # MCP Resource providers
-│   ├── ResourceRegistry.kt
-│   ├── McpResource.kt
-│   ├── ProjectStructureResource.kt
-│   ├── FileContentResource.kt
-│   ├── SymbolInfoResource.kt
-│   └── IndexStatusResource.kt
-│
 ├── history/                               # Command history
 │   ├── CommandHistoryService.kt           # History management service
 │   ├── CommandEntry.kt                    # History entry data class
@@ -310,23 +301,21 @@ src/main/resources/
 
 ### 3.1 McpServerService
 
-**Responsibility**: Application-level service managing tool and resource registries.
+**Responsibility**: Application-level service managing tool registry.
 
 ```kotlin
 @Service(Service.Level.APPLICATION)
 class McpServerService : Disposable {
 
     private val toolRegistry: ToolRegistry = ToolRegistry()
-    private val resourceRegistry: ResourceRegistry = ResourceRegistry()
     private val jsonRpcHandler: JsonRpcHandler
 
     init {
-        jsonRpcHandler = JsonRpcHandler(toolRegistry, resourceRegistry)
+        jsonRpcHandler = JsonRpcHandler(toolRegistry)
         toolRegistry.registerBuiltInTools()
     }
 
     fun getToolRegistry(): ToolRegistry = toolRegistry
-    fun getResourceRegistry(): ResourceRegistry = resourceRegistry
     fun getJsonRpcHandler(): JsonRpcHandler = jsonRpcHandler
 
     fun getServerUrl(project: Project): String {
@@ -447,17 +436,13 @@ class McpRequestHandler : HttpRequestHandler() {
 
 ```kotlin
 class JsonRpcHandler(
-    private val toolRegistry: ToolRegistry,
-    private val resourceRegistry: ResourceRegistry,
-    private val commandHistoryService: CommandHistoryService
+    private val toolRegistry: ToolRegistry
 ) {
     suspend fun handleRequest(jsonString: String): String
     suspend fun handleNotification(jsonString: String)
 
     private suspend fun processToolCall(request: JsonRpcRequest): JsonRpcResponse
-    private suspend fun processResourceRead(request: JsonRpcRequest): JsonRpcResponse
     private fun processToolsList(): JsonRpcResponse
-    private fun processResourcesList(): JsonRpcResponse
     private fun processInitialize(request: JsonRpcRequest): JsonRpcResponse
 
     private fun createErrorResponse(
@@ -598,21 +583,6 @@ sealed class ContentBlock {
     data class Image(val data: String, val mimeType: String) : ContentBlock()
 }
 
-@Serializable
-data class ResourceDefinition(
-    val uri: String,
-    val name: String,
-    val description: String,
-    val mimeType: String
-)
-
-@Serializable
-data class ResourceContent(
-    val uri: String,
-    val mimeType: String,
-    val text: String? = null,
-    val blob: String? = null
-)
 ```
 
 ### 4.3 Command History Models
@@ -803,10 +773,6 @@ suspend fun handleMcpRequest(call: ApplicationCall) {
                 processToolsList()
             jsonRpcRequest.method == "tools/call" ->
                 processToolCall(jsonRpcRequest)
-            jsonRpcRequest.method == "resources/list" ->
-                processResourcesList()
-            jsonRpcRequest.method == "resources/read" ->
-                processResourceRead(jsonRpcRequest)
             else ->
                 createMethodNotFoundResponse(jsonRpcRequest.id)
         }
@@ -1045,85 +1011,9 @@ fun registerBuiltInTools(project: Project) {
 
 ---
 
-## 7. Resource Providers
+## 7. GUI Components
 
-### 7.1 Resource Interface
-
-```kotlin
-interface McpResource {
-    val uri: String
-    val name: String
-    val description: String
-    val mimeType: String
-
-    suspend fun read(project: Project): ResourceContent
-}
-```
-
-### 7.2 Resource Implementations
-
-```kotlin
-class ProjectStructureResource : McpResource {
-    override val uri = "project://structure"
-    override val name = "Project Structure"
-    override val description = "Current project module structure"
-    override val mimeType = "application/json"
-
-    override suspend fun read(project: Project): ResourceContent {
-        val structure = readAction {
-            val moduleManager = ModuleManager.getInstance(project)
-            buildJsonObject {
-                put("name", project.name)
-                put("basePath", project.basePath)
-                putJsonArray("modules") {
-                    moduleManager.modules.forEach { module ->
-                        addJsonObject {
-                            put("name", module.name)
-                            putJsonArray("sourceRoots") {
-                                ModuleRootManager.getInstance(module)
-                                    .sourceRoots
-                                    .forEach { root ->
-                                        add(root.path)
-                                    }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        return ResourceContent(
-            uri = uri,
-            mimeType = mimeType,
-            text = structure.toString()
-        )
-    }
-}
-
-class IndexStatusResource : McpResource {
-    override val uri = "index://status"
-    override val name = "Index Status"
-    override val description = "IDE indexing status"
-    override val mimeType = "application/json"
-
-    override suspend fun read(project: Project): ResourceContent {
-        val status = buildJsonObject {
-            put("isDumbMode", DumbService.isDumb(project))
-            put("isIndexing", DumbService.getInstance(project).isAlternativeResolveEnabled)
-        }
-        return ResourceContent(
-            uri = uri,
-            mimeType = mimeType,
-            text = status.toString()
-        )
-    }
-}
-```
-
----
-
-## 8. GUI Components
-
-### 8.1 Tool Window Structure
+### 7.1 Tool Window Structure
 
 ```
 McpToolWindowFactory
@@ -1146,7 +1036,7 @@ McpToolWindowFactory
                     └── ResponseJsonViewer
 ```
 
-### 8.2 McpToolWindowFactory
+### 7.2 McpToolWindowFactory
 
 ```kotlin
 class McpToolWindowFactory : ToolWindowFactory {
@@ -1177,7 +1067,7 @@ class McpToolWindowFactory : ToolWindowFactory {
 }
 ```
 
-### 8.3 CommandHistoryPanel
+### 7.3 CommandHistoryPanel
 
 ```kotlin
 class CommandHistoryPanel(
@@ -1241,7 +1131,7 @@ class CommandHistoryPanel(
 }
 ```
 
-### 8.4 CommandListCellRenderer
+### 7.4 CommandListCellRenderer
 
 ```kotlin
 class CommandListCellRenderer : ListCellRenderer<CommandEntry> {
@@ -1290,9 +1180,9 @@ class CommandListCellRenderer : ListCellRenderer<CommandEntry> {
 
 ---
 
-## 9. Settings & Configuration
+## 8. Settings & Configuration
 
-### 9.1 McpSettings
+### 8.1 McpSettings
 
 ```kotlin
 @Service(Service.Level.APPLICATION)
@@ -1345,7 +1235,7 @@ class McpSettings : PersistentStateComponent<McpSettings.State> {
 }
 ```
 
-### 9.2 plugin.xml Configuration
+### 8.2 plugin.xml Configuration
 
 ```xml
 <idea-plugin>
@@ -1413,9 +1303,9 @@ class McpSettings : PersistentStateComponent<McpSettings.State> {
 
 ---
 
-## 10. Threading Strategy
+## 9. Threading Strategy
 
-### 10.1 Thread Usage Matrix
+### 9.1 Thread Usage Matrix
 
 | Operation | Thread | API |
 |-----------|--------|-----|
@@ -1427,7 +1317,7 @@ class McpSettings : PersistentStateComponent<McpSettings.State> {
 | File I/O | Background | Coroutine dispatcher |
 | History Update | Any + EDT notification | Service + `invokeLater` |
 
-### 10.2 Threading Utilities
+### 9.2 Threading Utilities
 
 ```kotlin
 object ThreadingUtils {
@@ -1477,9 +1367,9 @@ object ThreadingUtils {
 
 ---
 
-## 11. Error Handling
+## 10. Error Handling
 
-### 11.1 Exception Hierarchy
+### 10.1 Exception Hierarchy
 
 ```kotlin
 sealed class McpException(
@@ -1516,7 +1406,7 @@ class RefactoringConflictException(message: String) :
     McpException(message, -32004)
 ```
 
-### 11.2 Error Response Builder
+### 10.2 Error Response Builder
 
 ```kotlin
 object ErrorResponseBuilder {
@@ -1544,9 +1434,9 @@ object ErrorResponseBuilder {
 
 ---
 
-## 12. Testing Strategy
+## 11. Testing Strategy
 
-### 12.1 Test Categories
+### 11.1 Test Categories
 
 | Category | Framework | Coverage |
 |----------|-----------|----------|
@@ -1554,7 +1444,7 @@ object ErrorResponseBuilder {
 | Integration Tests | IntelliJ Test Framework | PSI operations, Full flows |
 | UI Tests | IntelliJ UI Test Robot | Tool window, Settings |
 
-### 12.2 Test Structure
+### 11.2 Test Structure
 
 ```
 src/test/kotlin/
@@ -1579,7 +1469,7 @@ src/test/kotlin/
     └── ToolExecutionIntegrationTest.kt
 ```
 
-### 12.3 Example Test
+### 11.3 Example Test
 
 ```kotlin
 class FindUsagesToolTest : BasePlatformTestCase() {
@@ -1667,3 +1557,4 @@ dependencies {
 | 1.2 | 2025-11-27 | Reduced tool count from 20 to 13; merged ide_analyze_code and ide_list_quick_fixes into ide_diagnostics; removed 7 tools |
 | 1.3 | 2025-11-28 | Reduced tool count from 13 to 9; removed extract_method, extract_variable, inline, move tools |
 | 1.4 | 2025-11-28 | Added ide_find_symbol and ide_find_super_methods navigation tools (11 tools total) |
+| 1.5 | 2025-11-28 | Removed Resource Providers (Section 7); resources functionality deprecated |

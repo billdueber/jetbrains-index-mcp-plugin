@@ -195,20 +195,9 @@
 
 ---
 
-## 4. MCP Resource Requirements
+## 4. GUI Requirements
 
-| ID | Requirement |
-|----|-------------|
-| RES-001 | The server SHALL expose resource: `project://structure` |
-| RES-002 | The server SHALL expose resource: `file://content/{path}` |
-| RES-003 | The server SHALL expose resource: `symbol://info/{fqn}` |
-| RES-004 | The server SHALL expose resource: `index://status` |
-
----
-
-## 5. GUI Requirements
-
-### 5.1 Tool Window
+### 4.1 Tool Window
 
 | ID | Requirement |
 |----|-------------|
@@ -220,7 +209,7 @@
 | GUI-006 | The tool window SHALL provide settings access via gear icon |
 | GUI-007 | The tool window SHALL provide a refresh button |
 
-### 5.2 Command History Panel
+### 4.2 Command History Panel
 
 | ID | Requirement |
 |----|-------------|
@@ -237,7 +226,7 @@
 | GUI-018 | Pending status SHALL be indicated with yellow color |
 | GUI-019 | The tool window SHALL provide a "Clear History" button |
 
-### 5.3 Command Details
+### 4.3 Command Details
 
 | ID | Requirement |
 |----|-------------|
@@ -247,7 +236,7 @@
 | GUI-023 | The command details SHALL show execution duration |
 | GUI-024 | The command details SHALL provide copy-to-clipboard functionality |
 
-### 5.4 Filtering and Search
+### 4.4 Filtering and Search
 
 | ID | Requirement |
 |----|-------------|
@@ -255,7 +244,7 @@
 | GUI-026 | The command history SHALL be filterable by status |
 | GUI-027 | The command history SHALL be searchable within parameters/results |
 
-### 5.5 Actions
+### 4.5 Actions
 
 | ID | Requirement |
 |----|-------------|
@@ -265,7 +254,7 @@
 
 ---
 
-## 6. Settings Requirements
+## 5. Settings Requirements
 
 | ID | Requirement |
 |----|-------------|
@@ -277,9 +266,9 @@
 
 ---
 
-## 7. Error Handling Requirements
+## 6. Error Handling Requirements
 
-### 7.1 Protocol Errors
+### 6.1 Protocol Errors
 
 | ID | Requirement |
 |----|-------------|
@@ -289,7 +278,7 @@
 | ERR-004 | The server SHALL return error code -32602 for invalid params |
 | ERR-005 | The server SHALL return error code -32603 for internal errors |
 
-### 7.2 Tool Errors
+### 6.2 Tool Errors
 
 | ID | Requirement |
 |----|-------------|
@@ -299,7 +288,7 @@
 | ERR-009 | The server SHALL return appropriate error when symbol is not found |
 | ERR-010 | The server SHALL return appropriate error for refactoring conflicts |
 
-### 7.3 Recovery
+### 6.3 Recovery
 
 | ID | Requirement |
 |----|-------------|
@@ -308,7 +297,7 @@
 
 ---
 
-## 8. Threading Requirements
+## 7. Threading Requirements
 
 | ID | Requirement |
 |----|-------------|
@@ -320,7 +309,7 @@
 
 ---
 
-## 9. Dependencies
+## 8. Dependencies
 
 | ID | Requirement |
 |----|-------------|
@@ -331,7 +320,7 @@
 
 ---
 
-## 10. IntelliJ Platform Dependencies
+## 9. IntelliJ Platform Dependencies
 
 | ID | Requirement |
 |----|-------------|
@@ -341,7 +330,7 @@
 
 ---
 
-## 11. Implementation Phases
+## 10. Implementation Phases
 
 ### Phase 1: Foundation (MVP)
 
@@ -364,8 +353,7 @@
 | PH2-003 | Phase 2 SHALL deliver: `ide_find_implementations` tool |
 | PH2-004 | Phase 2 SHALL deliver: `ide_diagnostics` tool (problems + intentions) |
 | PH2-005 | Phase 2 SHALL deliver: Full command history UI with filtering and search |
-| PH2-006 | Phase 2 SHALL deliver: Resource providers |
-| PH2-007 | Phase 2 SHALL deliver: Integration tests |
+| PH2-006 | Phase 2 SHALL deliver: Integration tests |
 
 ### Phase 3: Refactoring Operations
 
@@ -407,3 +395,4 @@
 | 1.1 | 2025-11-27 | Reduced tool count from 20 to 13; removed 8 tools, added ide_diagnostics |
 | 1.2 | 2025-11-28 | Reduced tool count from 13 to 9; removed extract_method, extract_variable, inline, move tools |
 | 1.3 | 2025-11-28 | Added ide_find_symbol and ide_find_super_methods navigation tools (11 tools total) |
+| 1.4 | 2025-11-28 | Removed MCP Resources (Section 4); resources functionality deprecated |

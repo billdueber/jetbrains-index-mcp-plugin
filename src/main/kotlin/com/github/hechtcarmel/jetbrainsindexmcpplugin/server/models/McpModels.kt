@@ -36,22 +36,6 @@ sealed class ContentBlock {
 }
 
 @Serializable
-data class ResourceDefinition(
-    val uri: String,
-    val name: String,
-    val description: String,
-    val mimeType: String
-)
-
-@Serializable
-data class ResourceContent(
-    val uri: String,
-    val mimeType: String,
-    val text: String? = null,
-    val blob: String? = null
-)
-
-@Serializable
 data class ServerInfo(
     val name: String,
     val version: String,
@@ -60,18 +44,11 @@ data class ServerInfo(
 
 @Serializable
 data class ServerCapabilities(
-    val tools: ToolCapability? = ToolCapability(),
-    val resources: ResourceCapability? = ResourceCapability()
+    val tools: ToolCapability? = ToolCapability()
 )
 
 @Serializable
 data class ToolCapability(
-    val listChanged: Boolean = false
-)
-
-@Serializable
-data class ResourceCapability(
-    val subscribe: Boolean = false,
     val listChanged: Boolean = false
 )
 
@@ -91,19 +68,4 @@ data class ToolsListResult(
 data class ToolCallParams(
     val name: String,
     val arguments: JsonObject? = null
-)
-
-@Serializable
-data class ResourcesListResult(
-    val resources: List<ResourceDefinition>
-)
-
-@Serializable
-data class ResourceReadParams(
-    val uri: String
-)
-
-@Serializable
-data class ResourceReadResult(
-    val contents: List<ResourceContent>
 )

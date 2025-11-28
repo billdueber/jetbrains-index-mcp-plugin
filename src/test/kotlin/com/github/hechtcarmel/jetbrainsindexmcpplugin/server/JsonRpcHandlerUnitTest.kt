@@ -3,7 +3,6 @@ package com.github.hechtcarmel.jetbrainsindexmcpplugin.server
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.McpConstants
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.constants.JsonRpcMethods
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.constants.ParamNames
-import com.github.hechtcarmel.jetbrainsindexmcpplugin.resources.ResourceRegistry
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.server.models.JsonRpcErrorCodes
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.server.models.JsonRpcRequest
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.server.models.JsonRpcResponse
@@ -21,7 +20,6 @@ class JsonRpcHandlerUnitTest : TestCase() {
 
     private lateinit var handler: JsonRpcHandler
     private lateinit var toolRegistry: ToolRegistry
-    private lateinit var resourceRegistry: ResourceRegistry
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -32,9 +30,7 @@ class JsonRpcHandlerUnitTest : TestCase() {
         super.setUp()
         toolRegistry = ToolRegistry()
         toolRegistry.registerBuiltInTools()
-        resourceRegistry = ResourceRegistry()
-        resourceRegistry.registerBuiltInResources()
-        handler = JsonRpcHandler(toolRegistry, resourceRegistry)
+        handler = JsonRpcHandler(toolRegistry)
     }
 
     fun testInitializeRequest() = runBlocking {
@@ -83,22 +79,6 @@ class JsonRpcHandlerUnitTest : TestCase() {
 
         val result = response.result!!.jsonObject
         assertNotNull("Result should contain tools array", result["tools"])
-    }
-
-    fun testResourcesListRequest() = runBlocking {
-        val request = JsonRpcRequest(
-            id = JsonPrimitive(3),
-            method = JsonRpcMethods.RESOURCES_LIST
-        )
-
-        val responseJson = handler.handleRequest(json.encodeToString(JsonRpcRequest.serializer(), request))
-        val response = json.decodeFromString<JsonRpcResponse>(responseJson)
-
-        assertNull("${JsonRpcMethods.RESOURCES_LIST} should not return error", response.error)
-        assertNotNull("${JsonRpcMethods.RESOURCES_LIST} should return result", response.result)
-
-        val result = response.result!!.jsonObject
-        assertNotNull("Result should contain resources array", result["resources"])
     }
 
     fun testPingRequest() = runBlocking {
@@ -179,48 +159,5 @@ class JsonRpcHandlerUnitTest : TestCase() {
 
         assertNotNull("Invalid JSON should return error", response.error)
         assertEquals(JsonRpcErrorCodes.PARSE_ERROR, response.error?.code)
-    }
-
-    fun testResourceReadMissingParams() = runBlocking {
-        val request = JsonRpcRequest(
-            id = JsonPrimitive(10),
-            method = JsonRpcMethods.RESOURCES_READ
-        )
-
-        val responseJson = handler.handleRequest(json.encodeToString(JsonRpcRequest.serializer(), request))
-        val response = json.decodeFromString<JsonRpcResponse>(responseJson)
-
-        assertNotNull("${JsonRpcMethods.RESOURCES_READ} without params should return error", response.error)
-        assertEquals(JsonRpcErrorCodes.INVALID_PARAMS, response.error?.code)
-    }
-
-    fun testResourceReadMissingUri() = runBlocking {
-        val request = JsonRpcRequest(
-            id = JsonPrimitive(11),
-            method = JsonRpcMethods.RESOURCES_READ,
-            params = buildJsonObject { }
-        )
-
-        val responseJson = handler.handleRequest(json.encodeToString(JsonRpcRequest.serializer(), request))
-        val response = json.decodeFromString<JsonRpcResponse>(responseJson)
-
-        assertNotNull("${JsonRpcMethods.RESOURCES_READ} without uri should return error", response.error)
-        assertEquals(JsonRpcErrorCodes.INVALID_PARAMS, response.error?.code)
-    }
-
-    fun testResourceReadUnknownResource() = runBlocking {
-        val request = JsonRpcRequest(
-            id = JsonPrimitive(12),
-            method = JsonRpcMethods.RESOURCES_READ,
-            params = buildJsonObject {
-                put(ParamNames.URI, "unknown://resource")
-            }
-        )
-
-        val responseJson = handler.handleRequest(json.encodeToString(JsonRpcRequest.serializer(), request))
-        val response = json.decodeFromString<JsonRpcResponse>(responseJson)
-
-        assertNotNull("${JsonRpcMethods.RESOURCES_READ} with unknown uri should return error", response.error)
-        assertEquals(JsonRpcErrorCodes.METHOD_NOT_FOUND, response.error?.code)
     }
 }

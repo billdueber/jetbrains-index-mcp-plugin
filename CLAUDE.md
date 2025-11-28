@@ -80,7 +80,6 @@ src/
 
 MCP servers expose:
 - **Tools** - Operations that can be invoked (e.g., `rename_symbol`, `find_usages`)
-- **Resources** - Data that provides context (e.g., project structure, file contents)
 - **Prompts** - Pre-defined interaction templates (optional)
 
 **Transport**: This plugin uses HTTP+SSE transport with JSON-RPC 2.0:
@@ -186,8 +185,6 @@ Tests are split into two categories to optimize execution time:
 | `ToolsTest` | `BasePlatformTestCase` | Tool execution with project |
 | `JsonRpcHandlerUnitTest` | `TestCase` | JSON-RPC protocol, error handling |
 | `JsonRpcHandlerTest` | `BasePlatformTestCase` | Tool calls requiring project |
-| `ResourcesUnitTest` | `TestCase` | Resource registry, metadata |
-| `ResourcesTest` | `BasePlatformTestCase` | Resource reads with project |
 | `CommandHistoryUnitTest` | `TestCase` | Data classes, filters |
 | `CommandHistoryServiceTest` | `BasePlatformTestCase` | Service with project |
 
@@ -203,7 +200,6 @@ Tests are split into two categories to optimize execution time:
 **Use `BasePlatformTestCase` (platform test) when:**
 - Test needs `project` instance
 - Test executes tools against a project
-- Test reads resources that require project context
 - Test uses project-level services (e.g., `CommandHistoryService`)
 - Test needs PSI or index access
 
@@ -249,12 +245,6 @@ Tests are split into two categories to optimize execution time:
 **Refactoring:**
 - `ide_refactor_rename` - Rename a symbol across the project
 - `ide_refactor_safe_delete` - Safely delete element
-
-### Resources Exposed
-- `index://status` - Index status (dumb/smart mode)
-- `project://structure` - Project module tree
-- `file://content/{path}` - File contents
-- `symbol://info/{fqn}` - Symbol information
 
 ## Useful IntelliJ Platform Classes
 

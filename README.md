@@ -33,7 +33,6 @@ Perfect for AI-assisted development workflows where accuracy and safety matter.
 - [Quick Start](#quick-start)
 - [Client Configuration](#client-configuration)
 - [Available Tools](#available-tools)
-- [Available Resources](#available-resources)
 - [Multi-Project Support](#multi-project-support)
 - [Tool Window](#tool-window)
 - [Error Codes](#error-codes)
@@ -184,17 +183,6 @@ The plugin provides **11 MCP tools** organized into four categories:
 > **Note**: Refactoring tools modify source files. All changes support undo via <kbd>Ctrl/Cmd+Z</kbd>.
 
 For detailed tool documentation with parameters and examples, see [USAGE.md](USAGE.md).
-
-## Available Resources
-
-The plugin exposes **4 MCP resources** for querying project state:
-
-| Resource URI | Description |
-|--------------|-------------|
-| `index://status` | IDE indexing status (dumb/smart mode) |
-| `project://structure` | Project module tree with source roots |
-| `file://content/{path}` | Read file content by path |
-| `symbol://info/{fqn}` | Symbol information by fully qualified name |
 
 ## Multi-Project Support
 

@@ -57,25 +57,6 @@ class ConstantsUnitTest : TestCase() {
         assertEquals("ping", JsonRpcMethods.PING)
         assertEquals("tools/list", JsonRpcMethods.TOOLS_LIST)
         assertEquals("tools/call", JsonRpcMethods.TOOLS_CALL)
-        assertEquals("resources/list", JsonRpcMethods.RESOURCES_LIST)
-        assertEquals("resources/read", JsonRpcMethods.RESOURCES_READ)
-    }
-
-    // ResourceUris tests
-
-    fun testResourceUrisStaticResources() {
-        assertEquals("index://status", ResourceUris.INDEX_STATUS)
-        assertEquals("project://structure", ResourceUris.PROJECT_STRUCTURE)
-    }
-
-    fun testResourceUrisPatterns() {
-        assertEquals("file://content/{path}", ResourceUris.FILE_CONTENT_PATTERN)
-        assertEquals("symbol://info/{fqn}", ResourceUris.SYMBOL_INFO_PATTERN)
-    }
-
-    fun testResourceUrisPrefixes() {
-        assertEquals("file://content/", ResourceUris.FILE_CONTENT_PREFIX)
-        assertEquals("symbol://info/", ResourceUris.SYMBOL_INFO_PREFIX)
     }
 
     // ParamNames tests

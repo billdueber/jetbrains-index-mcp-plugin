@@ -120,57 +120,6 @@ class McpModelsUnitTest : TestCase() {
         assertNotNull(deserialized.inputSchema)
     }
 
-    // ResourceDefinition tests
-
-    fun testResourceDefinitionSerialization() {
-        val resource = ResourceDefinition(
-            uri = "file://content/src/Main.kt",
-            name = "Main.kt",
-            description = "Source file",
-            mimeType = "text/x-kotlin"
-        )
-
-        val serialized = json.encodeToString(resource)
-        val deserialized = json.decodeFromString<ResourceDefinition>(serialized)
-
-        assertEquals("file://content/src/Main.kt", deserialized.uri)
-        assertEquals("Main.kt", deserialized.name)
-        assertEquals("Source file", deserialized.description)
-        assertEquals("text/x-kotlin", deserialized.mimeType)
-    }
-
-    // ResourceContent tests
-
-    fun testResourceContentWithText() {
-        val content = ResourceContent(
-            uri = "index://status",
-            mimeType = "application/json",
-            text = """{"isDumbMode":false}"""
-        )
-
-        val serialized = json.encodeToString(content)
-        val deserialized = json.decodeFromString<ResourceContent>(serialized)
-
-        assertEquals("index://status", deserialized.uri)
-        assertEquals("application/json", deserialized.mimeType)
-        assertNotNull(deserialized.text)
-        assertNull(deserialized.blob)
-    }
-
-    fun testResourceContentWithBlob() {
-        val content = ResourceContent(
-            uri = "file://binary/image.png",
-            mimeType = "image/png",
-            blob = "base64encodeddata=="
-        )
-
-        val serialized = json.encodeToString(content)
-        val deserialized = json.decodeFromString<ResourceContent>(serialized)
-
-        assertNull(deserialized.text)
-        assertNotNull(deserialized.blob)
-    }
-
     // ServerInfo tests
 
     fun testServerInfoSerialization() {
@@ -209,10 +158,7 @@ class McpModelsUnitTest : TestCase() {
         val deserialized = json.decodeFromString<ServerCapabilities>(serialized)
 
         assertNotNull(deserialized.tools)
-        assertNotNull(deserialized.resources)
         assertFalse(deserialized.tools!!.listChanged)
-        assertFalse(deserialized.resources!!.subscribe)
-        assertFalse(deserialized.resources!!.listChanged)
     }
 
     // InitializeResult tests
@@ -278,48 +224,5 @@ class McpModelsUnitTest : TestCase() {
 
         assertEquals("ide_index_status", deserialized.name)
         assertNull(deserialized.arguments)
-    }
-
-    // ResourcesListResult tests
-
-    fun testResourcesListResultSerialization() {
-        val result = ResourcesListResult(
-            resources = listOf(
-                ResourceDefinition("index://status", "Index Status", "IDE index status", "application/json"),
-                ResourceDefinition("project://structure", "Project Structure", "Module tree", "application/json")
-            )
-        )
-
-        val serialized = json.encodeToString(result)
-        val deserialized = json.decodeFromString<ResourcesListResult>(serialized)
-
-        assertEquals(2, deserialized.resources.size)
-    }
-
-    // ResourceReadParams tests
-
-    fun testResourceReadParamsSerialization() {
-        val params = ResourceReadParams(uri = "index://status")
-
-        val serialized = json.encodeToString(params)
-        val deserialized = json.decodeFromString<ResourceReadParams>(serialized)
-
-        assertEquals("index://status", deserialized.uri)
-    }
-
-    // ResourceReadResult tests
-
-    fun testResourceReadResultSerialization() {
-        val result = ResourceReadResult(
-            contents = listOf(
-                ResourceContent("index://status", "application/json", """{"status":"ready"}""")
-            )
-        )
-
-        val serialized = json.encodeToString(result)
-        val deserialized = json.decodeFromString<ResourceReadResult>(serialized)
-
-        assertEquals(1, deserialized.contents.size)
-        assertEquals("index://status", deserialized.contents[0].uri)
     }
 }

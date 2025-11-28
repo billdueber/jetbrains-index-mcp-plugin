@@ -1,7 +1,6 @@
 package com.github.hechtcarmel.jetbrainsindexmcpplugin.server
 
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.constants.ToolNames
-import com.github.hechtcarmel.jetbrainsindexmcpplugin.resources.ResourceRegistry
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.server.models.JsonRpcRequest
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.server.models.JsonRpcResponse
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.ToolRegistry
@@ -20,7 +19,6 @@ class JsonRpcHandlerTest : BasePlatformTestCase() {
 
     private lateinit var handler: JsonRpcHandler
     private lateinit var toolRegistry: ToolRegistry
-    private lateinit var resourceRegistry: ResourceRegistry
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -31,9 +29,7 @@ class JsonRpcHandlerTest : BasePlatformTestCase() {
         super.setUp()
         toolRegistry = ToolRegistry()
         toolRegistry.registerBuiltInTools()
-        resourceRegistry = ResourceRegistry()
-        resourceRegistry.registerBuiltInResources()
-        handler = JsonRpcHandler(toolRegistry, resourceRegistry)
+        handler = JsonRpcHandler(toolRegistry)
     }
 
     fun testToolCallWithValidTool() = runBlocking {

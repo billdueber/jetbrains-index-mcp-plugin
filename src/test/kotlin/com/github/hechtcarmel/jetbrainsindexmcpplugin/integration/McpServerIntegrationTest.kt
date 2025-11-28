@@ -1,7 +1,6 @@
 package com.github.hechtcarmel.jetbrainsindexmcpplugin.integration
 
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.constants.ToolNames
-import com.github.hechtcarmel.jetbrainsindexmcpplugin.resources.ResourceRegistry
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.server.JsonRpcHandler
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.server.models.JsonRpcRequest
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.server.models.JsonRpcResponse
@@ -18,13 +17,12 @@ import kotlinx.serialization.json.put
 
 /**
  * Integration tests for the MCP server endpoints.
- * Tests full server functionality including tools/list, tools/call, resources/list, and resources/read.
+ * Tests full server functionality including tools/list and tools/call.
  */
 class McpServerIntegrationTest : BasePlatformTestCase() {
 
     private lateinit var handler: JsonRpcHandler
     private lateinit var toolRegistry: ToolRegistry
-    private lateinit var resourceRegistry: ResourceRegistry
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -35,9 +33,7 @@ class McpServerIntegrationTest : BasePlatformTestCase() {
         super.setUp()
         toolRegistry = ToolRegistry()
         toolRegistry.registerBuiltInTools()
-        resourceRegistry = ResourceRegistry()
-        resourceRegistry.registerBuiltInResources()
-        handler = JsonRpcHandler(toolRegistry, resourceRegistry)
+        handler = JsonRpcHandler(toolRegistry)
     }
 
     // Server Initialization Tests
@@ -240,99 +236,6 @@ class McpServerIntegrationTest : BasePlatformTestCase() {
 
         assertNotNull("Missing tool name should return error", response.error)
         assertEquals(-32602, response.error?.code)
-    }
-
-    // Resources List Tests
-
-    fun testResourcesListEndpoint() = runBlocking {
-        val request = JsonRpcRequest(
-            id = JsonPrimitive(30),
-            method = "resources/list",
-            params = buildJsonObject { }
-        )
-
-        val responseJson = handler.handleRequest(json.encodeToString(JsonRpcRequest.serializer(), request))
-        val response = json.decodeFromString<JsonRpcResponse>(responseJson)
-
-        assertNull("resources/list should not return error", response.error)
-        assertNotNull("resources/list should return result", response.result)
-
-        val result = response.result!!.jsonObject
-        val resources = result["resources"]?.jsonArray
-        assertNotNull("Result should have resources array", resources)
-        assertTrue("Should have at least 4 resources", resources!!.size >= 4)
-    }
-
-    fun testResourcesListContainsExpectedResources() = runBlocking {
-        val request = JsonRpcRequest(
-            id = JsonPrimitive(31),
-            method = "resources/list",
-            params = buildJsonObject { }
-        )
-
-        val responseJson = handler.handleRequest(json.encodeToString(JsonRpcRequest.serializer(), request))
-        val response = json.decodeFromString<JsonRpcResponse>(responseJson)
-
-        val resources = response.result!!.jsonObject["resources"]?.jsonArray
-        val resourceUris = resources?.map { it.jsonObject["uri"]?.jsonPrimitive?.content }
-
-        assertTrue("Should contain index status resource",
-            resourceUris?.any { it?.contains("index://status") == true } == true)
-        assertTrue("Should contain project structure resource",
-            resourceUris?.any { it?.contains("project://structure") == true } == true)
-        assertTrue("Should contain file content resource",
-            resourceUris?.any { it?.contains("file://content") == true } == true)
-        assertTrue("Should contain symbol info resource",
-            resourceUris?.any { it?.contains("symbol://info") == true } == true)
-    }
-
-    // Resources Read Tests
-
-    fun testResourcesReadIndexStatus() = runBlocking {
-        val request = JsonRpcRequest(
-            id = JsonPrimitive(40),
-            method = "resources/read",
-            params = buildJsonObject {
-                put("uri", "index://status")
-            }
-        )
-
-        val responseJson = handler.handleRequest(json.encodeToString(JsonRpcRequest.serializer(), request))
-        val response = json.decodeFromString<JsonRpcResponse>(responseJson)
-
-        assertNull("resources/read index://status should not return error", response.error)
-        assertNotNull("resources/read should return result", response.result)
-    }
-
-    fun testResourcesReadProjectStructure() = runBlocking {
-        val request = JsonRpcRequest(
-            id = JsonPrimitive(41),
-            method = "resources/read",
-            params = buildJsonObject {
-                put("uri", "project://structure")
-            }
-        )
-
-        val responseJson = handler.handleRequest(json.encodeToString(JsonRpcRequest.serializer(), request))
-        val response = json.decodeFromString<JsonRpcResponse>(responseJson)
-
-        assertNull("resources/read project://structure should not return error", response.error)
-        assertNotNull("resources/read should return result", response.result)
-    }
-
-    fun testResourcesReadNonExistent() = runBlocking {
-        val request = JsonRpcRequest(
-            id = JsonPrimitive(42),
-            method = "resources/read",
-            params = buildJsonObject {
-                put("uri", "nonexistent://resource")
-            }
-        )
-
-        val responseJson = handler.handleRequest(json.encodeToString(JsonRpcRequest.serializer(), request))
-        val response = json.decodeFromString<JsonRpcResponse>(responseJson)
-
-        assertNotNull("Non-existent resource should return error", response.error)
     }
 
     // Error Handling Tests

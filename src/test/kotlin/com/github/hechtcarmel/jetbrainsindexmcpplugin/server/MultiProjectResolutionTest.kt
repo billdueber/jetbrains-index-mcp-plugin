@@ -1,7 +1,6 @@
 package com.github.hechtcarmel.jetbrainsindexmcpplugin.server
 
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.constants.ToolNames
-import com.github.hechtcarmel.jetbrainsindexmcpplugin.resources.ResourceRegistry
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.server.models.JsonRpcRequest
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.server.models.JsonRpcResponse
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.server.models.ToolCallResult
@@ -23,7 +22,6 @@ class MultiProjectResolutionTest : BasePlatformTestCase() {
 
     private lateinit var handler: JsonRpcHandler
     private lateinit var toolRegistry: ToolRegistry
-    private lateinit var resourceRegistry: ResourceRegistry
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -34,9 +32,7 @@ class MultiProjectResolutionTest : BasePlatformTestCase() {
         super.setUp()
         toolRegistry = ToolRegistry()
         toolRegistry.registerBuiltInTools()
-        resourceRegistry = ResourceRegistry()
-        resourceRegistry.registerBuiltInResources()
-        handler = JsonRpcHandler(toolRegistry, resourceRegistry)
+        handler = JsonRpcHandler(toolRegistry)
     }
 
     fun testToolCallWithSingleProject() = runBlocking {
@@ -113,24 +109,5 @@ class MultiProjectResolutionTest : BasePlatformTestCase() {
 
         assertEquals("project_not_found", errorJson["error"]?.jsonPrimitive?.content)
         assertNotNull("Should include available_projects", errorJson["available_projects"])
-    }
-
-    fun testResourceReadWithExplicitProjectPath() = runBlocking {
-        val projectPath = project.basePath
-
-        val request = JsonRpcRequest(
-            id = JsonPrimitive(4),
-            method = "resources/read",
-            params = buildJsonObject {
-                put("uri", "index://status")
-                put("project_path", projectPath ?: "")
-            }
-        )
-
-        val responseJson = handler.handleRequest(json.encodeToString(JsonRpcRequest.serializer(), request))
-        val response = json.decodeFromString<JsonRpcResponse>(responseJson)
-
-        assertNull("Resource read with explicit project_path should not error", response.error)
-        assertNotNull("Should return result", response.result)
     }
 }

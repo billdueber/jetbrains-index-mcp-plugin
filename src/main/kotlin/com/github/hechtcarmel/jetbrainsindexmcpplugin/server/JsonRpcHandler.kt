@@ -4,13 +4,9 @@ import com.github.hechtcarmel.jetbrainsindexmcpplugin.McpConstants
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.constants.ErrorMessages
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.constants.JsonRpcMethods
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.constants.ParamNames
-import com.github.hechtcarmel.jetbrainsindexmcpplugin.constants.ResourceUris
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.history.CommandEntry
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.history.CommandHistoryService
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.history.CommandStatus
-import com.github.hechtcarmel.jetbrainsindexmcpplugin.resources.FileContentResource
-import com.github.hechtcarmel.jetbrainsindexmcpplugin.resources.ResourceRegistry
-import com.github.hechtcarmel.jetbrainsindexmcpplugin.resources.SymbolInfoResource
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.server.models.*
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.ToolRegistry
 import com.intellij.openapi.diagnostic.logger
@@ -20,8 +16,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
 
 class JsonRpcHandler(
-    private val toolRegistry: ToolRegistry,
-    private val resourceRegistry: ResourceRegistry
+    private val toolRegistry: ToolRegistry
 ) {
     private val json = Json {
         ignoreUnknownKeys = true
@@ -57,8 +52,6 @@ class JsonRpcHandler(
             JsonRpcMethods.INITIALIZED -> processInitialized(request)
             JsonRpcMethods.TOOLS_LIST -> processToolsList(request)
             JsonRpcMethods.TOOLS_CALL -> processToolCall(request)
-            JsonRpcMethods.RESOURCES_LIST -> processResourcesList(request)
-            JsonRpcMethods.RESOURCES_READ -> processResourceRead(request)
             JsonRpcMethods.PING -> processPing(request)
             else -> createMethodNotFoundResponse(request.id, request.method)
         }
@@ -73,8 +66,7 @@ class JsonRpcHandler(
                 description = McpConstants.SERVER_DESCRIPTION
             ),
             capabilities = ServerCapabilities(
-                tools = ToolCapability(listChanged = false),
-                resources = ResourceCapability(subscribe = false, listChanged = false)
+                tools = ToolCapability(listChanged = false)
             )
         )
 
@@ -182,82 +174,6 @@ class JsonRpcHandler(
                     )
                 )
             )
-        }
-    }
-
-    private suspend fun processResourcesList(request: JsonRpcRequest): JsonRpcResponse {
-        val resources = resourceRegistry.getResourceDefinitions()
-        val result = ResourcesListResult(resources = resources)
-
-        return JsonRpcResponse(
-            id = request.id,
-            result = json.encodeToJsonElement(result)
-        )
-    }
-
-    private suspend fun processResourceRead(request: JsonRpcRequest): JsonRpcResponse {
-        val params = request.params
-            ?: return createInvalidParamsResponse(request.id, ErrorMessages.MISSING_PARAMS)
-
-        val uri = params[ParamNames.URI]?.jsonPrimitive?.contentOrNull
-            ?: return createInvalidParamsResponse(request.id, ErrorMessages.MISSING_RESOURCE_URI)
-
-        val resource = resourceRegistry.getResource(uri)
-            ?: return createMethodNotFoundResponse(request.id, ErrorMessages.resourceNotFound(uri))
-
-        // Extract optional project_path from params
-        val projectPath = params[ParamNames.PROJECT_PATH]?.jsonPrimitive?.contentOrNull
-
-        val projectResult = resolveProject(projectPath)
-        if (projectResult.isError) {
-            return JsonRpcResponse(
-                id = request.id,
-                result = json.encodeToJsonElement(projectResult.errorResult!!)
-            )
-        }
-
-        val project = projectResult.project!!
-
-        return try {
-            // Handle parameterized resources
-            val content = when (resource) {
-                is FileContentResource -> {
-                    // Extract path from URI: file://content/{path}
-                    val path = extractPathFromUri(uri, ResourceUris.FILE_CONTENT_PREFIX)
-                    if (path != null) {
-                        resource.readWithPath(project, path)
-                    } else {
-                        resource.read(project)
-                    }
-                }
-                is SymbolInfoResource -> {
-                    // Extract FQN from URI: symbol://info/{fqn}
-                    val fqn = extractPathFromUri(uri, ResourceUris.SYMBOL_INFO_PREFIX)
-                    if (fqn != null) {
-                        resource.readWithFqn(project, fqn)
-                    } else {
-                        resource.read(project)
-                    }
-                }
-                else -> resource.read(project)
-            }
-            val result = ResourceReadResult(contents = listOf(content))
-
-            JsonRpcResponse(
-                id = request.id,
-                result = json.encodeToJsonElement(result)
-            )
-        } catch (e: Exception) {
-            LOG.error("Resource read failed: $uri", e)
-            createInternalErrorResponse(request.id, e.message ?: ErrorMessages.UNKNOWN_ERROR)
-        }
-    }
-
-    private fun extractPathFromUri(uri: String, prefix: String): String? {
-        return if (uri.startsWith(prefix) && uri.length > prefix.length) {
-            uri.substring(prefix.length)
-        } else {
-            null
         }
     }
 

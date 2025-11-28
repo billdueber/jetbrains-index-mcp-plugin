@@ -1,7 +1,6 @@
 package com.github.hechtcarmel.jetbrainsindexmcpplugin.server
 
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.McpConstants
-import com.github.hechtcarmel.jetbrainsindexmcpplugin.resources.ResourceRegistry
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.ToolRegistry
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.Service
@@ -14,7 +13,6 @@ import org.jetbrains.ide.BuiltInServerManager
  *
  * This service manages:
  * - Tool registry for MCP tools
- * - Resource registry for MCP resources
  * - JSON-RPC handler for message processing
  *
  * Uses HTTP+SSE transport for compatibility with MCP clients.
@@ -23,7 +21,6 @@ import org.jetbrains.ide.BuiltInServerManager
 class McpServerService : Disposable {
 
     private val toolRegistry: ToolRegistry = ToolRegistry()
-    private val resourceRegistry: ResourceRegistry = ResourceRegistry()
     private val jsonRpcHandler: JsonRpcHandler
 
     companion object {
@@ -34,20 +31,15 @@ class McpServerService : Disposable {
 
     init {
         LOG.info("Initializing MCP Server Service (Protocol: ${McpConstants.MCP_PROTOCOL_VERSION})")
-        jsonRpcHandler = JsonRpcHandler(toolRegistry, resourceRegistry)
+        jsonRpcHandler = JsonRpcHandler(toolRegistry)
 
         // Register built-in tools
         toolRegistry.registerBuiltInTools()
-
-        // Register built-in resources
-        resourceRegistry.registerBuiltInResources()
 
         LOG.info("MCP Server Service initialized with HTTP+SSE transport")
     }
 
     fun getToolRegistry(): ToolRegistry = toolRegistry
-
-    fun getResourceRegistry(): ResourceRegistry = resourceRegistry
 
     fun getJsonRpcHandler(): JsonRpcHandler = jsonRpcHandler
 
@@ -78,8 +70,7 @@ class McpServerService : Disposable {
             sseUrl = getServerUrl(),
             postUrl = "http://localhost:${getServerPort()}${McpConstants.MCP_ENDPOINT_PATH}",
             port = getServerPort(),
-            registeredTools = toolRegistry.getAllTools().size,
-            registeredResources = resourceRegistry.getAllResources().size
+            registeredTools = toolRegistry.getAllTools().size
         )
     }
 
@@ -98,6 +89,5 @@ data class ServerStatusInfo(
     val sseUrl: String,
     val postUrl: String,
     val port: Int,
-    val registeredTools: Int,
-    val registeredResources: Int
+    val registeredTools: Int
 )

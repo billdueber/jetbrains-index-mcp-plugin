@@ -1,6 +1,6 @@
 # IDE Index MCP Server - Tool Reference
 
-This document provides detailed documentation for all MCP tools and resources available in the IDE Index MCP Server plugin.
+This document provides detailed documentation for all MCP tools available in the IDE Index MCP Server plugin.
 
 ## Table of Contents
 
@@ -9,7 +9,6 @@ This document provides detailed documentation for all MCP tools and resources av
 - [Code Intelligence Tools](#code-intelligence-tools)
 - [Project Structure Tools](#project-structure-tools)
 - [Refactoring Tools](#refactoring-tools)
-- [Resources](#resources)
 - [Error Handling](#error-handling)
 
 ---
@@ -1220,89 +1219,6 @@ Safely deletes an element, first checking for usages.
       "context": "LegacyHelper.convert(data)"
     }
   ]
-}
-```
-
----
-
-## Resources
-
-MCP resources provide read-only access to project state.
-
-### index://status
-
-Returns the current IDE indexing status.
-
-**Read Request:**
-
-```json
-{
-  "method": "resources/read",
-  "params": {
-    "uri": "index://status"
-  }
-}
-```
-
-**Response:**
-
-```json
-{
-  "isDumbMode": false,
-  "isIndexing": false,
-  "isSmartMode": true,
-  "projectName": "my-application"
-}
-```
-
----
-
-### project://structure
-
-Returns the project module structure.
-
-**Read Request:**
-
-```json
-{
-  "method": "resources/read",
-  "params": {
-    "uri": "project://structure"
-  }
-}
-```
-
----
-
-### file://content/{path}
-
-Returns the content of a file.
-
-**Read Request:**
-
-```json
-{
-  "method": "resources/read",
-  "params": {
-    "uri": "file://content/src/main/java/com/example/App.java"
-  }
-}
-```
-
----
-
-### symbol://info/{fqn}
-
-Returns information about a symbol by fully qualified name.
-
-**Read Request:**
-
-```json
-{
-  "method": "resources/read",
-  "params": {
-    "uri": "symbol://info/com.example.UserService"
-  }
 }
 ```
 
