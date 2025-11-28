@@ -114,7 +114,8 @@ class McpServerIntegrationTest : BasePlatformTestCase() {
         val result = response.result!!.jsonObject
         val tools = result["tools"]?.jsonArray
         assertNotNull("Result should have tools array", tools)
-        assertTrue("Should have at least 13 tools", tools!!.size >= 13)
+        val toolsCount = 9
+        assertTrue("Should have at least $toolsCount tools", tools!!.size >= toolsCount)
     }
 
     fun testToolsListContainsNavigationTools() = runBlocking {

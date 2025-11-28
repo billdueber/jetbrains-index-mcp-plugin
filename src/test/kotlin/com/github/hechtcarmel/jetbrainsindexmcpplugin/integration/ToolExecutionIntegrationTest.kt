@@ -163,11 +163,7 @@ class ToolExecutionIntegrationTest : BasePlatformTestCase() {
             ToolNames.INDEX_STATUS,
             // Refactoring tools
             ToolNames.REFACTOR_RENAME,
-            ToolNames.REFACTOR_EXTRACT_METHOD,
-            ToolNames.REFACTOR_EXTRACT_VARIABLE,
-            ToolNames.REFACTOR_INLINE,
-            ToolNames.REFACTOR_SAFE_DELETE,
-            ToolNames.REFACTOR_MOVE
+            ToolNames.REFACTOR_SAFE_DELETE
         )
 
         assertEquals("Should have correct number of tools", expectedTools.size, registry.getAllTools().size)
