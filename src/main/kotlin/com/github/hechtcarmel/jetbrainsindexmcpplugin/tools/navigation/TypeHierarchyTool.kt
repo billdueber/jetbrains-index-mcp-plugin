@@ -67,7 +67,7 @@ class TypeHierarchyTool : AbstractMcpTool() {
         }
     }
 
-    override suspend fun execute(project: Project, arguments: JsonObject): ToolCallResult {
+    override suspend fun doExecute(project: Project, arguments: JsonObject): ToolCallResult {
         requireSmartMode(project)
 
         val className = arguments["className"]?.jsonPrimitive?.content

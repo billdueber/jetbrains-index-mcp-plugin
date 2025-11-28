@@ -111,8 +111,7 @@
 #### Settings
 - Maximum history size (default: 100)
 - Auto-scroll toggle (default: enabled)
-- Timestamp display toggle (default: enabled)
-- Write operation confirmation toggle (default: enabled)
+- Sync external file changes toggle (default: disabled)
 
 ### Technical Details
 - **Platform**: IntelliJ IDEA 2025.1+ (build 251+)

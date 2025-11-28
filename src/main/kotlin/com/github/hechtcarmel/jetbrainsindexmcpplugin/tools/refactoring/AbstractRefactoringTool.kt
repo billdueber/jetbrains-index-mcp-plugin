@@ -2,13 +2,10 @@ package com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.refactoring
 
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.exceptions.RefactoringConflictException
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.server.models.ToolCallResult
-import com.github.hechtcarmel.jetbrainsindexmcpplugin.settings.McpSettings
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.AbstractMcpTool
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.models.RefactoringResult
 import com.intellij.openapi.application.ApplicationManager
-import com.intellij.openapi.command.CommandProcessor
 import com.intellij.openapi.command.WriteCommandAction
-import com.intellij.openapi.command.undo.UndoManager
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
@@ -16,14 +13,12 @@ import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiNamedElement
 import com.intellij.psi.util.PsiTreeUtil
-import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Abstract base class for all refactoring tools.
  * Provides common utilities for:
  * - Write operations with undo support
  * - Affected files tracking
- * - User confirmation handling
  * - Error handling for refactoring conflicts
  */
 abstract class AbstractRefactoringTool : AbstractMcpTool() {
@@ -123,47 +118,4 @@ abstract class AbstractRefactoringTool : AbstractMcpTool() {
     ) {
         collector.add(getRelativePath(project, file))
     }
-
-    /**
-     * Checks if user confirmation is required for write operations.
-     */
-    protected fun isConfirmationRequired(): Boolean {
-        return try {
-            McpSettings.getInstance().confirmWriteOperations
-        } catch (e: Exception) {
-            // If settings can't be accessed, default to not requiring confirmation
-            // (this can happen in test environments)
-            false
-        }
-    }
-
-    /**
-     * Creates a refactoring preview result without actually performing the refactoring.
-     * This is used when confirmation is required.
-     */
-    protected fun createPreviewResult(
-        commandName: String,
-        affectedFiles: List<String>,
-        description: String
-    ): ToolCallResult {
-        return createJsonResult(
-            RefactoringPreviewInfo(
-                commandName = commandName,
-                affectedFiles = affectedFiles,
-                description = description,
-                confirmationRequired = true
-            )
-        )
-    }
 }
-
-/**
- * Information about a refactoring that requires user confirmation.
- */
-@kotlinx.serialization.Serializable
-data class RefactoringPreviewInfo(
-    val commandName: String,
-    val affectedFiles: List<String>,
-    val description: String,
-    val confirmationRequired: Boolean
-)

@@ -15,7 +15,10 @@ import kotlinx.serialization.json.JsonObject
  * To create a custom tool:
  * 1. Extend [AbstractMcpTool] for common functionality
  * 2. Define the tool's [name], [description], and [inputSchema]
- * 3. Implement the [execute] method with your tool's logic
+ * 3. Implement the [AbstractMcpTool.doExecute] method with your tool's logic
+ *
+ * **Important**: Do not override [execute] directly. The base class handles PSI synchronization
+ * automatically before calling your [AbstractMcpTool.doExecute] implementation.
  *
  * Example:
  * ```kotlin
@@ -33,7 +36,7 @@ import kotlinx.serialization.json.JsonObject
  *         putJsonArray("required") { add(JsonPrimitive("param1")) }
  *     }
  *
- *     override suspend fun execute(project: Project, arguments: JsonObject): ToolCallResult {
+ *     override suspend fun doExecute(project: Project, arguments: JsonObject): ToolCallResult {
  *         val param1 = arguments["param1"]?.jsonPrimitive?.content
  *             ?: return createErrorResult("Missing required parameter: param1")
  *         // ... tool logic
@@ -49,6 +52,7 @@ import kotlinx.serialization.json.JsonObject
  * - Extension point `com.github.hechtcarmel.jetbrainsindexmcpplugin.mcpTool`
  *
  * @see AbstractMcpTool
+ * @see AbstractMcpTool.doExecute
  * @see ToolRegistry
  * @see ToolCallResult
  */
@@ -100,15 +104,16 @@ interface McpTool {
      * Executes the tool with the given arguments.
      *
      * This method is called when an MCP client invokes the tool.
-     * Implementations should:
-     * - Validate input parameters
-     * - Check for dumb mode if index access is required
-     * - Use appropriate read/write actions for PSI operations
-     * - Return a [ToolCallResult] with success or error information
+     *
+     * **Implementation Note**: When extending [AbstractMcpTool], do not override this method.
+     * Instead, override [AbstractMcpTool.doExecute]. The base class implements this method
+     * to handle PSI synchronization automatically before delegating to `doExecute`.
      *
      * @param project The IntelliJ project context (already resolved from project_path if provided)
      * @param arguments The tool arguments as a JSON object matching [inputSchema]
      * @return A [ToolCallResult] containing the operation result or error information
+     *
+     * @see AbstractMcpTool.doExecute
      */
     suspend fun execute(project: Project, arguments: JsonObject): ToolCallResult
 }

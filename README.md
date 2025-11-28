@@ -256,9 +256,7 @@ Configure the plugin at <kbd>Settings</kbd> > <kbd>Tools</kbd> > <kbd>Index MCP 
 |---------|---------|-------------|
 | Max History Size | 100 | Maximum number of commands to keep in history |
 | Auto-scroll | true | Auto-scroll to new commands in history |
-| Show Timestamps | true | Display timestamps in command history |
-| Confirm Write Operations | true | Show confirmation dialog for refactoring operations |
-| Enable File Logging | false | Log commands to a file |
+| Sync External Changes | false | Sync external file changes before operations |
 
 ## Requirements
 

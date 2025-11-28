@@ -65,7 +65,7 @@ class FindDefinitionTool : AbstractMcpTool() {
         }
     }
 
-    override suspend fun execute(project: Project, arguments: JsonObject): ToolCallResult {
+    override suspend fun doExecute(project: Project, arguments: JsonObject): ToolCallResult {
         val file = arguments[ParamNames.FILE]?.jsonPrimitive?.content
             ?: return createErrorResult(ErrorMessages.missingRequiredParam(ParamNames.FILE))
         val line = arguments[ParamNames.LINE]?.jsonPrimitive?.int

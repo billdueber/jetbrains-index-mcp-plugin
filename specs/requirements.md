@@ -260,9 +260,7 @@
 |----|-------------|
 | SET-001 | The plugin SHALL provide a setting: Max History Size (default: 100) |
 | SET-002 | The plugin SHALL provide a setting: Auto-scroll (default: true) |
-| SET-003 | The plugin SHALL provide a setting: Show Timestamps (default: true) |
-| SET-004 | The plugin SHALL provide a setting: Confirmation Required for write operations (default: true) |
-| SET-005 | The plugin SHALL provide a setting: Log to File (default: false) |
+| SET-003 | The plugin SHALL provide a setting: Sync External Changes (default: false) |
 
 ---
 
@@ -361,9 +359,7 @@
 |----|-------------|
 | PH3-001 | Phase 3 SHALL deliver: `ide_refactor_rename` tool |
 | PH3-002 | Phase 3 SHALL deliver: `ide_refactor_safe_delete` tool |
-| PH3-003 | Phase 3 SHALL deliver: User confirmation dialog for write operations |
-| PH3-004 | Phase 3 SHALL deliver: Undo/redo integration |
-| PH3-005 | Phase 3 SHALL deliver: Refactoring preview functionality |
+| PH3-003 | Phase 3 SHALL deliver: Undo/redo integration |
 
 ### Phase 4: Polish & Release
 

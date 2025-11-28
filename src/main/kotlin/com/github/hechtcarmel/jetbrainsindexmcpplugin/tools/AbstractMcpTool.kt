@@ -3,6 +3,8 @@ package com.github.hechtcarmel.jetbrainsindexmcpplugin.tools
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.exceptions.IndexNotReadyException
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.server.models.ContentBlock
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.server.models.ToolCallResult
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.settings.McpSettings
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.editor.Document
@@ -10,6 +12,7 @@ import com.intellij.openapi.project.DumbService
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.TextRange
 import com.intellij.openapi.vfs.LocalFileSystem
+import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.JavaPsiFacade
 import com.intellij.psi.PsiClass
@@ -30,7 +33,8 @@ import kotlinx.serialization.json.putJsonObject
 /**
  * Abstract base class for MCP tools providing common functionality.
  *
- * This class provides utility methods for:
+ * This class provides:
+ * - **PSI synchronization**: Automatically commits document changes before tool execution
  * - Dumb mode checking ([requireSmartMode])
  * - Thread-safe PSI access ([readAction], [writeAction])
  * - File and PSI element resolution ([resolveFile], [findPsiElement])
@@ -38,7 +42,7 @@ import kotlinx.serialization.json.putJsonObject
  *
  * ## Usage
  *
- * Extend this class to implement custom tools:
+ * Extend this class and implement [doExecute]:
  *
  * ```kotlin
  * class MyTool : AbstractMcpTool() {
@@ -46,7 +50,7 @@ import kotlinx.serialization.json.putJsonObject
  *     override val description = "My tool description"
  *     override val inputSchema = buildJsonObject { /* schema */ }
  *
- *     override suspend fun execute(project: Project, arguments: JsonObject): ToolCallResult {
+ *     override suspend fun doExecute(project: Project, arguments: JsonObject): ToolCallResult {
  *         requireSmartMode(project)  // If index access is needed
  *         return readAction {
  *             // PSI operations here
@@ -56,7 +60,22 @@ import kotlinx.serialization.json.putJsonObject
  * }
  * ```
  *
+ * ## PSI Synchronization
+ *
+ * By default, all tools automatically synchronize PSI with document changes before
+ * execution. This ensures that recently created or modified files (e.g., by external
+ * tools like Claude Code's write tool) are visible to PSI-based searches.
+ *
+ * This behavior is controlled by:
+ * - **User setting**: "Sync external file changes" in Settings (enabled by default)
+ * - **Per-tool opt-out**: Override [requiresPsiSync] to `false` for tools that don't use PSI
+ *
+ * ```kotlin
+ * override val requiresPsiSync: Boolean = false
+ * ```
+ *
  * @see McpTool
+ * @see doExecute
  */
 abstract class AbstractMcpTool : McpTool {
 
@@ -91,9 +110,83 @@ abstract class AbstractMcpTool : McpTool {
     }
 
     /**
+     * Whether this tool requires PSI synchronization before execution.
+     *
+     * When true (default) AND the user has "Sync external file changes" enabled,
+     * [execute] will commit all document changes to PSI before calling [doExecute].
+     * This ensures that recently created or modified files are visible to
+     * PSI-based searches and operations.
+     *
+     * Override and return false for tools that:
+     * - Only check status (e.g., index status)
+     * - Don't interact with PSI indices or search APIs
+     *
+     * @see ensurePsiUpToDate
+     * @see McpSettings.syncExternalChanges
+     */
+    protected open val requiresPsiSync: Boolean = true
+
+    /**
+     * Ensures all document changes are committed to PSI before proceeding.
+     *
+     * This is necessary because external tools (like Claude Code's write tool)
+     * may create or modify files immediately before calling MCP tools.
+     * Without this, PSI-based searches may miss recently created/modified content.
+     *
+     * Called automatically by [execute] when [requiresPsiSync] is true.
+     */
+    private fun ensurePsiUpToDate(project: Project) {
+        // 1. Force VFS to see external changes
+        val projectDir = project.basePath?.let { LocalFileSystem.getInstance().findFileByPath(it) }
+        if (projectDir != null) {
+            // Synchronous, recursive refresh to pick up external file creations/modifications
+            VfsUtil.markDirtyAndRefresh(false, true, true, projectDir)
+        }
+
+        // 2. Commit Documents
+        ApplicationManager.getApplication().invokeAndWait {
+            PsiDocumentManager.getInstance(project).commitAllDocuments()
+        }
+    }
+
+    /**
+     * Template method that handles common setup before delegating to tool-specific logic.
+     *
+     * This method:
+     * 1. Synchronizes PSI with documents (if enabled by settings and tool requires it)
+     * 2. Delegates to [doExecute] for tool-specific implementation
+     *
+     * PSI synchronization runs when:
+     * - The tool's [requiresPsiSync] is true (tool needs PSI), AND
+     * - The user's "Sync external file changes" setting is enabled
+     *
+     * @param project The IntelliJ project context
+     * @param arguments The tool arguments as a JSON object
+     * @return A [ToolCallResult] containing the operation result or error
+     */
+    final override suspend fun execute(project: Project, arguments: JsonObject): ToolCallResult {
+        val settings = McpSettings.getInstance()
+        if (requiresPsiSync && settings.syncExternalChanges) {
+            ensurePsiUpToDate(project)
+        }
+        return doExecute(project, arguments)
+    }
+
+    /**
+     * Implement this method with the tool's specific execution logic.
+     *
+     * PSI synchronization is handled automatically by [execute] before this is called.
+     *
+     * @param project The IntelliJ project context
+     * @param arguments The tool arguments as a JSON object matching [inputSchema]
+     * @return A [ToolCallResult] containing the operation result or error
+     */
+    protected abstract suspend fun doExecute(project: Project, arguments: JsonObject): ToolCallResult
+
+    /**
      * Throws [IndexNotReadyException] if the IDE is in dumb mode (indexing).
      *
-     * Call this at the start of [execute] if your tool requires index access.
+     * Call this at the start of [doExecute] if your tool requires index access.
      * Tools that don't need the index (e.g., file operations) don't need to call this.
      *
      * @param project The project to check

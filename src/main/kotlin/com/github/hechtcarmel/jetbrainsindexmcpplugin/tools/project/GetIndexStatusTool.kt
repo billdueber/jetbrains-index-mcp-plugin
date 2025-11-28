@@ -13,6 +13,9 @@ import kotlinx.serialization.json.putJsonObject
 
 class GetIndexStatusTool : AbstractMcpTool() {
 
+    // This tool only checks status, no PSI operations needed
+    override val requiresPsiSync: Boolean = false
+
     override val name = "ide_index_status"
 
     override val description = """
@@ -33,7 +36,7 @@ class GetIndexStatusTool : AbstractMcpTool() {
         put("required", buildJsonArray { })
     }
 
-    override suspend fun execute(project: Project, arguments: JsonObject): ToolCallResult {
+    override suspend fun doExecute(project: Project, arguments: JsonObject): ToolCallResult {
         val dumbService = DumbService.getInstance(project)
         val isDumb = dumbService.isDumb
 

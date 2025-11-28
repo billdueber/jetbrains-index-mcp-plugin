@@ -113,6 +113,27 @@ Find IDE port: Settings → Build, Execution, Deployment → Debugger → Built-
 - Use `ApplicationManager.getApplication().invokeLater()` for UI updates
 - Handle threading correctly (read actions on background threads, write actions on EDT)
 
+### PSI-Document Synchronization
+
+The IntelliJ Platform maintains separate Document (text) and PSI (parsed structure) layers.
+When files are modified externally (e.g., by AI coding tools), PSI may not immediately reflect
+the changes. This can cause search APIs to miss references in newly created files.
+
+**Solution**: `AbstractMcpTool` automatically refreshes the VFS and commits documents
+before executing any tool. This ensures PSI is synchronized with external file changes.
+
+**User Setting**: "Sync external file changes before operations" (Settings → MCP Server)
+- **Disabled** (default): Best performance, suitable for most use cases
+- **Enabled**: Use when rename/find-usages misses references in files just created externally
+
+**For tool developers**:
+- Extend `AbstractMcpTool` and implement `doExecute()` (not `execute()`)
+- PSI synchronization happens automatically before `doExecute()` is called
+- To opt-out (for tools that don't use PSI), override:
+  ```kotlin
+  override val requiresPsiSync: Boolean = false
+  ```
+
 ### Code Style
 - Follow Kotlin coding conventions
 - Use meaningful variable names
@@ -281,6 +302,11 @@ VirtualFileManager   // Virtual file system
 
 3. **Must be called from EDT** - UI operations on background thread
    - Solution: Use `ApplicationManager.getApplication().invokeLater { ... }`
+
+4. **Search misses newly created files** - PSI not synchronized with document
+   - Cause: External tools modified files but PSI tree hasn't been updated
+   - Solution: Enable "Sync external file changes" in Settings → MCP Server
+   - For custom code: `PsiDocumentManager.getInstance(project).commitAllDocuments()`
 
 ## Contributing
 

@@ -76,7 +76,7 @@ class RenameSymbolTool : AbstractRefactoringTool() {
         }
     }
 
-    override suspend fun execute(project: Project, arguments: JsonObject): ToolCallResult {
+    override suspend fun doExecute(project: Project, arguments: JsonObject): ToolCallResult {
         val file = arguments["file"]?.jsonPrimitive?.content
             ?: return createErrorResult("Missing required parameter: file")
         val line = arguments["line"]?.jsonPrimitive?.int

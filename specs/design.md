@@ -1195,10 +1195,7 @@ class McpSettings : PersistentStateComponent<McpSettings.State> {
     data class State(
         var maxHistorySize: Int = 100,
         var autoScroll: Boolean = true,
-        var showTimestamps: Boolean = true,
-        var confirmWriteOperations: Boolean = true,
-        var logToFile: Boolean = false,
-        var logFilePath: String = ""
+        var syncExternalChanges: Boolean = false
     )
 
     private var state = State()
@@ -1217,17 +1214,9 @@ class McpSettings : PersistentStateComponent<McpSettings.State> {
         get() = state.autoScroll
         set(value) { state.autoScroll = value }
 
-    var showTimestamps: Boolean
-        get() = state.showTimestamps
-        set(value) { state.showTimestamps = value }
-
-    var confirmWriteOperations: Boolean
-        get() = state.confirmWriteOperations
-        set(value) { state.confirmWriteOperations = value }
-
-    var logToFile: Boolean
-        get() = state.logToFile
-        set(value) { state.logToFile = value }
+    var syncExternalChanges: Boolean
+        get() = state.syncExternalChanges
+        set(value) { state.syncExternalChanges = value }
 
     companion object {
         fun getInstance(): McpSettings = service()

@@ -4,7 +4,6 @@ import com.github.hechtcarmel.jetbrainsindexmcpplugin.McpBundle
 import com.intellij.openapi.options.Configurable
 import com.intellij.ui.components.JBCheckBox
 import com.intellij.ui.components.JBLabel
-import com.intellij.ui.components.JBTextField
 import com.intellij.util.ui.FormBuilder
 import javax.swing.JComponent
 import javax.swing.JPanel
@@ -16,28 +15,21 @@ class McpSettingsConfigurable : Configurable {
     private var panel: JPanel? = null
     private var maxHistorySizeSpinner: JSpinner? = null
     private var autoScrollCheckBox: JBCheckBox? = null
-    private var showTimestampsCheckBox: JBCheckBox? = null
-    private var confirmWriteOperationsCheckBox: JBCheckBox? = null
-    private var logToFileCheckBox: JBCheckBox? = null
-    private var logFilePathField: JBTextField? = null
+    private var syncExternalChangesCheckBox: JBCheckBox? = null
 
     override fun getDisplayName(): String = McpBundle.message("settings.title")
 
     override fun createComponent(): JComponent {
         maxHistorySizeSpinner = JSpinner(SpinnerNumberModel(100, 10, 10000, 10))
         autoScrollCheckBox = JBCheckBox(McpBundle.message("settings.autoScroll"))
-        showTimestampsCheckBox = JBCheckBox(McpBundle.message("settings.showTimestamps"))
-        confirmWriteOperationsCheckBox = JBCheckBox(McpBundle.message("settings.confirmWriteOperations"))
-        logToFileCheckBox = JBCheckBox(McpBundle.message("settings.logToFile"))
-        logFilePathField = JBTextField()
+        syncExternalChangesCheckBox = JBCheckBox(McpBundle.message("settings.syncExternalChanges")).apply {
+            toolTipText = McpBundle.message("settings.syncExternalChanges.tooltip")
+        }
 
         panel = FormBuilder.createFormBuilder()
             .addLabeledComponent(JBLabel(McpBundle.message("settings.maxHistorySize") + ":"), maxHistorySizeSpinner!!, 1, false)
             .addComponent(autoScrollCheckBox!!, 1)
-            .addComponent(showTimestampsCheckBox!!, 1)
-            .addComponent(confirmWriteOperationsCheckBox!!, 1)
-            .addComponent(logToFileCheckBox!!, 1)
-            .addLabeledComponent(JBLabel(McpBundle.message("settings.logFilePath") + ":"), logFilePathField!!, 1, false)
+            .addComponent(syncExternalChangesCheckBox!!, 1)
             .addComponentFillVertically(JPanel(), 0)
             .panel
 
@@ -48,39 +40,27 @@ class McpSettingsConfigurable : Configurable {
         val settings = McpSettings.getInstance()
         return maxHistorySizeSpinner?.value != settings.maxHistorySize ||
             autoScrollCheckBox?.isSelected != settings.autoScroll ||
-            showTimestampsCheckBox?.isSelected != settings.showTimestamps ||
-            confirmWriteOperationsCheckBox?.isSelected != settings.confirmWriteOperations ||
-            logToFileCheckBox?.isSelected != settings.logToFile ||
-            logFilePathField?.text != settings.logFilePath
+            syncExternalChangesCheckBox?.isSelected != settings.syncExternalChanges
     }
 
     override fun apply() {
         val settings = McpSettings.getInstance()
         settings.maxHistorySize = maxHistorySizeSpinner?.value as? Int ?: 100
         settings.autoScroll = autoScrollCheckBox?.isSelected ?: true
-        settings.showTimestamps = showTimestampsCheckBox?.isSelected ?: true
-        settings.confirmWriteOperations = confirmWriteOperationsCheckBox?.isSelected ?: true
-        settings.logToFile = logToFileCheckBox?.isSelected ?: false
-        settings.logFilePath = logFilePathField?.text ?: ""
+        settings.syncExternalChanges = syncExternalChangesCheckBox?.isSelected ?: false
     }
 
     override fun reset() {
         val settings = McpSettings.getInstance()
         maxHistorySizeSpinner?.value = settings.maxHistorySize
         autoScrollCheckBox?.isSelected = settings.autoScroll
-        showTimestampsCheckBox?.isSelected = settings.showTimestamps
-        confirmWriteOperationsCheckBox?.isSelected = settings.confirmWriteOperations
-        logToFileCheckBox?.isSelected = settings.logToFile
-        logFilePathField?.text = settings.logFilePath
+        syncExternalChangesCheckBox?.isSelected = settings.syncExternalChanges
     }
 
     override fun disposeUIResources() {
         panel = null
         maxHistorySizeSpinner = null
         autoScrollCheckBox = null
-        showTimestampsCheckBox = null
-        confirmWriteOperationsCheckBox = null
-        logToFileCheckBox = null
-        logFilePathField = null
+        syncExternalChangesCheckBox = null
     }
 }

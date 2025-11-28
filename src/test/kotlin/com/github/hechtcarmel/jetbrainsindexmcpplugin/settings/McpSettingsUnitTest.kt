@@ -11,10 +11,7 @@ class McpSettingsUnitTest : TestCase() {
 
         assertEquals("Default maxHistorySize should be 100", 100, state.maxHistorySize)
         assertTrue("Default autoScroll should be true", state.autoScroll)
-        assertTrue("Default showTimestamps should be true", state.showTimestamps)
-        assertTrue("Default confirmWriteOperations should be true", state.confirmWriteOperations)
-        assertFalse("Default logToFile should be false", state.logToFile)
-        assertEquals("Default logFilePath should be empty", "", state.logFilePath)
+        assertFalse("Default syncExternalChanges should be false", state.syncExternalChanges)
     }
 
     // State mutability tests
@@ -33,32 +30,11 @@ class McpSettingsUnitTest : TestCase() {
         assertFalse(state.autoScroll)
     }
 
-    fun testStateShowTimestampsMutable() {
+    fun testStateSyncExternalChangesMutable() {
         val state = McpSettings.State()
-        state.showTimestamps = false
+        state.syncExternalChanges = true
 
-        assertFalse(state.showTimestamps)
-    }
-
-    fun testStateConfirmWriteOperationsMutable() {
-        val state = McpSettings.State()
-        state.confirmWriteOperations = false
-
-        assertFalse(state.confirmWriteOperations)
-    }
-
-    fun testStateLogToFileMutable() {
-        val state = McpSettings.State()
-        state.logToFile = true
-
-        assertTrue(state.logToFile)
-    }
-
-    fun testStateLogFilePathMutable() {
-        val state = McpSettings.State()
-        state.logFilePath = "/var/log/mcp.log"
-
-        assertEquals("/var/log/mcp.log", state.logFilePath)
+        assertTrue(state.syncExternalChanges)
     }
 
     // State custom constructor tests
@@ -67,18 +43,12 @@ class McpSettingsUnitTest : TestCase() {
         val state = McpSettings.State(
             maxHistorySize = 500,
             autoScroll = false,
-            showTimestamps = false,
-            confirmWriteOperations = false,
-            logToFile = true,
-            logFilePath = "/tmp/test.log"
+            syncExternalChanges = true
         )
 
         assertEquals(500, state.maxHistorySize)
         assertFalse(state.autoScroll)
-        assertFalse(state.showTimestamps)
-        assertFalse(state.confirmWriteOperations)
-        assertTrue(state.logToFile)
-        assertEquals("/tmp/test.log", state.logFilePath)
+        assertTrue(state.syncExternalChanges)
     }
 
     // State copy tests
@@ -131,17 +101,11 @@ class McpSettingsUnitTest : TestCase() {
 
         settings.maxHistorySize = 250
         settings.autoScroll = false
-        settings.showTimestamps = false
-        settings.confirmWriteOperations = false
-        settings.logToFile = true
-        settings.logFilePath = "/custom/path.log"
+        settings.syncExternalChanges = true
 
         assertEquals(250, settings.maxHistorySize)
         assertFalse(settings.autoScroll)
-        assertFalse(settings.showTimestamps)
-        assertFalse(settings.confirmWriteOperations)
-        assertTrue(settings.logToFile)
-        assertEquals("/custom/path.log", settings.logFilePath)
+        assertTrue(settings.syncExternalChanges)
     }
 
     fun testMcpSettingsLoadState() {
@@ -149,20 +113,14 @@ class McpSettingsUnitTest : TestCase() {
         val newState = McpSettings.State(
             maxHistorySize = 75,
             autoScroll = false,
-            showTimestamps = false,
-            confirmWriteOperations = true,
-            logToFile = true,
-            logFilePath = "/loaded/path.log"
+            syncExternalChanges = true
         )
 
         settings.loadState(newState)
 
         assertEquals(75, settings.maxHistorySize)
         assertFalse(settings.autoScroll)
-        assertFalse(settings.showTimestamps)
-        assertTrue(settings.confirmWriteOperations)
-        assertTrue(settings.logToFile)
-        assertEquals("/loaded/path.log", settings.logFilePath)
+        assertTrue(settings.syncExternalChanges)
     }
 
     fun testMcpSettingsGetStateReturnsCurrentState() {
@@ -184,17 +142,5 @@ class McpSettingsUnitTest : TestCase() {
     fun testMaxHistorySizeNegative() {
         val state = McpSettings.State(maxHistorySize = -1)
         assertEquals(-1, state.maxHistorySize)
-    }
-
-    fun testLogFilePathWithSpecialCharacters() {
-        val path = "/path/with spaces/and-dashes/file.log"
-        val state = McpSettings.State(logFilePath = path)
-        assertEquals(path, state.logFilePath)
-    }
-
-    fun testLogFilePathWithUnicode() {
-        val path = "/日本語/パス/ファイル.log"
-        val state = McpSettings.State(logFilePath = path)
-        assertEquals(path, state.logFilePath)
     }
 }

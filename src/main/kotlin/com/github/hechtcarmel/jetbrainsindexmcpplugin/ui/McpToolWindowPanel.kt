@@ -1,5 +1,6 @@
 package com.github.hechtcarmel.jetbrainsindexmcpplugin.ui
 
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.McpBundle
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.history.CommandEntry
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.history.CommandFilter
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.history.CommandHistoryListener
@@ -7,11 +8,13 @@ import com.github.hechtcarmel.jetbrainsindexmcpplugin.history.CommandHistoryServ
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.history.CommandStatus
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.server.McpServerService
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.settings.McpSettings
+import com.intellij.icons.AllIcons
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.project.Project
 import com.intellij.ui.JBColor
 import com.intellij.ui.JBSplitter
 import com.intellij.ui.SearchTextField
+import com.intellij.ui.components.JBCheckBox
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBList
 import com.intellij.ui.components.JBPanel
@@ -177,6 +180,8 @@ class ServerStatusPanel(private val project: Project) : JBPanel<ServerStatusPane
     private val statusLabel: JBLabel
     private val urlLabel: JBLabel
     private val projectLabel: JBLabel
+    private val syncCheckBox: JBCheckBox
+    private val infoLabel: JBLabel
 
     init {
         border = JBUI.Borders.empty(8)
@@ -200,6 +205,26 @@ class ServerStatusPanel(private val project: Project) : JBPanel<ServerStatusPane
 
         add(leftPanel, BorderLayout.WEST)
 
+        // Right panel with sync checkbox and info icon
+        val rightPanel = JBPanel<JBPanel<*>>(FlowLayout(FlowLayout.RIGHT, 4, 0))
+
+        val settings = McpSettings.getInstance()
+        syncCheckBox = JBCheckBox(McpBundle.message("settings.syncExternalChanges")).apply {
+            isSelected = settings.syncExternalChanges
+            addActionListener {
+                settings.syncExternalChanges = isSelected
+            }
+        }
+
+        infoLabel = JBLabel(AllIcons.General.ContextHelp).apply {
+            toolTipText = McpBundle.message("settings.syncExternalChanges.tooltip")
+        }
+
+        rightPanel.add(syncCheckBox)
+        rightPanel.add(infoLabel)
+
+        add(rightPanel, BorderLayout.EAST)
+
         refresh()
     }
 
@@ -218,6 +243,9 @@ class ServerStatusPanel(private val project: Project) : JBPanel<ServerStatusPane
             urlLabel.text = ""
             projectLabel.text = e.message ?: ""
         }
+
+        // Sync checkbox state with settings (in case changed from settings dialog)
+        syncCheckBox.isSelected = McpSettings.getInstance().syncExternalChanges
     }
 }
 
