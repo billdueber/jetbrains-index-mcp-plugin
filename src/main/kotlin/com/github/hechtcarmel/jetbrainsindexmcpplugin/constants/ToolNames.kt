@@ -7,6 +7,8 @@ object ToolNames {
     const val TYPE_HIERARCHY = "ide_type_hierarchy"
     const val CALL_HIERARCHY = "ide_call_hierarchy"
     const val FIND_IMPLEMENTATIONS = "ide_find_implementations"
+    const val FIND_SYMBOL = "ide_find_symbol"
+    const val FIND_SUPER_METHODS = "ide_find_super_methods"
 
     // Intelligence tools
     const val DIAGNOSTICS = "ide_diagnostics"

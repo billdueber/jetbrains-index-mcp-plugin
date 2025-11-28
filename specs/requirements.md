@@ -122,6 +122,29 @@
 | NAV-030 | The tool SHALL accept input: `column` (integer, 1-based column number) |
 | NAV-031 | The tool SHALL return a list of implementing classes/methods |
 
+#### 3.1.6 ide_find_symbol
+
+| ID | Requirement |
+|----|-------------|
+| NAV-032 | The tool SHALL accept input: `query` (string, search pattern) |
+| NAV-033 | The tool MAY accept input: `includeLibraries` (boolean, default: false) |
+| NAV-034 | The tool MAY accept input: `limit` (integer, default: 25, max: 100) |
+| NAV-035 | The tool SHALL support substring matching (case-insensitive) |
+| NAV-036 | The tool SHALL support camelCase matching (e.g., "USvc" matches "UserService") |
+| NAV-037 | The tool SHALL return a list of matching symbols (classes, methods, fields) |
+| NAV-038 | Each symbol SHALL contain: name, qualifiedName, kind, file, line, containerName |
+
+#### 3.1.7 ide_find_super_methods
+
+| ID | Requirement |
+|----|-------------|
+| NAV-039 | The tool SHALL accept input: `file` (string, path relative to project root) |
+| NAV-040 | The tool SHALL accept input: `line` (integer, 1-based line number, any line within method) |
+| NAV-041 | The tool SHALL accept input: `column` (integer, 1-based column number, any position within method) |
+| NAV-042 | The tool SHALL return the full inheritance hierarchy of overridden/implemented methods |
+| NAV-043 | Each super method SHALL contain: name, signature, containingClass, containingClassKind, file, line, isInterface, depth |
+| NAV-044 | The hierarchy SHALL be ordered from immediate parent (depth=1) to root |
+
 ### 3.2 Refactoring Tools
 
 #### 3.2.1 ide_refactor_rename (formerly rename_symbol)
@@ -383,3 +406,4 @@
 | 1.0 | 2025-01-25 | Initial requirements extraction from init.md |
 | 1.1 | 2025-11-27 | Reduced tool count from 20 to 13; removed 8 tools, added ide_diagnostics |
 | 1.2 | 2025-11-28 | Reduced tool count from 13 to 9; removed extract_method, extract_variable, inline, move tools |
+| 1.3 | 2025-11-28 | Added ide_find_symbol and ide_find_super_methods navigation tools (11 tools total) |

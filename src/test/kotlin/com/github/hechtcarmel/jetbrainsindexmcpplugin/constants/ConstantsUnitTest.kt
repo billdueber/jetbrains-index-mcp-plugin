@@ -12,6 +12,8 @@ class ConstantsUnitTest : TestCase() {
         assertEquals("ide_type_hierarchy", ToolNames.TYPE_HIERARCHY)
         assertEquals("ide_call_hierarchy", ToolNames.CALL_HIERARCHY)
         assertEquals("ide_find_implementations", ToolNames.FIND_IMPLEMENTATIONS)
+        assertEquals("ide_find_symbol", ToolNames.FIND_SYMBOL)
+        assertEquals("ide_find_super_methods", ToolNames.FIND_SUPER_METHODS)
     }
 
     fun testToolNamesIntelligenceTools() {
@@ -34,6 +36,8 @@ class ConstantsUnitTest : TestCase() {
             ToolNames.TYPE_HIERARCHY,
             ToolNames.CALL_HIERARCHY,
             ToolNames.FIND_IMPLEMENTATIONS,
+            ToolNames.FIND_SYMBOL,
+            ToolNames.FIND_SUPER_METHODS,
             ToolNames.DIAGNOSTICS,
             ToolNames.INDEX_STATUS,
             ToolNames.REFACTOR_RENAME,
@@ -98,6 +102,12 @@ class ConstantsUnitTest : TestCase() {
     fun testParamNamesNavigation() {
         assertEquals("className", ParamNames.CLASS_NAME)
         assertEquals("direction", ParamNames.DIRECTION)
+    }
+
+    fun testParamNamesSymbolSearch() {
+        assertEquals("query", ParamNames.QUERY)
+        assertEquals("includeLibraries", ParamNames.INCLUDE_LIBRARIES)
+        assertEquals("limit", ParamNames.LIMIT)
     }
 
     // UsageTypes tests

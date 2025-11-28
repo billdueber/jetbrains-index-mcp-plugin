@@ -237,6 +237,8 @@ Tests are split into two categories to optimize execution time:
 - `ide_type_hierarchy` - Get type hierarchy for a class
 - `ide_call_hierarchy` - Get call hierarchy for a method
 - `ide_find_implementations` - Find implementations of interface/method
+- `ide_find_symbol` - Search for symbols (classes, methods, fields) by name with fuzzy/camelCase matching
+- `ide_find_super_methods` - Find methods that a given method overrides/implements (full hierarchy chain)
 
 **Intelligence:**
 - `ide_diagnostics` - Analyze file for problems and available intentions

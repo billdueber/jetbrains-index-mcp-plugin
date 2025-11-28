@@ -114,7 +114,7 @@ class McpServerIntegrationTest : BasePlatformTestCase() {
         val result = response.result!!.jsonObject
         val tools = result["tools"]?.jsonArray
         assertNotNull("Result should have tools array", tools)
-        val toolsCount = 9
+        val toolsCount = 11
         assertTrue("Should have at least $toolsCount tools", tools!!.size >= toolsCount)
     }
 
@@ -136,7 +136,9 @@ class McpServerIntegrationTest : BasePlatformTestCase() {
             ToolNames.FIND_DEFINITION,
             ToolNames.TYPE_HIERARCHY,
             ToolNames.CALL_HIERARCHY,
-            ToolNames.FIND_IMPLEMENTATIONS
+            ToolNames.FIND_IMPLEMENTATIONS,
+            ToolNames.FIND_SYMBOL,
+            ToolNames.FIND_SUPER_METHODS
         )
 
         expectedNavigationTools.forEach { toolName ->

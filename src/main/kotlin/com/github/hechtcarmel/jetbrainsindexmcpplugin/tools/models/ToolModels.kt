@@ -126,3 +126,50 @@ data class IndexStatusResult(
     val isIndexing: Boolean,
     val indexingProgress: Double?
 )
+
+// ide_find_symbol output
+@Serializable
+data class FindSymbolResult(
+    val symbols: List<SymbolMatch>,
+    val totalCount: Int,
+    val query: String
+)
+
+@Serializable
+data class SymbolMatch(
+    val name: String,
+    val qualifiedName: String?,
+    val kind: String,
+    val file: String,
+    val line: Int,
+    val containerName: String?
+)
+
+// ide_find_super_methods output
+@Serializable
+data class SuperMethodsResult(
+    val method: MethodInfo,
+    val hierarchy: List<SuperMethodInfo>,
+    val totalCount: Int
+)
+
+@Serializable
+data class MethodInfo(
+    val name: String,
+    val signature: String,
+    val containingClass: String,
+    val file: String,
+    val line: Int
+)
+
+@Serializable
+data class SuperMethodInfo(
+    val name: String,
+    val signature: String,
+    val containingClass: String,
+    val containingClassKind: String,
+    val file: String?,
+    val line: Int?,
+    val isInterface: Boolean,
+    val depth: Int
+)

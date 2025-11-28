@@ -1028,6 +1028,8 @@ fun registerBuiltInTools(project: Project) {
     register(TypeHierarchyTool())     // ide_type_hierarchy
     register(CallHierarchyTool())     // ide_call_hierarchy
     register(FindImplementationsTool()) // ide_find_implementations
+    register(FindSymbolTool())        // ide_find_symbol
+    register(FindSuperMethodsTool())  // ide_find_super_methods
 
     // Intelligence tools (ide_* prefix)
     register(GetDiagnosticsTool())    // ide_diagnostics (problems + intentions)
@@ -1664,3 +1666,4 @@ dependencies {
 | 1.1 | 2025-01-26 | Updated HTTP+SSE transport implementation, added @EncodeDefault annotation for JSON-RPC serialization |
 | 1.2 | 2025-11-27 | Reduced tool count from 20 to 13; merged ide_analyze_code and ide_list_quick_fixes into ide_diagnostics; removed 7 tools |
 | 1.3 | 2025-11-28 | Reduced tool count from 13 to 9; removed extract_method, extract_variable, inline, move tools |
+| 1.4 | 2025-11-28 | Added ide_find_symbol and ide_find_super_methods navigation tools (11 tools total) |

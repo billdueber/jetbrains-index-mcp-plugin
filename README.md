@@ -148,7 +148,7 @@ Add to `~/.codeium/windsurf/mcp_config.json`:
 
 ## Available Tools
 
-The plugin provides **9 MCP tools** organized into four categories:
+The plugin provides **11 MCP tools** organized into four categories:
 
 ### Navigation Tools
 
@@ -159,6 +159,8 @@ The plugin provides **9 MCP tools** organized into four categories:
 | `ide_type_hierarchy` | Get the complete type hierarchy (supertypes and subtypes) |
 | `ide_call_hierarchy` | Analyze method call relationships (callers or callees) |
 | `ide_find_implementations` | Find all implementations of an interface or abstract method |
+| `ide_find_symbol` | Search for symbols (classes, methods, fields) by name with fuzzy/camelCase matching |
+| `ide_find_super_methods` | Find the full inheritance hierarchy of methods that a method overrides/implements |
 
 ### Code Intelligence Tools
 

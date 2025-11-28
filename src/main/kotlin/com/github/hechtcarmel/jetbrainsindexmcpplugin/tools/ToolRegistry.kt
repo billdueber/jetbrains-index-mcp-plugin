@@ -4,6 +4,8 @@ import com.github.hechtcarmel.jetbrainsindexmcpplugin.server.models.ToolDefiniti
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.intelligence.GetDiagnosticsTool
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.navigation.CallHierarchyTool
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.navigation.FindImplementationsTool
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.navigation.FindSuperMethodsTool
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.navigation.FindSymbolTool
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.navigation.FindUsagesTool
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.navigation.FindDefinitionTool
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.navigation.TypeHierarchyTool
@@ -21,7 +23,7 @@ import java.util.concurrent.ConcurrentHashMap
  *
  * ## Built-in Tools
  *
- * The registry automatically registers 9 built-in tools in these categories:
+ * The registry automatically registers 11 built-in tools in these categories:
  *
  * **Navigation:**
  * - `ide_find_references` - Find all usages of a symbol
@@ -29,6 +31,8 @@ import java.util.concurrent.ConcurrentHashMap
  * - `ide_type_hierarchy` - Get class inheritance hierarchy
  * - `ide_call_hierarchy` - Analyze method call relationships
  * - `ide_find_implementations` - Find interface/method implementations
+ * - `ide_find_symbol` - Search for symbols by name
+ * - `ide_find_super_methods` - Find methods that a method overrides
  *
  * **Intelligence:**
  * - `ide_diagnostics` - Analyze code for problems and available intentions
@@ -123,6 +127,8 @@ class ToolRegistry {
         register(TypeHierarchyTool())
         register(CallHierarchyTool())
         register(FindImplementationsTool())
+        register(FindSymbolTool())
+        register(FindSuperMethodsTool())
 
         // Intelligence tools
         register(GetDiagnosticsTool())

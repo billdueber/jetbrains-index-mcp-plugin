@@ -6,6 +6,8 @@ import com.github.hechtcarmel.jetbrainsindexmcpplugin.constants.ToolNames
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.intelligence.GetDiagnosticsTool
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.navigation.CallHierarchyTool
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.navigation.FindImplementationsTool
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.navigation.FindSuperMethodsTool
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.navigation.FindSymbolTool
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.navigation.FindUsagesTool
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.navigation.FindDefinitionTool
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.navigation.TypeHierarchyTool
@@ -144,6 +146,8 @@ class ToolsUnitTest : TestCase() {
             ToolNames.TYPE_HIERARCHY,
             ToolNames.CALL_HIERARCHY,
             ToolNames.FIND_IMPLEMENTATIONS,
+            ToolNames.FIND_SYMBOL,
+            ToolNames.FIND_SUPER_METHODS,
             // Intelligence tools
             ToolNames.DIAGNOSTICS,
             // Project tools
@@ -199,6 +203,70 @@ class ToolsUnitTest : TestCase() {
         assertNotNull("Should have line property", properties?.get(ParamNames.LINE))
         assertNotNull("Should have column property", properties?.get(ParamNames.COLUMN))
         assertNotNull("Should have force property", properties?.get(ParamNames.FORCE))
+    }
+
+    // New navigation tools
+
+    fun testFindSymbolToolSchema() {
+        val tool = FindSymbolTool()
+
+        assertEquals(ToolNames.FIND_SYMBOL, tool.name)
+        assertNotNull(tool.description)
+
+        val schema = tool.inputSchema
+        assertEquals(SchemaConstants.TYPE_OBJECT, schema[SchemaConstants.TYPE]?.jsonPrimitive?.content)
+
+        val properties = schema[SchemaConstants.PROPERTIES]?.jsonObject
+        assertNotNull(properties)
+
+        assertNotNull("Should have project_path property", properties?.get(ParamNames.PROJECT_PATH))
+        assertNotNull("Should have query property", properties?.get(ParamNames.QUERY))
+        assertNotNull("Should have includeLibraries property", properties?.get(ParamNames.INCLUDE_LIBRARIES))
+        assertNotNull("Should have limit property", properties?.get(ParamNames.LIMIT))
+
+        val required = schema[SchemaConstants.REQUIRED]
+        assertNotNull("Should have required array", required)
+    }
+
+    fun testFindSymbolToolCamelCaseMatching() {
+        val tool = FindSymbolTool()
+
+        assertTrue("USvc should match UserService", tool.matchesCamelCase("UserService", "USvc"))
+        assertTrue("US should match UserService", tool.matchesCamelCase("UserService", "US"))
+        assertTrue("usvc should match UserService (case insensitive)", tool.matchesCamelCase("UserService", "usvc"))
+        assertTrue("full name should match", tool.matchesCamelCase("UserService", "UserService"))
+        assertFalse("XY should not match UserService", tool.matchesCamelCase("UserService", "XY"))
+    }
+
+    fun testFindSymbolToolLevenshteinDistance() {
+        val tool = FindSymbolTool()
+
+        assertEquals(0, tool.levenshteinDistance("test", "test"))
+        assertEquals(1, tool.levenshteinDistance("test", "tests"))
+        assertEquals(1, tool.levenshteinDistance("test", "tast"))
+        assertEquals(4, tool.levenshteinDistance("test", ""))
+        assertEquals(3, tool.levenshteinDistance("kitten", "sitting"))
+    }
+
+    fun testFindSuperMethodsToolSchema() {
+        val tool = FindSuperMethodsTool()
+
+        assertEquals(ToolNames.FIND_SUPER_METHODS, tool.name)
+        assertNotNull(tool.description)
+
+        val schema = tool.inputSchema
+        assertEquals(SchemaConstants.TYPE_OBJECT, schema[SchemaConstants.TYPE]?.jsonPrimitive?.content)
+
+        val properties = schema[SchemaConstants.PROPERTIES]?.jsonObject
+        assertNotNull(properties)
+
+        assertNotNull("Should have project_path property", properties?.get(ParamNames.PROJECT_PATH))
+        assertNotNull("Should have file property", properties?.get(ParamNames.FILE))
+        assertNotNull("Should have line property", properties?.get(ParamNames.LINE))
+        assertNotNull("Should have column property", properties?.get(ParamNames.COLUMN))
+
+        val required = schema[SchemaConstants.REQUIRED]
+        assertNotNull("Should have required array", required)
     }
 
     fun testToolDefinitionsHaveRequiredFields() {

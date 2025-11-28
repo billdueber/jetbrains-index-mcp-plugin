@@ -157,6 +157,8 @@ class ToolExecutionIntegrationTest : BasePlatformTestCase() {
             ToolNames.TYPE_HIERARCHY,
             ToolNames.CALL_HIERARCHY,
             ToolNames.FIND_IMPLEMENTATIONS,
+            ToolNames.FIND_SYMBOL,
+            ToolNames.FIND_SUPER_METHODS,
             // Intelligence tools
             ToolNames.DIAGNOSTICS,
             // Project tools

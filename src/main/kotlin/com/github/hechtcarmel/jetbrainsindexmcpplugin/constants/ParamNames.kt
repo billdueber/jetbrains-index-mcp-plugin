@@ -34,4 +34,9 @@ object ParamNames {
     const val INCLUDE_TESTS = "includeTests"
     const val PATH = "path"
     const val FQN = "fqn"
+
+    // Symbol search parameters
+    const val QUERY = "query"
+    const val INCLUDE_LIBRARIES = "includeLibraries"
+    const val LIMIT = "limit"
 }

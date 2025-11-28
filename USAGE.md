@@ -360,9 +360,276 @@ Finds all concrete implementations of an interface, abstract class, or abstract 
 
 ---
 
+### ide_find_symbol
+
+Searches for code symbols (classes, interfaces, methods, fields) by name using the IDE's semantic index.
+
+**Use when:**
+- Finding a class or interface by name (e.g., find "UserService")
+- Locating methods across the codebase (e.g., find all "findById" methods)
+- Discovering fields or constants by name
+- Navigating to code when you know the symbol name but not the file location
+
+**Supports fuzzy matching:**
+- Substring: "Service" matches "UserService", "OrderService"
+- CamelCase: "USvc" matches "UserService", "US" matches "UserService"
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `query` | string | Yes | Search pattern (supports substring and camelCase matching) |
+| `includeLibraries` | boolean | No | Include symbols from library dependencies (default: false) |
+| `limit` | integer | No | Maximum results to return (default: 25, max: 100) |
+
+**Example Request:**
+
+```json
+{
+  "method": "tools/call",
+  "params": {
+    "name": "ide_find_symbol",
+    "arguments": {
+      "query": "UserService"
+    }
+  }
+}
+```
+
+**Example Request (camelCase matching):**
+
+```json
+{
+  "method": "tools/call",
+  "params": {
+    "name": "ide_find_symbol",
+    "arguments": {
+      "query": "USvc",
+      "includeLibraries": true,
+      "limit": 50
+    }
+  }
+}
+```
+
+**Example Response:**
+
+```json
+{
+  "symbols": [
+    {
+      "name": "UserService",
+      "qualifiedName": "com.example.service.UserService",
+      "kind": "INTERFACE",
+      "file": "src/main/java/com/example/service/UserService.java",
+      "line": 12,
+      "containerName": null
+    },
+    {
+      "name": "UserServiceImpl",
+      "qualifiedName": "com.example.service.UserServiceImpl",
+      "kind": "CLASS",
+      "file": "src/main/java/com/example/service/UserServiceImpl.java",
+      "line": 15,
+      "containerName": null
+    },
+    {
+      "name": "findUser",
+      "qualifiedName": "com.example.service.UserService.findUser",
+      "kind": "METHOD",
+      "file": "src/main/java/com/example/service/UserService.java",
+      "line": 18,
+      "containerName": "UserService"
+    }
+  ],
+  "totalCount": 3,
+  "query": "UserService"
+}
+```
+
+**Kind Values:**
+- `CLASS` - Concrete class
+- `ABSTRACT_CLASS` - Abstract class
+- `INTERFACE` - Interface
+- `ENUM` - Enum type
+- `ANNOTATION` - Annotation type
+- `RECORD` - Record class (Java 16+)
+- `METHOD` - Method
+- `FIELD` - Field or constant
+
+---
+
+### ide_find_super_methods
+
+Finds the complete inheritance hierarchy for a method - all parent methods it overrides or implements.
+
+**Use when:**
+- Finding which interface method an implementation overrides
+- Navigating to the original method declaration in a parent class
+- Understanding the full inheritance chain for a method with @Override
+- Seeing all levels of method overriding (not just immediate parent)
+
+**Position flexibility:** The position (line/column) can be anywhere within the method - on the name, inside the body, or on the @Override annotation. The tool automatically finds the enclosing method.
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `file` | string | Yes | Path to the file relative to project root |
+| `line` | integer | Yes | 1-based line number (any line within the method) |
+| `column` | integer | Yes | 1-based column number (any position within the method) |
+
+**Example Request:**
+
+```json
+{
+  "method": "tools/call",
+  "params": {
+    "name": "ide_find_super_methods",
+    "arguments": {
+      "file": "src/main/java/com/example/UserServiceImpl.java",
+      "line": 25,
+      "column": 10
+    }
+  }
+}
+```
+
+**Example Response:**
+
+```json
+{
+  "method": {
+    "name": "findUser",
+    "signature": "findUser(String id): User",
+    "containingClass": "com.example.UserServiceImpl",
+    "file": "src/main/java/com/example/UserServiceImpl.java",
+    "line": 25
+  },
+  "hierarchy": [
+    {
+      "name": "findUser",
+      "signature": "findUser(String id): User",
+      "containingClass": "com.example.AbstractUserService",
+      "containingClassKind": "ABSTRACT_CLASS",
+      "file": "src/main/java/com/example/AbstractUserService.java",
+      "line": 18,
+      "isInterface": false,
+      "depth": 1
+    },
+    {
+      "name": "findUser",
+      "signature": "findUser(String id): User",
+      "containingClass": "com.example.UserService",
+      "containingClassKind": "INTERFACE",
+      "file": "src/main/java/com/example/UserService.java",
+      "line": 12,
+      "isInterface": true,
+      "depth": 2
+    }
+  ],
+  "totalCount": 2
+}
+```
+
+**Depth field:** The `depth` field indicates the level in the hierarchy:
+- `depth: 1` = immediate parent (first level up)
+- `depth: 2` = grandparent (two levels up)
+- And so on...
+
+**containingClassKind Values:**
+- `CLASS` - Concrete class
+- `ABSTRACT_CLASS` - Abstract class
+- `INTERFACE` - Interface
+
+---
+
 ## Code Intelligence Tools
 
-### ide_get_symbol_info
+### ide_diagnostics
+
+Analyzes a file for code problems (errors, warnings) and available intentions/quick fixes.
+
+**Use when:**
+- Finding code issues in a file
+- Checking code quality
+- Identifying potential bugs
+- Discovering available code improvements
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `file` | string | Yes | Path to the file relative to project root |
+| `line` | integer | No | 1-based line number for intention lookup (default: 1) |
+| `column` | integer | No | 1-based column number for intention lookup (default: 1) |
+| `startLine` | integer | No | Filter problems to start from this line |
+| `endLine` | integer | No | Filter problems to end at this line |
+
+**Example Request:**
+
+```json
+{
+  "method": "tools/call",
+  "params": {
+    "name": "ide_diagnostics",
+    "arguments": {
+      "file": "src/main/java/com/example/UserService.java"
+    }
+  }
+}
+```
+
+**Example Response:**
+
+```json
+{
+  "problems": [
+    {
+      "message": "Field 'logger' can be made final",
+      "severity": "WARNING",
+      "file": "src/main/java/com/example/UserService.java",
+      "line": 8,
+      "column": 12,
+      "endLine": 8,
+      "endColumn": 18
+    },
+    {
+      "message": "Unused import 'java.util.Date'",
+      "severity": "WARNING",
+      "file": "src/main/java/com/example/UserService.java",
+      "line": 3,
+      "column": 1,
+      "endLine": 3,
+      "endColumn": 22
+    }
+  ],
+  "intentions": [
+    {
+      "name": "Add 'final' modifier",
+      "description": "Makes the field final"
+    },
+    {
+      "name": "Optimize imports",
+      "description": "Removes unused imports"
+    }
+  ],
+  "problemCount": 2,
+  "intentionCount": 2
+}
+```
+
+**Severity Values:**
+- `ERROR` - Compilation error
+- `WARNING` - Potential problem
+- `WEAK_WARNING` - Minor issue
+- `INFO` - Informational
+
+---
+
+## Project Structure Tools
+
+### ide_index_status
 
 Gets detailed information about a symbol including type, documentation, and modifiers.
 
