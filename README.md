@@ -79,14 +79,14 @@ The easiest way to configure your AI assistant:
 Run this command in your terminal:
 
 ```bash
-claude mcp add --transport http intellij-index http://localhost:63342/index-mcp/sse --scope user
+claude mcp add --transport http jetbrains-index http://localhost:63342/index-mcp/sse --scope user
 ```
 
 Options:
 - `--scope user` - Adds globally for all projects
 - `--scope project` - Adds to current project only
 
-To remove: `claude mcp remove intellij-index`
+To remove: `claude mcp remove jetbrains-index`
 
 ### Claude Desktop
 
@@ -95,7 +95,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS)
 ```json
 {
   "mcpServers": {
-    "intellij-index": {
+    "jetbrains-index": {
       "url": "http://localhost:63342/index-mcp/sse"
     }
   }
@@ -109,7 +109,7 @@ Add to `.cursor/mcp.json` in your project root or `~/.cursor/mcp.json` globally:
 ```json
 {
   "mcpServers": {
-    "intellij-index": {
+    "jetbrains-index": {
       "url": "http://localhost:63342/index-mcp/sse"
     }
   }
@@ -123,7 +123,7 @@ Add to `~/.codeium/windsurf/mcp_config.json`:
 ```json
 {
   "mcpServers": {
-    "intellij-index": {
+    "jetbrains-index": {
       "serverUrl": "http://localhost:63342/index-mcp/sse"
     }
   }
@@ -135,7 +135,7 @@ Add to `~/.codeium/windsurf/mcp_config.json`:
 ```json
 {
   "mcp.servers": {
-    "intellij-index": {
+    "jetbrains-index": {
       "transport": "sse",
       "url": "http://localhost:63342/index-mcp/sse"
     }

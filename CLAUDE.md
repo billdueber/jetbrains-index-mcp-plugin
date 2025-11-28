@@ -90,7 +90,7 @@ MCP servers expose:
 ```json
 {
   "mcpServers": {
-    "intellij-index": {
+    "jetbrains-index": {
       "url": "http://localhost:{IDE_PORT}/index-mcp/sse"
     }
   }

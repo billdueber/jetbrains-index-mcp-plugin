@@ -124,7 +124,7 @@ class McpModelsUnitTest : TestCase() {
 
     fun testServerInfoSerialization() {
         val info = ServerInfo(
-            name = "intellij-index-mcp",
+            name = "jetbrains-index-mcp",
             version = "1.0.0",
             description = "IDE index MCP server"
         )
@@ -132,7 +132,7 @@ class McpModelsUnitTest : TestCase() {
         val serialized = json.encodeToString(info)
         val deserialized = json.decodeFromString<ServerInfo>(serialized)
 
-        assertEquals("intellij-index-mcp", deserialized.name)
+        assertEquals("jetbrains-index-mcp", deserialized.name)
         assertEquals("1.0.0", deserialized.version)
         assertEquals("IDE index MCP server", deserialized.description)
     }

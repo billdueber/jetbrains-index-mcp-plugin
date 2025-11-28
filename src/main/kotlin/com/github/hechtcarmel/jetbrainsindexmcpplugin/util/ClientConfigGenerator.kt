@@ -31,10 +31,10 @@ object ClientConfigGenerator {
      * Generates the MCP configuration for the specified client type.
      *
      * @param clientType The type of MCP client to generate configuration for
-     * @param serverName Optional custom name for the server (defaults to "intellij-index")
+     * @param serverName Optional custom name for the server (defaults to "jetbrains-index")
      * @return The configuration string in the appropriate format for the client
      */
-    fun generateConfig(clientType: ClientType, serverName: String = "intellij-index"): String {
+    fun generateConfig(clientType: ClientType, serverName: String = "jetbrains-index"): String {
         val serverUrl = McpServerService.getInstance().getServerUrl()
 
         return when (clientType) {
@@ -47,13 +47,26 @@ object ClientConfigGenerator {
     }
 
     /**
-     * Generates Claude Code CLI command.
+     * Builds the Claude Code CLI command for reinstalling the MCP server.
      *
-     * Run this command in your terminal to add the MCP server.
-     * Use --scope user for global or --scope project for project-local.
+     * Removes any existing installation first (to handle port changes), then adds the server.
+     * The remove command uses 2>/dev/null to suppress errors if the server wasn't installed.
+     * Uses `;` between commands so add runs regardless of remove's exit status.
+     *
+     * This method is internal for testing purposes.
+     *
+     * @param serverUrl The URL of the MCP server
+     * @param serverName The name to register the server as
+     * @return A shell command that removes and reinstalls the MCP server
      */
+    internal fun buildClaudeCodeCommand(serverUrl: String, serverName: String): String {
+        val removeCmd = "claude mcp remove $serverName 2>/dev/null"
+        val addCmd = "claude mcp add --transport http $serverName $serverUrl --scope user"
+        return "$removeCmd ; $addCmd"
+    }
+
     private fun generateClaudeCodeConfig(serverUrl: String, serverName: String): String {
-        return "claude mcp add --transport http $serverName $serverUrl --scope user"
+        return buildClaudeCodeCommand(serverUrl, serverName)
     }
 
     /**
@@ -138,7 +151,7 @@ object ClientConfigGenerator {
                 • --scope user: Adds globally for all projects
                 • --scope project: Adds to current project only
 
-                To remove: claude mcp remove intellij-index
+                To remove: claude mcp remove jetbrains-index
             """.trimIndent()
 
             ClientType.CLAUDE_DESKTOP -> """
