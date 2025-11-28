@@ -152,6 +152,12 @@ tasks {
     publishPlugin {
         dependsOn(patchChangelog)
     }
+
+//    runIde {
+//        jvmArgs("-Xmx20g", "-Xms1g")
+//    }
+
+
 }
 
 intellijPlatformTesting {

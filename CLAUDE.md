@@ -124,7 +124,7 @@ before executing any tool. This ensures PSI is synchronized with external file c
 
 **User Setting**: "Sync external file changes before operations" (Settings → MCP Server)
 - **Disabled** (default): Best performance, suitable for most use cases
-- **Enabled**: Use when rename/find-usages misses references in files just created externally
+- **Enabled**: **WARNING - SIGNIFICANT PERFORMANCE IMPACT.** Use only when rename/find-usages misses references in files just created externally. Each operation will take seconds instead of milliseconds on large repos.
 
 **For tool developers**:
 - Extend `AbstractMcpTool` and implement `doExecute()` (not `execute()`)
@@ -305,7 +305,7 @@ VirtualFileManager   // Virtual file system
 
 4. **Search misses newly created files** - PSI not synchronized with document
    - Cause: External tools modified files but PSI tree hasn't been updated
-   - Solution: Enable "Sync external file changes" in Settings → MCP Server
+   - Solution: Enable "Sync external file changes" in Settings → MCP Server (WARNING: significant performance impact)
    - For custom code: `PsiDocumentManager.getInstance(project).commitAllDocuments()`
 
 ## Contributing

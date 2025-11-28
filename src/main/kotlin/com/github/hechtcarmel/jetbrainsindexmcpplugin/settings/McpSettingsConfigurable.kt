@@ -2,9 +2,13 @@ package com.github.hechtcarmel.jetbrainsindexmcpplugin.settings
 
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.McpBundle
 import com.intellij.openapi.options.Configurable
+import com.intellij.ui.JBColor
 import com.intellij.ui.components.JBCheckBox
 import com.intellij.ui.components.JBLabel
 import com.intellij.util.ui.FormBuilder
+import com.intellij.util.ui.JBUI
+import java.awt.FlowLayout
+import javax.swing.BoxLayout
 import javax.swing.JComponent
 import javax.swing.JPanel
 import javax.swing.JSpinner
@@ -26,10 +30,28 @@ class McpSettingsConfigurable : Configurable {
             toolTipText = McpBundle.message("settings.syncExternalChanges.tooltip")
         }
 
+        // Create warning label with red text
+        val warningLabel = JBLabel(McpBundle.message("settings.syncExternalChanges.warning")).apply {
+            foreground = JBColor.RED
+        }
+
+        // Create panel for sync checkbox with warning below it
+        val syncPanel = JPanel().apply {
+            layout = BoxLayout(this, BoxLayout.Y_AXIS)
+            val checkboxRow = JPanel(FlowLayout(FlowLayout.LEFT, 0, 0)).apply {
+                add(syncExternalChangesCheckBox)
+            }
+            add(checkboxRow)
+            val warningRow = JPanel(FlowLayout(FlowLayout.LEFT, JBUI.scale(24), 0)).apply {
+                add(warningLabel)
+            }
+            add(warningRow)
+        }
+
         panel = FormBuilder.createFormBuilder()
             .addLabeledComponent(JBLabel(McpBundle.message("settings.maxHistorySize") + ":"), maxHistorySizeSpinner!!, 1, false)
             .addComponent(autoScrollCheckBox!!, 1)
-            .addComponent(syncExternalChangesCheckBox!!, 1)
+            .addComponent(syncPanel, 1)
             .addComponentFillVertically(JPanel(), 0)
             .panel
 
