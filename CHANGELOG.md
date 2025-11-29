@@ -2,31 +2,16 @@
 
 # IDE Index MCP Server Changelog
 
-## [Unreleased]
-
 ## [1.5.0] - 2025-11-29
 
 ### Added
-- **Multi-IDE Support** - Plugin now works with ALL JetBrains IDEs
-  - IntelliJ IDEA, PyCharm, WebStorm, GoLand, PhpStorm, RubyMine, CLion, Rider, DataGrip, and Android Studio
-- `JavaPluginDetector` utility for cached Java plugin availability detection
-- Tool availability table in documentation showing capabilities per IDE
+- **Multi-IDE Support** - Works with all JetBrains IDEs: IntelliJ IDEA, PyCharm, WebStorm, GoLand, PhpStorm, RubyMine, CLion, Rider, DataGrip, Android Studio
+- **Multi-Language Support** - Navigation tools now work with Java/Kotlin, Python, and JavaScript/TypeScript
+- Agent rule tip panel with copy-to-clipboard in tool window
+- Non-blocking operations for improved responsiveness
 
 ### Changed
-- **Tool architecture redesigned** - Tools now split into two categories:
-  - **Universal Tools (4)** - Work in all JetBrains IDEs:
-    - `ide_find_references`, `ide_find_definition`, `ide_diagnostics`, `ide_index_status`
-  - **Extended Tools (7)** - Require Java plugin (IntelliJ IDEA & Android Studio):
-    - `ide_type_hierarchy`, `ide_call_hierarchy`, `ide_find_implementations`, `ide_find_symbol`, `ide_find_super_methods`, `ide_refactor_rename`, `ide_refactor_safe_delete`
-- Java-specific tools now loaded via reflection to prevent class loading errors in non-Java IDEs
-- "Sync External Changes" settings UI refined with performance impact warnings
-- Removed sync checkbox from tool window panel (setting still available in Settings)
-- Updated plugin description to reflect multi-IDE support
-- Documentation reorganized by tool availability
-
-### Technical
-- `ToolRegistry` refactored for conditional tool registration based on IDE capabilities
-- Platform build version changed to 2025.1.3 for broader compatibility
+- Tools reorganized: 4 universal tools (all IDEs), 5 navigation tools (language-dependent), 2 refactoring tools (Java only)
 
 ---
 
