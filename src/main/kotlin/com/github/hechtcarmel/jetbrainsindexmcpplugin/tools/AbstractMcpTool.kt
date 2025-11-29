@@ -4,6 +4,7 @@ import com.github.hechtcarmel.jetbrainsindexmcpplugin.exceptions.IndexNotReadyEx
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.server.models.ContentBlock
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.server.models.ToolCallResult
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.settings.McpSettings
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.util.JavaPluginDetector
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.command.WriteCommandAction
@@ -14,15 +15,10 @@ import com.intellij.openapi.util.TextRange
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.psi.JavaPsiFacade
-import com.intellij.psi.PsiClass
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
-import com.intellij.psi.PsiJavaFile
 import com.intellij.psi.PsiManager
-import com.intellij.psi.search.FilenameIndex
-import com.intellij.psi.search.GlobalSearchScope
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -325,6 +321,9 @@ abstract class AbstractMcpTool : McpTool {
     /**
      * Finds a Java/Kotlin class by its fully qualified name.
      *
+     * **NOTE**: This method requires the Java plugin to be available.
+     * Returns null immediately if the Java plugin is not installed.
+     *
      * Uses multiple lookup strategies:
      * 1. JavaPsiFacade with project scope (fastest, index-based)
      * 2. JavaPsiFacade with all scope (includes libraries)
@@ -332,53 +331,100 @@ abstract class AbstractMcpTool : McpTool {
      *
      * @param project The project context
      * @param qualifiedName Fully qualified class name (e.g., "com.example.MyClass")
-     * @return The PsiClass, or null if not found
+     * @return The PsiClass, or null if not found or Java plugin is not available
+     * @see JavaPluginDetector.isJavaPluginAvailable
      */
-    protected fun findClassByName(project: Project, qualifiedName: String): PsiClass? {
+    protected fun findClassByName(project: Project, qualifiedName: String): PsiElement? {
+        // Early return if Java plugin is not available
+        if (!JavaPluginDetector.isJavaPluginAvailable) {
+            return null
+        }
+
         return try {
-            val javaPsiFacade = JavaPsiFacade.getInstance(project)
-
-            // Try indexed lookup first (fastest)
-            javaPsiFacade.findClass(qualifiedName, GlobalSearchScope.projectScope(project))
-                ?.let { return it }
-            javaPsiFacade.findClass(qualifiedName, GlobalSearchScope.allScope(project))
-                ?.let { return it }
-
-            // Fallback: search by filename if index lookup fails
-            val simpleClassName = qualifiedName.substringAfterLast('.')
-            val expectedPackage = qualifiedName.substringBeforeLast('.', "")
-
-            // Try Java files
-            val javaFiles = FilenameIndex.getVirtualFilesByName(
-                "$simpleClassName.java",
-                GlobalSearchScope.everythingScope(project)
-            )
-
-            val psiManager = PsiManager.getInstance(project)
-            for (virtualFile in javaFiles) {
-                val psiFile = psiManager.findFile(virtualFile) as? PsiJavaFile ?: continue
-                if (psiFile.packageName == expectedPackage) {
-                    psiFile.classes.firstOrNull { it.name == simpleClassName }?.let { return it }
-                }
-            }
-
-            // Try Kotlin files
-            val ktFiles = FilenameIndex.getVirtualFilesByName(
-                "$simpleClassName.kt",
-                GlobalSearchScope.everythingScope(project)
-            )
-
-            for (virtualFile in ktFiles) {
-                val psiFile = psiManager.findFile(virtualFile) ?: continue
-                // For Kotlin files, use JavaPsiFacade to find the class
-                val ktClass = javaPsiFacade.findClass(qualifiedName, GlobalSearchScope.fileScope(psiFile))
-                if (ktClass != null) return ktClass
-            }
-
-            null
+            // Use reflection to avoid compile-time dependency on Java plugin classes
+            // This allows the code to compile and run even when Java plugin is not available
+            findClassByNameWithJavaPlugin(project, qualifiedName)
         } catch (e: Exception) {
             null
         }
+    }
+
+    /**
+     * Internal implementation that uses Java plugin classes.
+     * This method should only be called when Java plugin is available.
+     */
+    private fun findClassByNameWithJavaPlugin(project: Project, qualifiedName: String): PsiElement? {
+        // These classes are only available when Java plugin is installed
+        val javaPsiFacadeClass = Class.forName("com.intellij.psi.JavaPsiFacade")
+        val globalSearchScopeClass = Class.forName("com.intellij.psi.search.GlobalSearchScope")
+        val filenameIndexClass = Class.forName("com.intellij.psi.search.FilenameIndex")
+        val psiJavaFileClass = Class.forName("com.intellij.psi.PsiJavaFile")
+
+        // Get JavaPsiFacade instance
+        val getInstanceMethod = javaPsiFacadeClass.getMethod("getInstance", Project::class.java)
+        val javaPsiFacade = getInstanceMethod.invoke(null, project)
+
+        // Get search scopes
+        val projectScopeMethod = globalSearchScopeClass.getMethod("projectScope", Project::class.java)
+        val allScopeMethod = globalSearchScopeClass.getMethod("allScope", Project::class.java)
+        val everythingScopeMethod = globalSearchScopeClass.getMethod("everythingScope", Project::class.java)
+        val fileScopeMethod = globalSearchScopeClass.getMethod("fileScope", PsiFile::class.java)
+
+        val projectScope = projectScopeMethod.invoke(null, project)
+        val allScope = allScopeMethod.invoke(null, project)
+
+        // Try indexed lookup first (fastest)
+        val findClassMethod = javaPsiFacadeClass.getMethod("findClass", String::class.java, globalSearchScopeClass)
+
+        val classInProject = findClassMethod.invoke(javaPsiFacade, qualifiedName, projectScope)
+        if (classInProject != null) return classInProject as PsiElement
+
+        val classInAll = findClassMethod.invoke(javaPsiFacade, qualifiedName, allScope)
+        if (classInAll != null) return classInAll as PsiElement
+
+        // Fallback: search by filename if index lookup fails
+        val simpleClassName = qualifiedName.substringAfterLast('.')
+        val expectedPackage = qualifiedName.substringBeforeLast('.', "")
+
+        // Try Java files
+        val everythingScope = everythingScopeMethod.invoke(null, project)
+        val getFilesByNameMethod = filenameIndexClass.getMethod(
+            "getVirtualFilesByName",
+            String::class.java,
+            globalSearchScopeClass
+        )
+        val javaFiles = getFilesByNameMethod.invoke(null, "$simpleClassName.java", everythingScope) as Collection<*>
+
+        val psiManager = PsiManager.getInstance(project)
+        for (virtualFile in javaFiles) {
+            val psiFile = psiManager.findFile(virtualFile as VirtualFile) ?: continue
+            if (!psiJavaFileClass.isInstance(psiFile)) continue
+
+            val getPackageNameMethod = psiJavaFileClass.getMethod("getPackageName")
+            val getClassesMethod = psiJavaFileClass.getMethod("getClasses")
+
+            val packageName = getPackageNameMethod.invoke(psiFile) as String
+            if (packageName == expectedPackage) {
+                val classes = getClassesMethod.invoke(psiFile) as Array<*>
+                for (psiClass in classes) {
+                    val psiElement = psiClass as PsiElement
+                    val getNameMethod = psiElement.javaClass.getMethod("getName")
+                    val className = getNameMethod.invoke(psiElement) as String?
+                    if (className == simpleClassName) return psiElement
+                }
+            }
+        }
+
+        // Try Kotlin files
+        val ktFiles = getFilesByNameMethod.invoke(null, "$simpleClassName.kt", everythingScope) as Collection<*>
+        for (virtualFile in ktFiles) {
+            val psiFile = psiManager.findFile(virtualFile as VirtualFile) ?: continue
+            val fileScope = fileScopeMethod.invoke(null, psiFile)
+            val ktClass = findClassMethod.invoke(javaPsiFacade, qualifiedName, fileScope)
+            if (ktClass != null) return ktClass as PsiElement
+        }
+
+        return null
     }
 
     /**

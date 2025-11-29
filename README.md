@@ -4,25 +4,36 @@
 [![Version](https://img.shields.io/jetbrains/plugin/v/MARKETPLACE_ID.svg)](https://plugins.jetbrains.com/plugin/MARKETPLACE_ID)
 [![Downloads](https://img.shields.io/jetbrains/plugin/d/MARKETPLACE_ID.svg)](https://plugins.jetbrains.com/plugin/MARKETPLACE_ID)
 
-A JetBrains IDE plugin that exposes an **MCP (Model Context Protocol) server**, enabling AI coding assistants like Claude, Cursor, and Windsurf to leverage the IDE's powerful indexing and refactoring capabilities. Works with IntelliJ IDEA, WebStorm, PyCharm, and other JetBrains IDEs.
+A JetBrains IDE plugin that exposes an **MCP (Model Context Protocol) server**, enabling AI coding assistants like Claude, Cursor, and Windsurf to leverage the IDE's powerful indexing and refactoring capabilities.
+
+**Works with all JetBrains IDEs**: IntelliJ IDEA, PyCharm, WebStorm, GoLand, PhpStorm, RubyMine, CLion, Rider, DataGrip, and Android Studio.
 
 <!-- Plugin description -->
-**IDE Index MCP Server** provides AI coding assistants with access to IntelliJ IDEA's powerful code intelligence features through the Model Context Protocol (MCP).
+**IDE Index MCP Server** provides AI coding assistants with access to the IDE's powerful code intelligence features through the Model Context Protocol (MCP).
 
 ### Features
 
-- **Semantic Code Navigation** - Find usages, find definition, type/call hierarchies, find implementations using the IDE's semantic index
-- **Safe IDE-Powered Refactoring** - Rename symbols and safely delete code with full reference updates
-- **Code Diagnostics** - Analyze files for problems, warnings, and available code improvements
-- **Project Intelligence** - Query indexing status to check if code intelligence is available
+**Universal Tools (All JetBrains IDEs)**
+- **Find References** - Locate all usages of any symbol across the project
+- **Go to Definition** - Navigate to symbol declarations
+- **Code Diagnostics** - Access errors, warnings, and quick fixes
+- **Index Status** - Check if code intelligence is ready
+
+**Extended Tools (IntelliJ IDEA & Android Studio)**
+- **Type Hierarchy** - Explore class inheritance chains
+- **Call Hierarchy** - Trace method call relationships
+- **Find Implementations** - Discover interface implementations
+- **Symbol Search** - Find by name with fuzzy/camelCase matching
+- **Rename Refactoring** - Safe renaming with reference updates
+- **Safe Delete** - Remove code with usage checking
 
 ### Why Use This Plugin?
 
 Unlike simple text-based code analysis, this plugin gives AI assistants access to:
-- **True semantic understanding** through IntelliJ's AST and index
+- **True semantic understanding** through the IDE's AST and index
 - **Cross-project reference resolution** that works across files and modules
 - **Safe refactoring operations** with automatic reference updates and undo support
-- **Real-time code intelligence** including completions and quick fixes
+- **Language-agnostic core** with extended Java/Kotlin support
 
 Perfect for AI-assisted development workflows where accuracy and safety matter.
 <!-- Plugin description end -->
@@ -147,40 +158,49 @@ Add to `~/.codeium/windsurf/mcp_config.json`:
 
 ## Available Tools
 
-The plugin provides **11 MCP tools** organized into four categories:
+The plugin provides MCP tools organized by availability:
 
-### Navigation Tools
+### Universal Tools (All JetBrains IDEs)
+
+These tools work in **every** JetBrains IDE - IntelliJ, PyCharm, WebStorm, GoLand, CLion, Rider, etc.
 
 | Tool | Description |
 |------|-------------|
 | `ide_find_references` | Find all references to a symbol across the entire project |
 | `ide_find_definition` | Find the definition/declaration location of a symbol |
+| `ide_diagnostics` | Analyze a file for problems (errors, warnings) and available intentions |
+| `ide_index_status` | Check if the IDE is in dumb mode or smart mode |
+
+### Extended Tools (IntelliJ IDEA & Android Studio)
+
+These tools require the Java plugin and are only available in IntelliJ IDEA and Android Studio:
+
+| Tool | Description |
+|------|-------------|
 | `ide_type_hierarchy` | Get the complete type hierarchy (supertypes and subtypes) |
 | `ide_call_hierarchy` | Analyze method call relationships (callers or callees) |
 | `ide_find_implementations` | Find all implementations of an interface or abstract method |
 | `ide_find_symbol` | Search for symbols (classes, methods, fields) by name with fuzzy/camelCase matching |
 | `ide_find_super_methods` | Find the full inheritance hierarchy of methods that a method overrides/implements |
-
-### Code Intelligence Tools
-
-| Tool | Description |
-|------|-------------|
-| `ide_diagnostics` | Analyze a file for problems (errors, warnings) and available intentions/code improvements |
-
-### Project Structure Tools
-
-| Tool | Description |
-|------|-------------|
-| `ide_index_status` | Check if the IDE is in dumb mode or smart mode |
-
-### Refactoring Tools
-
-| Tool | Description |
-|------|-------------|
 | `ide_refactor_rename` | Rename a symbol and update all references |
 | `ide_refactor_safe_delete` | Safely delete an element, checking for usages first |
 
 > **Note**: Refactoring tools modify source files. All changes support undo via <kbd>Ctrl/Cmd+Z</kbd>.
+
+### Tool Availability by IDE
+
+| IDE | Universal Tools | Extended Tools |
+|-----|-----------------|----------------|
+| IntelliJ IDEA | 4 tools | 7 tools |
+| Android Studio | 4 tools | 7 tools |
+| PyCharm | 4 tools | - |
+| WebStorm | 4 tools | - |
+| GoLand | 4 tools | - |
+| PhpStorm | 4 tools | - |
+| RubyMine | 4 tools | - |
+| CLion | 4 tools | - |
+| Rider | 4 tools | - |
+| DataGrip | 4 tools | - |
 
 For detailed tool documentation with parameters and examples, see [USAGE.md](USAGE.md).
 
@@ -260,9 +280,26 @@ Configure the plugin at <kbd>Settings</kbd> > <kbd>Tools</kbd> > <kbd>Index MCP 
 
 ## Requirements
 
-- **IntelliJ IDEA** 2025.1 or later (Community or Ultimate)
+- **JetBrains IDE** 2025.1 or later (any IDE based on IntelliJ Platform)
 - **JVM** 21 or later
 - **MCP Protocol** 2024-11-05
+
+### Supported IDEs
+
+| IDE | Universal Tools | Extended Tools |
+|-----|-----------------|----------------|
+| IntelliJ IDEA Community/Ultimate | Yes | Yes |
+| Android Studio | Yes | Yes |
+| PyCharm Community/Professional | Yes | No |
+| WebStorm | Yes | No |
+| GoLand | Yes | No |
+| PhpStorm | Yes | No |
+| RubyMine | Yes | No |
+| CLion | Yes | No |
+| Rider | Yes | No |
+| DataGrip | Yes | No |
+
+> Extended tools (type hierarchy, call hierarchy, find implementations, symbol search, refactoring) require the Java plugin, which is bundled with IntelliJ IDEA and Android Studio.
 
 ## Architecture
 

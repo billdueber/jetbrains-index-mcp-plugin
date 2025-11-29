@@ -105,7 +105,7 @@ class TypeHierarchyTool : AbstractMcpTool() {
         // Try className first
         val className = arguments["className"]?.jsonPrimitive?.content
         if (className != null) {
-            return findClassByName(project, className)
+            return findClassByName(project, className) as? PsiClass
         }
 
         // Otherwise use file/line/column

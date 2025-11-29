@@ -2,22 +2,51 @@
 
 This document provides detailed documentation for all MCP tools available in the IDE Index MCP Server plugin.
 
+## Tool Availability by IDE
+
+Tools are organized into two categories based on IDE compatibility:
+
+### Universal Tools (All JetBrains IDEs)
+
+These tools work in **every** JetBrains IDE:
+
+| Tool | Description |
+|------|-------------|
+| `ide_find_references` | Find all references to a symbol |
+| `ide_find_definition` | Find symbol definition location |
+| `ide_diagnostics` | Analyze code for problems and intentions |
+| `ide_index_status` | Check indexing status |
+
+### Extended Tools (IntelliJ IDEA & Android Studio Only)
+
+These tools require the Java plugin:
+
+| Tool | Description |
+|------|-------------|
+| `ide_type_hierarchy` | Get type inheritance hierarchy |
+| `ide_call_hierarchy` | Analyze method call relationships |
+| `ide_find_implementations` | Find interface implementations |
+| `ide_find_symbol` | Search symbols by name |
+| `ide_find_super_methods` | Find overridden methods |
+| `ide_refactor_rename` | Rename symbol with reference updates |
+| `ide_refactor_safe_delete` | Safely delete with usage check |
+
+---
+
 ## Table of Contents
 
 - [Common Parameters](#common-parameters)
-- [Navigation Tools](#navigation-tools)
+- [Universal Tools](#universal-tools)
   - [ide_find_references](#ide_find_references)
   - [ide_find_definition](#ide_find_definition)
+  - [ide_diagnostics](#ide_diagnostics)
+  - [ide_index_status](#ide_index_status)
+- [Extended Tools (Java Plugin Required)](#extended-tools-java-plugin-required)
   - [ide_type_hierarchy](#ide_type_hierarchy)
   - [ide_call_hierarchy](#ide_call_hierarchy)
   - [ide_find_implementations](#ide_find_implementations)
   - [ide_find_symbol](#ide_find_symbol)
   - [ide_find_super_methods](#ide_find_super_methods)
-- [Code Intelligence Tools](#code-intelligence-tools)
-  - [ide_diagnostics](#ide_diagnostics)
-- [Project Structure Tools](#project-structure-tools)
-  - [ide_index_status](#ide_index_status)
-- [Refactoring Tools](#refactoring-tools)
   - [ide_refactor_rename](#ide_refactor_rename)
   - [ide_refactor_safe_delete](#ide_refactor_safe_delete)
 - [Error Handling](#error-handling)
@@ -44,7 +73,9 @@ Most tools operate on a specific location in code and require these parameters:
 
 ---
 
-## Navigation Tools
+## Universal Tools
+
+These tools work in all JetBrains IDEs (IntelliJ, PyCharm, WebStorm, GoLand, etc.).
 
 ### ide_find_references
 
@@ -158,6 +189,12 @@ Finds the definition/declaration location of a symbol at a given source location
 ```
 
 ---
+
+## Extended Tools (Java Plugin Required)
+
+These tools require the Java plugin and are only available in **IntelliJ IDEA** and **Android Studio**.
+
+In other IDEs (PyCharm, WebStorm, GoLand, etc.), these tools are not registered and will not appear in the tools list.
 
 ### ide_type_hierarchy
 
@@ -555,9 +592,9 @@ Finds the complete inheritance hierarchy for a method - all parent methods it ov
 
 ---
 
-## Code Intelligence Tools
-
 ### ide_diagnostics
+
+> **Availability**: Universal Tool - works in all JetBrains IDEs
 
 Analyzes a file for code problems (errors, warnings) and available intentions/quick fixes.
 
@@ -638,9 +675,9 @@ Analyzes a file for code problems (errors, warnings) and available intentions/qu
 
 ---
 
-## Project Structure Tools
-
 ### ide_index_status
+
+> **Availability**: Universal Tool - works in all JetBrains IDEs
 
 Checks if the IDE is in dumb mode (indexing) or smart mode.
 
@@ -679,11 +716,9 @@ Checks if the IDE is in dumb mode (indexing) or smart mode.
 
 ---
 
-## Refactoring Tools
+### ide_refactor_rename
 
 > **Note**: All refactoring tools modify source files. Changes can be undone with Ctrl/Cmd+Z.
-
-### ide_refactor_rename
 
 Renames a symbol and updates all references across the project.
 

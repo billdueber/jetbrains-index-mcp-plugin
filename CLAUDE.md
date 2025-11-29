@@ -2,6 +2,8 @@
 
 An IntelliJ Platform plugin that exposes an MCP (Model Context Protocol) server, enabling coding agents to leverage the IDE's powerful indexing and refactoring capabilities.
 
+**Works with all JetBrains IDEs**: IntelliJ IDEA, PyCharm, WebStorm, GoLand, PhpStorm, RubyMine, CLion, Rider, DataGrip, and Android Studio.
+
 ## Project Overview
 
 ### Goal
@@ -248,24 +250,32 @@ Tests are split into two categories to optimize execution time:
 
 ### Implemented Tools
 
-**Navigation:**
+Tools are organized by IDE availability.
+
+**Universal Tools (All JetBrains IDEs):**
 - `ide_find_references` - Find all usages of a symbol
 - `ide_find_definition` - Find symbol definition location
+- `ide_diagnostics` - Analyze file for problems and available intentions
+- `ide_index_status` - Check indexing status (dumb/smart mode)
+
+**Extended Tools (IntelliJ IDEA & Android Studio Only):**
+
+These require the Java plugin:
 - `ide_type_hierarchy` - Get type hierarchy for a class
 - `ide_call_hierarchy` - Get call hierarchy for a method
 - `ide_find_implementations` - Find implementations of interface/method
 - `ide_find_symbol` - Search for symbols (classes, methods, fields) by name with fuzzy/camelCase matching
 - `ide_find_super_methods` - Find methods that a given method overrides/implements (full hierarchy chain)
-
-**Intelligence:**
-- `ide_diagnostics` - Analyze file for problems and available intentions
-
-**Project:**
-- `ide_index_status` - Check indexing status (dumb/smart mode)
-
-**Refactoring:**
 - `ide_refactor_rename` - Rename a symbol across the project
 - `ide_refactor_safe_delete` - Safely delete element
+
+### Multi-IDE Architecture
+
+The plugin uses conditional tool registration based on Java plugin availability:
+
+- `JavaPluginDetector` - Cached check for Java plugin availability (runs once at startup)
+- `ToolRegistry.registerBuiltInTools()` - Registers universal tools always, Java tools conditionally
+- Java-specific tools are loaded via reflection to avoid class loading errors in non-Java IDEs
 
 ## Useful IntelliJ Platform Classes
 

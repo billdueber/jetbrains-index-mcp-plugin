@@ -1,8 +1,8 @@
 # IntelliJ Index MCP Plugin - Design Document
 
-**Document Version**: 1.1
+**Document Version**: 1.2
 **Status**: Draft
-**Based on**: requirements.md v1.0
+**Based on**: requirements.md v1.5
 
 ---
 
@@ -985,27 +985,60 @@ class FindUsagesTool : AbstractMcpTool() {
 
 ### 6.4 Tool Registration
 
+Tools are registered conditionally based on IDE capabilities:
+
 ```kotlin
 // In ToolRegistry.kt
-fun registerBuiltInTools(project: Project) {
-    // Navigation tools (ide_* prefix)
+fun registerBuiltInTools() {
+    // Universal tools - work in all JetBrains IDEs
+    registerUniversalTools()
+
+    // Java-specific tools - only when Java plugin is available
+    if (JavaPluginDetector.isJavaPluginAvailable) {
+        registerJavaTools()
+    }
+}
+
+private fun registerUniversalTools() {
     register(FindUsagesTool())        // ide_find_references
     register(FindDefinitionTool())    // ide_find_definition
-    register(TypeHierarchyTool())     // ide_type_hierarchy
-    register(CallHierarchyTool())     // ide_call_hierarchy
-    register(FindImplementationsTool()) // ide_find_implementations
-    register(FindSymbolTool())        // ide_find_symbol
-    register(FindSuperMethodsTool())  // ide_find_super_methods
-
-    // Intelligence tools (ide_* prefix)
-    register(GetDiagnosticsTool())    // ide_diagnostics (problems + intentions)
-
-    // Project tools (ide_* prefix)
+    register(GetDiagnosticsTool())    // ide_diagnostics
     register(GetIndexStatusTool())    // ide_index_status
+}
 
-    // Refactoring tools (ide_refactor_* prefix)
-    register(RenameSymbolTool())      // ide_refactor_rename
-    register(SafeDeleteTool())        // ide_refactor_safe_delete
+private fun registerJavaTools() {
+    // Loaded via reflection to avoid class loading errors
+    val javaToolClasses = listOf(
+        "...TypeHierarchyTool",         // ide_type_hierarchy
+        "...CallHierarchyTool",         // ide_call_hierarchy
+        "...FindImplementationsTool",   // ide_find_implementations
+        "...FindSymbolTool",            // ide_find_symbol
+        "...FindSuperMethodsTool",      // ide_find_super_methods
+        "...RenameSymbolTool",          // ide_refactor_rename
+        "...SafeDeleteTool"             // ide_refactor_safe_delete
+    )
+
+    for (className in javaToolClasses) {
+        val tool = Class.forName(className).newInstance() as McpTool
+        register(tool)
+    }
+}
+```
+
+### 6.5 Java Plugin Detection
+
+```kotlin
+// In JavaPluginDetector.kt
+object JavaPluginDetector {
+    // Cached check - runs once at class initialization
+    val isJavaPluginAvailable: Boolean by lazy {
+        try {
+            Class.forName("com.intellij.psi.JavaPsiFacade")
+            true
+        } catch (e: ClassNotFoundException) {
+            false
+        }
+    }
 }
 ```
 
@@ -1547,3 +1580,4 @@ dependencies {
 | 1.3 | 2025-11-28 | Reduced tool count from 13 to 9; removed extract_method, extract_variable, inline, move tools |
 | 1.4 | 2025-11-28 | Added ide_find_symbol and ide_find_super_methods navigation tools (11 tools total) |
 | 1.5 | 2025-11-28 | Removed Resource Providers (Section 7); resources functionality deprecated |
+| 1.6 | 2025-11-29 | Added multi-IDE support architecture; tools categorized as Universal (4) and Extended (7); added JavaPluginDetector |
