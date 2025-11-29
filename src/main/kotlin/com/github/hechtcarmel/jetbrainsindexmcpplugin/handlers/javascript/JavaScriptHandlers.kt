@@ -2,12 +2,25 @@ package com.github.hechtcarmel.jetbrainsindexmcpplugin.handlers.javascript
 
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.handlers.*
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.util.JavaScriptPluginDetector
+import com.intellij.ide.util.gotoByName.ChooseByNameModelEx
+import com.intellij.navigation.ChooseByNameContributor
+import com.intellij.navigation.ChooseByNameContributorEx
+import com.intellij.navigation.NavigationItem
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiFile
+import com.intellij.psi.PsiManager
+import com.intellij.psi.PsiNamedElement
+import com.intellij.psi.search.FilenameIndex
 import com.intellij.psi.search.GlobalSearchScope
+import com.intellij.psi.search.searches.DefinitionsScopedSearch
+import com.intellij.psi.search.searches.ReferencesSearch
 import com.intellij.psi.util.PsiTreeUtil
+import com.intellij.util.Processor
+import com.intellij.util.indexing.FindSymbolParameters
+import com.intellij.util.indexing.IdFilter
 
 /**
  * Registration entry point for JavaScript/TypeScript language handlers.
@@ -21,8 +34,6 @@ import com.intellij.psi.util.PsiTreeUtil
  * - `com.intellij.lang.javascript.psi.JSFunction` - Function/method declarations
  * - `com.intellij.lang.javascript.psi.ecmal4.JSClass` - TypeScript class declarations
  * - `com.intellij.lang.javascript.psi.JSCallExpression` - Function/method calls
- * - `com.intellij.lang.javascript.index.JSSymbolIndex` - Symbol index
- * - `com.intellij.lang.javascript.psi.resolve.JSClassResolver` - Class resolution
  *
  * ## Supported Languages
  *
@@ -80,6 +91,8 @@ object JavaScriptHandlers {
  */
 abstract class BaseJavaScriptHandler<T> : LanguageHandler<T> {
 
+    protected val LOG = logger<BaseJavaScriptHandler<*>>()
+
     /**
      * Checks if the element is from a JavaScript/TypeScript language.
      */
@@ -90,14 +103,23 @@ abstract class BaseJavaScriptHandler<T> : LanguageHandler<T> {
             langId == "TypeScript JSX"
     }
 
+    /**
+     * Checks if a file is a JavaScript/TypeScript file by extension.
+     */
+    protected fun isJavaScriptFile(file: com.intellij.openapi.vfs.VirtualFile): Boolean {
+        val ext = file.extension?.lowercase() ?: return false
+        return ext in listOf("js", "jsx", "ts", "tsx", "mjs", "cjs")
+    }
+
     protected val jsClassClass: Class<*>? by lazy {
         try {
-            // Try ES6 class first
+            // Try ES6 class first (com.intellij.lang.javascript.psi.ecmal4.JSClass)
             Class.forName("com.intellij.lang.javascript.psi.ecmal4.JSClass")
         } catch (e: ClassNotFoundException) {
             try {
                 Class.forName("com.intellij.lang.javascript.psi.JSClass")
             } catch (e2: ClassNotFoundException) {
+                LOG.debug("JSClass not found")
                 null
             }
         }
@@ -107,6 +129,7 @@ abstract class BaseJavaScriptHandler<T> : LanguageHandler<T> {
         try {
             Class.forName("com.intellij.lang.javascript.psi.JSFunction")
         } catch (e: ClassNotFoundException) {
+            LOG.debug("JSFunction not found")
             null
         }
     }
@@ -115,14 +138,30 @@ abstract class BaseJavaScriptHandler<T> : LanguageHandler<T> {
         try {
             Class.forName("com.intellij.lang.javascript.psi.JSCallExpression")
         } catch (e: ClassNotFoundException) {
+            LOG.debug("JSCallExpression not found")
             null
         }
     }
 
-    protected val jsReferenceExpressionClass: Class<*>? by lazy {
+    protected val jsNamedElementClass: Class<*>? by lazy {
         try {
-            Class.forName("com.intellij.lang.javascript.psi.JSReferenceExpression")
+            Class.forName("com.intellij.lang.javascript.psi.JSNamedElement")
         } catch (e: ClassNotFoundException) {
+            try {
+                // Fallback to base PsiNamedElement
+                PsiNamedElement::class.java
+            } catch (e2: Exception) {
+                LOG.debug("JSNamedElement not found")
+                null
+            }
+        }
+    }
+
+    protected val jsVariableClass: Class<*>? by lazy {
+        try {
+            Class.forName("com.intellij.lang.javascript.psi.JSVariable")
+        } catch (e: ClassNotFoundException) {
+            LOG.debug("JSVariable not found")
             null
         }
     }
@@ -164,6 +203,20 @@ abstract class BaseJavaScriptHandler<T> : LanguageHandler<T> {
      */
     protected fun isJSFunction(element: PsiElement): Boolean {
         return jsFunctionClass?.isInstance(element) == true
+    }
+
+    /**
+     * Checks if element is a JSVariable using reflection.
+     */
+    protected fun isJSVariable(element: PsiElement): Boolean {
+        return jsVariableClass?.isInstance(element) == true
+    }
+
+    /**
+     * Checks if element is a JSNamedElement using reflection.
+     */
+    protected fun isJSNamedElement(element: PsiElement): Boolean {
+        return jsNamedElementClass?.isInstance(element) == true
     }
 
     /**
@@ -246,6 +299,39 @@ abstract class BaseJavaScriptHandler<T> : LanguageHandler<T> {
             null
         }
     }
+
+    /**
+     * Determines the kind of a JavaScript element.
+     */
+    protected fun determineElementKind(element: PsiElement): String {
+        return when {
+            isJSClass(element) -> getClassKind(element)
+            isJSFunction(element) -> {
+                val containingClass = findContainingJSClass(element)
+                if (containingClass != null && containingClass != element) "METHOD" else "FUNCTION"
+            }
+            isJSVariable(element) -> "VARIABLE"
+            else -> "SYMBOL"
+        }
+    }
+
+    /**
+     * Finds a method in a JS class by name.
+     */
+    protected fun findMethodInClass(jsClass: PsiElement, methodName: String): PsiElement? {
+        return try {
+            val findFunctionMethod = jsClass.javaClass.getMethod("findFunctionByName", String::class.java)
+            findFunctionMethod.invoke(jsClass, methodName) as? PsiElement
+        } catch (e: Exception) {
+            try {
+                val getFunctionsMethod = jsClass.javaClass.getMethod("getFunctions")
+                val functions = getFunctionsMethod.invoke(jsClass) as? Array<*> ?: return null
+                functions.filterIsInstance<PsiElement>().find { getName(it) == methodName }
+            } catch (e2: Exception) {
+                null
+            }
+        }
+    }
 }
 
 /**
@@ -267,9 +353,12 @@ class JavaScriptTypeHierarchyHandler : BaseJavaScriptHandler<TypeHierarchyData>(
 
     override fun getTypeHierarchy(element: PsiElement, project: Project): TypeHierarchyData? {
         val jsClass = findContainingJSClass(element) ?: return null
+        LOG.debug("Getting type hierarchy for JS class: ${getName(jsClass)}")
 
         val supertypes = getSupertypes(project, jsClass)
         val subtypes = getSubtypes(project, jsClass)
+
+        LOG.debug("Found ${supertypes.size} supertypes and ${subtypes.size} subtypes")
 
         return TypeHierarchyData(
             element = TypeElementData(
@@ -336,70 +425,78 @@ class JavaScriptTypeHierarchyHandler : BaseJavaScriptHandler<TypeHierarchyData>(
                 }
             }
         } catch (e: Exception) {
-            // Handle gracefully
+            LOG.debug("Error getting supertypes: ${e.message}")
         }
 
         return supertypes
     }
 
     private fun getSubtypes(project: Project, jsClass: PsiElement): List<TypeElementData> {
-        return try {
-            // Use DefinitionsScopedSearch or similar
-            val searchClass = Class.forName("com.intellij.lang.javascript.psi.resolve.JSInheritorsSearch")
-            val searchMethod = searchClass.getMethod("search", jsClassClass)
-            val query = searchMethod.invoke(null, jsClass)
-
-            val findAllMethod = query.javaClass.getMethod("findAll")
-            val inheritors = findAllMethod.invoke(query) as? Collection<*> ?: return emptyList()
-
-            inheritors.filterIsInstance<PsiElement>()
-                .take(100)
-                .map { inheritor ->
-                    TypeElementData(
-                        name = getQualifiedName(inheritor) ?: getName(inheritor) ?: "unknown",
-                        qualifiedName = getQualifiedName(inheritor),
-                        file = inheritor.containingFile?.virtualFile?.let { getRelativePath(project, it) },
-                        line = getLineNumber(project, inheritor),
-                        kind = getClassKind(inheritor),
-                        language = getLanguageName(inheritor)
-                    )
-                }
-        } catch (e: Exception) {
-            // Fallback: Use DefinitionsScopedSearch
-            try {
-                findInheritorsViaDefinitions(project, jsClass)
-            } catch (e2: Exception) {
-                emptyList()
+        // Strategy 1: Try JSInheritorsSearch (JavaScript plugin API)
+        try {
+            val result = searchUsingJSInheritorsSearch(project, jsClass)
+            if (result.isNotEmpty()) {
+                LOG.debug("Found ${result.size} subtypes via JSInheritorsSearch")
+                return result
             }
+        } catch (e: Exception) {
+            LOG.debug("JSInheritorsSearch failed: ${e.message}")
         }
+
+        // Strategy 2: Try DefinitionsScopedSearch (Platform API)
+        try {
+            val result = searchUsingDefinitionsScopedSearch(project, jsClass)
+            if (result.isNotEmpty()) {
+                LOG.debug("Found ${result.size} subtypes via DefinitionsScopedSearch")
+                return result
+            }
+        } catch (e: Exception) {
+            LOG.debug("DefinitionsScopedSearch failed: ${e.message}")
+        }
+
+        LOG.debug("No subtypes found")
+        return emptyList()
     }
 
-    private fun findInheritorsViaDefinitions(project: Project, jsClass: PsiElement): List<TypeElementData> {
-        return try {
-            val searchClass = Class.forName("com.intellij.psi.search.searches.DefinitionsScopedSearch")
-            val searchMethod = searchClass.getMethod("search", PsiElement::class.java, GlobalSearchScope::class.java)
-            val scope = GlobalSearchScope.projectScope(project)
-            val query = searchMethod.invoke(null, jsClass, scope)
+    private fun searchUsingJSInheritorsSearch(project: Project, jsClass: PsiElement): List<TypeElementData> {
+        val searchClass = Class.forName("com.intellij.lang.javascript.psi.resolve.JSInheritorsSearch")
+        val searchMethod = searchClass.getMethod("search", jsClassClass)
+        val query = searchMethod.invoke(null, jsClass)
 
-            val findAllMethod = query.javaClass.getMethod("findAll")
-            val definitions = findAllMethod.invoke(query) as? Collection<*> ?: return emptyList()
+        val findAllMethod = query.javaClass.getMethod("findAll")
+        val inheritors = findAllMethod.invoke(query) as? Collection<*> ?: return emptyList()
 
-            definitions.filterIsInstance<PsiElement>()
-                .filter { isJSClass(it) }
-                .take(100)
-                .map { inheritor ->
-                    TypeElementData(
-                        name = getQualifiedName(inheritor) ?: getName(inheritor) ?: "unknown",
-                        qualifiedName = getQualifiedName(inheritor),
-                        file = inheritor.containingFile?.virtualFile?.let { getRelativePath(project, it) },
-                        line = getLineNumber(project, inheritor),
-                        kind = getClassKind(inheritor),
-                        language = getLanguageName(inheritor)
-                    )
-                }
-        } catch (e: Exception) {
-            emptyList()
-        }
+        return inheritors.filterIsInstance<PsiElement>()
+            .take(100)
+            .map { inheritor ->
+                TypeElementData(
+                    name = getQualifiedName(inheritor) ?: getName(inheritor) ?: "unknown",
+                    qualifiedName = getQualifiedName(inheritor),
+                    file = inheritor.containingFile?.virtualFile?.let { getRelativePath(project, it) },
+                    line = getLineNumber(project, inheritor),
+                    kind = getClassKind(inheritor),
+                    language = getLanguageName(inheritor)
+                )
+            }
+    }
+
+    private fun searchUsingDefinitionsScopedSearch(project: Project, jsClass: PsiElement): List<TypeElementData> {
+        val scope = GlobalSearchScope.projectScope(project)
+        val definitions = DefinitionsScopedSearch.search(jsClass, scope).findAll()
+
+        return definitions
+            .filter { it != jsClass && isJSClass(it) }
+            .take(100)
+            .map { inheritor ->
+                TypeElementData(
+                    name = getQualifiedName(inheritor) ?: getName(inheritor) ?: "unknown",
+                    qualifiedName = getQualifiedName(inheritor),
+                    file = inheritor.containingFile?.virtualFile?.let { getRelativePath(project, it) },
+                    line = getLineNumber(project, inheritor),
+                    kind = getClassKind(inheritor),
+                    language = getLanguageName(inheritor)
+                )
+            }
     }
 }
 
@@ -417,17 +514,20 @@ class JavaScriptImplementationsHandler : BaseJavaScriptHandler<List<Implementati
     override fun isAvailable(): Boolean = JavaScriptPluginDetector.isJavaScriptPluginAvailable && jsFunctionClass != null
 
     override fun findImplementations(element: PsiElement, project: Project): List<ImplementationData>? {
+        LOG.debug("Finding implementations for element at ${element.containingFile?.name}")
+
         val jsFunction = findContainingJSFunction(element)
         if (jsFunction != null) {
-            // Check if it's a method in a class
             val containingClass = findContainingJSClass(jsFunction)
             if (containingClass != null) {
+                LOG.debug("Finding method implementations for ${getName(jsFunction)}")
                 return findMethodImplementations(project, jsFunction)
             }
         }
 
         val jsClass = findContainingJSClass(element)
         if (jsClass != null) {
+            LOG.debug("Finding class implementations for ${getName(jsClass)}")
             return findClassImplementations(project, jsClass)
         }
 
@@ -435,91 +535,128 @@ class JavaScriptImplementationsHandler : BaseJavaScriptHandler<List<Implementati
     }
 
     private fun findMethodImplementations(project: Project, jsFunction: PsiElement): List<ImplementationData> {
-        return try {
-            val searchClass = Class.forName("com.intellij.lang.javascript.psi.resolve.JSFunctionOverridingSearch")
-            val searchMethod = searchClass.getMethod("search", jsFunctionClass)
-            val query = searchMethod.invoke(null, jsFunction)
-
-            val findAllMethod = query.javaClass.getMethod("findAll")
-            val overridingMethods = findAllMethod.invoke(query) as? Collection<*> ?: return emptyList()
-
-            overridingMethods.filterIsInstance<PsiElement>()
-                .take(100)
-                .mapNotNull { overridingMethod ->
-                    val file = overridingMethod.containingFile?.virtualFile ?: return@mapNotNull null
-                    val containingClass = findContainingJSClass(overridingMethod)
-                    val className = containingClass?.let { getName(it) } ?: ""
-                    val methodName = getName(overridingMethod) ?: "unknown"
-                    ImplementationData(
-                        name = if (className.isNotEmpty()) "$className.$methodName" else methodName,
-                        file = getRelativePath(project, file),
-                        line = getLineNumber(project, overridingMethod) ?: 0,
-                        kind = "METHOD",
-                        language = getLanguageName(overridingMethod)
-                    )
-                }
+        // Strategy 1: Try JSFunctionOverridingSearch
+        try {
+            val result = searchUsingJSFunctionOverridingSearch(project, jsFunction)
+            if (result.isNotEmpty()) {
+                LOG.debug("Found ${result.size} implementations via JSFunctionOverridingSearch")
+                return result
+            }
         } catch (e: Exception) {
-            // Fallback using DefinitionsScopedSearch
-            findImplementationsViaDefinitions(project, jsFunction)
+            LOG.debug("JSFunctionOverridingSearch failed: ${e.message}")
         }
+
+        // Strategy 2: Try DefinitionsScopedSearch (Platform API)
+        try {
+            val result = searchUsingDefinitionsScopedSearch(project, jsFunction)
+            if (result.isNotEmpty()) {
+                LOG.debug("Found ${result.size} implementations via DefinitionsScopedSearch")
+                return result
+            }
+        } catch (e: Exception) {
+            LOG.debug("DefinitionsScopedSearch failed: ${e.message}")
+        }
+
+        LOG.debug("No implementations found")
+        return emptyList()
+    }
+
+    private fun searchUsingJSFunctionOverridingSearch(project: Project, jsFunction: PsiElement): List<ImplementationData> {
+        val searchClass = Class.forName("com.intellij.lang.javascript.psi.resolve.JSFunctionOverridingSearch")
+        val searchMethod = searchClass.getMethod("search", jsFunctionClass)
+        val query = searchMethod.invoke(null, jsFunction)
+
+        val findAllMethod = query.javaClass.getMethod("findAll")
+        val overridingMethods = findAllMethod.invoke(query) as? Collection<*> ?: return emptyList()
+
+        return overridingMethods.filterIsInstance<PsiElement>()
+            .take(100)
+            .mapNotNull { overridingMethod ->
+                val file = overridingMethod.containingFile?.virtualFile ?: return@mapNotNull null
+                val containingClass = findContainingJSClass(overridingMethod)
+                val className = containingClass?.let { getName(it) } ?: ""
+                val methodName = getName(overridingMethod) ?: "unknown"
+                ImplementationData(
+                    name = if (className.isNotEmpty()) "$className.$methodName" else methodName,
+                    file = getRelativePath(project, file),
+                    line = getLineNumber(project, overridingMethod) ?: 0,
+                    kind = "METHOD",
+                    language = getLanguageName(overridingMethod)
+                )
+            }
     }
 
     private fun findClassImplementations(project: Project, jsClass: PsiElement): List<ImplementationData> {
-        return try {
-            val searchClass = Class.forName("com.intellij.lang.javascript.psi.resolve.JSInheritorsSearch")
-            val searchMethod = searchClass.getMethod("search", jsClassClass)
-            val query = searchMethod.invoke(null, jsClass)
-
-            val findAllMethod = query.javaClass.getMethod("findAll")
-            val inheritors = findAllMethod.invoke(query) as? Collection<*> ?: return emptyList()
-
-            inheritors.filterIsInstance<PsiElement>()
-                .take(100)
-                .mapNotNull { inheritor ->
-                    val file = inheritor.containingFile?.virtualFile ?: return@mapNotNull null
-                    ImplementationData(
-                        name = getQualifiedName(inheritor) ?: getName(inheritor) ?: "unknown",
-                        file = getRelativePath(project, file),
-                        line = getLineNumber(project, inheritor) ?: 0,
-                        kind = getClassKind(inheritor),
-                        language = getLanguageName(inheritor)
-                    )
-                }
+        // Strategy 1: Try JSInheritorsSearch
+        try {
+            val result = searchClassUsingJSInheritorsSearch(project, jsClass)
+            if (result.isNotEmpty()) {
+                LOG.debug("Found ${result.size} class implementations via JSInheritorsSearch")
+                return result
+            }
         } catch (e: Exception) {
-            findImplementationsViaDefinitions(project, jsClass)
+            LOG.debug("JSInheritorsSearch failed: ${e.message}")
         }
+
+        // Strategy 2: Try DefinitionsScopedSearch (Platform API)
+        try {
+            val result = searchUsingDefinitionsScopedSearch(project, jsClass)
+            if (result.isNotEmpty()) {
+                LOG.debug("Found ${result.size} class implementations via DefinitionsScopedSearch")
+                return result
+            }
+        } catch (e: Exception) {
+            LOG.debug("DefinitionsScopedSearch failed: ${e.message}")
+        }
+
+        LOG.debug("No class implementations found")
+        return emptyList()
     }
 
-    private fun findImplementationsViaDefinitions(project: Project, element: PsiElement): List<ImplementationData> {
-        return try {
-            val searchClass = Class.forName("com.intellij.psi.search.searches.DefinitionsScopedSearch")
-            val searchMethod = searchClass.getMethod("search", PsiElement::class.java, GlobalSearchScope::class.java)
-            val scope = GlobalSearchScope.projectScope(project)
-            val query = searchMethod.invoke(null, element, scope)
+    private fun searchClassUsingJSInheritorsSearch(project: Project, jsClass: PsiElement): List<ImplementationData> {
+        val searchClass = Class.forName("com.intellij.lang.javascript.psi.resolve.JSInheritorsSearch")
+        val searchMethod = searchClass.getMethod("search", jsClassClass)
+        val query = searchMethod.invoke(null, jsClass)
 
-            val findAllMethod = query.javaClass.getMethod("findAll")
-            val definitions = findAllMethod.invoke(query) as? Collection<*> ?: return emptyList()
+        val findAllMethod = query.javaClass.getMethod("findAll")
+        val inheritors = findAllMethod.invoke(query) as? Collection<*> ?: return emptyList()
 
-            definitions.filterIsInstance<PsiElement>()
-                .take(100)
-                .mapNotNull { definition ->
-                    val file = definition.containingFile?.virtualFile ?: return@mapNotNull null
-                    val kind = when {
-                        isJSClass(definition) -> getClassKind(definition)
-                        isJSFunction(definition) -> "METHOD"
-                        else -> "UNKNOWN"
-                    }
-                    ImplementationData(
-                        name = getQualifiedName(definition) ?: getName(definition) ?: "unknown",
-                        file = getRelativePath(project, file),
-                        line = getLineNumber(project, definition) ?: 0,
-                        kind = kind,
-                        language = getLanguageName(definition)
-                    )
+        return inheritors.filterIsInstance<PsiElement>()
+            .take(100)
+            .mapNotNull { inheritor ->
+                val file = inheritor.containingFile?.virtualFile ?: return@mapNotNull null
+                ImplementationData(
+                    name = getQualifiedName(inheritor) ?: getName(inheritor) ?: "unknown",
+                    file = getRelativePath(project, file),
+                    line = getLineNumber(project, inheritor) ?: 0,
+                    kind = getClassKind(inheritor),
+                    language = getLanguageName(inheritor)
+                )
+            }
+    }
+
+    private fun searchUsingDefinitionsScopedSearch(project: Project, element: PsiElement): List<ImplementationData> {
+        val scope = GlobalSearchScope.projectScope(project)
+        val definitions = DefinitionsScopedSearch.search(element, scope).findAll()
+
+        return definitions
+            .filter { it != element }
+            .take(100)
+            .mapNotNull { definition ->
+                val file = definition.containingFile?.virtualFile ?: return@mapNotNull null
+                val kind = when {
+                    isJSClass(definition) -> getClassKind(definition)
+                    isJSFunction(definition) -> "METHOD"
+                    else -> "UNKNOWN"
                 }
-        } catch (e: Exception) {
-            emptyList()
-        }
+                ImplementationData(
+                    name = getQualifiedName(definition) ?: getName(definition) ?: "unknown",
+                    file = getRelativePath(project, file),
+                    line = getLineNumber(project, definition) ?: 0,
+                    kind = kind,
+                    language = getLanguageName(definition)
+                )
+            }
     }
 }
 
@@ -549,13 +686,16 @@ class JavaScriptCallHierarchyHandler : BaseJavaScriptHandler<CallHierarchyData>(
         depth: Int
     ): CallHierarchyData? {
         val jsFunction = findContainingJSFunction(element) ?: return null
-        val visited = mutableSetOf<String>()
+        LOG.debug("Getting call hierarchy for ${getName(jsFunction)}, direction=$direction, depth=$depth")
 
+        val visited = mutableSetOf<String>()
         val calls = if (direction == "callers") {
             findCallersRecursive(project, jsFunction, depth, visited)
         } else {
             findCalleesRecursive(project, jsFunction, depth, visited)
         }
+
+        LOG.debug("Found ${calls.size} ${direction}")
 
         return CallHierarchyData(
             element = createCallElement(project, jsFunction),
@@ -563,11 +703,6 @@ class JavaScriptCallHierarchyHandler : BaseJavaScriptHandler<CallHierarchyData>(
         )
     }
 
-    /**
-     * Finds all super methods that the given method overrides.
-     * This is used to also search for callers of base methods, since those
-     * calls could be dispatched to this method at runtime (polymorphism).
-     */
     private fun findAllSuperMethods(project: Project, jsFunction: PsiElement): Set<PsiElement> {
         val superMethods = mutableSetOf<PsiElement>()
         val visited = mutableSetOf<String>()
@@ -584,7 +719,6 @@ class JavaScriptCallHierarchyHandler : BaseJavaScriptHandler<CallHierarchyData>(
         val containingClass = findContainingJSClass(jsFunction) ?: return
         val methodName = getName(jsFunction) ?: return
 
-        // Check superclasses
         val superClasses = getSuperClasses(containingClass)
         superClasses?.filterIsInstance<PsiElement>()?.forEach { superClass ->
             val superClassName = getQualifiedName(superClass) ?: getName(superClass)
@@ -599,7 +733,6 @@ class JavaScriptCallHierarchyHandler : BaseJavaScriptHandler<CallHierarchyData>(
             }
         }
 
-        // Also check implemented interfaces
         val interfaces = getImplementedInterfaces(containingClass)
         interfaces?.filterIsInstance<PsiElement>()?.forEach { iface ->
             val ifaceName = getQualifiedName(iface) ?: getName(iface)
@@ -610,21 +743,6 @@ class JavaScriptCallHierarchyHandler : BaseJavaScriptHandler<CallHierarchyData>(
             val superMethod = findMethodInClass(iface, methodName)
             if (superMethod != null) {
                 result.add(superMethod)
-            }
-        }
-    }
-
-    private fun findMethodInClass(jsClass: PsiElement, methodName: String): PsiElement? {
-        return try {
-            val findFunctionMethod = jsClass.javaClass.getMethod("findFunctionByName", String::class.java)
-            findFunctionMethod.invoke(jsClass, methodName) as? PsiElement
-        } catch (e: Exception) {
-            try {
-                val getFunctionsMethod = jsClass.javaClass.getMethod("getFunctions")
-                val functions = getFunctionsMethod.invoke(jsClass) as? Array<*> ?: return null
-                functions.filterIsInstance<PsiElement>().find { getName(it) == methodName }
-            } catch (e2: Exception) {
-                null
             }
         }
     }
@@ -644,22 +762,19 @@ class JavaScriptCallHierarchyHandler : BaseJavaScriptHandler<CallHierarchyData>(
 
         return try {
             // Collect all methods to search: current method + all super methods it overrides
-            // This handles polymorphism - callers of base methods could dispatch to this method
             val methodsToSearch = mutableSetOf(jsFunction)
             methodsToSearch.addAll(findAllSuperMethods(project, jsFunction))
 
-            // Search for references to all methods in the hierarchy
-            val referencesSearchClass = Class.forName("com.intellij.psi.search.searches.ReferencesSearch")
-            val searchMethod = referencesSearchClass.getMethod("search", PsiElement::class.java, GlobalSearchScope::class.java)
+            // Use platform ReferencesSearch API
             val scope = GlobalSearchScope.projectScope(project)
-
             val allReferences = mutableListOf<com.intellij.psi.PsiReference>()
+
             for (methodToSearch in methodsToSearch) {
-                val query = searchMethod.invoke(null, methodToSearch, scope)
-                val findAllMethod = query.javaClass.getMethod("findAll")
-                val references = findAllMethod.invoke(query) as? Collection<*> ?: continue
-                references.filterIsInstance<com.intellij.psi.PsiReference>().forEach { allReferences.add(it) }
+                val references = ReferencesSearch.search(methodToSearch, scope).findAll()
+                allReferences.addAll(references)
             }
+
+            LOG.debug("Found ${allReferences.size} references for ${getName(jsFunction)}")
 
             allReferences.take(MAX_RESULTS_PER_LEVEL)
                 .mapNotNull { reference ->
@@ -674,6 +789,7 @@ class JavaScriptCallHierarchyHandler : BaseJavaScriptHandler<CallHierarchyData>(
                 }
                 .distinctBy { it.name + it.file + it.line }
         } catch (e: Exception) {
+            LOG.warn("Error finding callers: ${e.message}")
             emptyList()
         }
     }
@@ -710,14 +826,13 @@ class JavaScriptCallHierarchyHandler : BaseJavaScriptHandler<CallHierarchyData>(
                 }
             }
         } catch (e: Exception) {
-            // Handle gracefully
+            LOG.debug("Error finding callees: ${e.message}")
         }
         return callees
     }
 
     private fun resolveCallExpression(callExpr: PsiElement): PsiElement? {
         return try {
-            // Get the method expression and resolve it
             val methodExprMethod = callExpr.javaClass.getMethod("getMethodExpression")
             val methodExpr = methodExprMethod.invoke(callExpr) as? PsiElement ?: return null
 
@@ -757,6 +872,11 @@ class JavaScriptCallHierarchyHandler : BaseJavaScriptHandler<CallHierarchyData>(
 
 /**
  * JavaScript implementation of [SymbolSearchHandler].
+ *
+ * Uses multiple strategies to find symbols:
+ * 1. Platform ChooseByNameContributor extension points (most reliable)
+ * 2. JavaScript-specific stub indexes
+ * 3. File-based PSI tree scan (fallback)
  */
 class JavaScriptSymbolSearchHandler : BaseJavaScriptHandler<List<SymbolData>>(), SymbolSearchHandler {
 
@@ -772,6 +892,8 @@ class JavaScriptSymbolSearchHandler : BaseJavaScriptHandler<List<SymbolData>>(),
         includeLibraries: Boolean,
         limit: Int
     ): List<SymbolData> {
+        LOG.info("Searching for JS/TS symbols matching '$pattern' (includeLibraries=$includeLibraries, limit=$limit)")
+
         val scope = if (includeLibraries) {
             GlobalSearchScope.allScope(project)
         } else {
@@ -780,100 +902,435 @@ class JavaScriptSymbolSearchHandler : BaseJavaScriptHandler<List<SymbolData>>(),
 
         val matches = mutableListOf<SymbolData>()
 
-        // Use JSSymbolIndex2 or JSNameIndex to search for symbols
+        // Strategy 1: Use platform ChooseByNameContributor extension points
         try {
-            val indexClass = Class.forName("com.intellij.lang.javascript.index.JSSymbolIndex2")
-            val keyField = indexClass.getDeclaredField("KEY")
-            keyField.isAccessible = true
-            val key = keyField.get(null)
+            val contributorResults = searchUsingChooseByNameContributors(project, pattern, scope, limit)
+            if (contributorResults.isNotEmpty()) {
+                LOG.info("Found ${contributorResults.size} symbols via ChooseByNameContributors")
+                matches.addAll(contributorResults)
+            }
+        } catch (e: Exception) {
+            LOG.debug("ChooseByNameContributor search failed: ${e.message}")
+        }
 
-            val stubIndexClass = Class.forName("com.intellij.psi.stubs.StubIndex")
-            val getInstanceMethod = stubIndexClass.getMethod("getInstance")
-            val stubIndex = getInstanceMethod.invoke(null)
+        // Strategy 2: If not enough results, try JSGotoSymbolContributor directly
+        if (matches.size < limit) {
+            try {
+                val jsContributorResults = searchUsingJSGotoSymbolContributor(project, pattern, scope, limit - matches.size)
+                if (jsContributorResults.isNotEmpty()) {
+                    LOG.info("Found ${jsContributorResults.size} additional symbols via JSGotoSymbolContributor")
+                    // Add only unique results
+                    jsContributorResults.forEach { result ->
+                        if (matches.none { it.file == result.file && it.line == result.line && it.name == result.name }) {
+                            matches.add(result)
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                LOG.debug("JSGotoSymbolContributor search failed: ${e.message}")
+            }
+        }
 
-            val getAllKeysMethod = stubIndex.javaClass.getMethod("getAllKeys", Class.forName("com.intellij.psi.stubs.StubIndexKey"), Project::class.java)
-            val allNames = getAllKeysMethod.invoke(stubIndex, key, project) as? Collection<*> ?: emptyList<Any>()
+        // Strategy 3: If still not enough results, scan JS/TS files directly
+        if (matches.size < limit && !includeLibraries) {
+            try {
+                val fileBasedResults = searchUsingFileScan(project, pattern, scope, limit - matches.size)
+                if (fileBasedResults.isNotEmpty()) {
+                    LOG.info("Found ${fileBasedResults.size} additional symbols via file scan")
+                    fileBasedResults.forEach { result ->
+                        if (matches.none { it.file == result.file && it.line == result.line && it.name == result.name }) {
+                            matches.add(result)
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                LOG.debug("File-based search failed: ${e.message}")
+            }
+        }
 
-            val matchingNames = allNames.filterIsInstance<String>().filter { matchesQuery(it, pattern) }
+        LOG.info("Total symbols found: ${matches.size}")
 
-            for (symbolName in matchingNames) {
+        return matches
+            .take(limit)
+            .sortedWith(compareBy(
+                { !it.name.equals(pattern, ignoreCase = true) },
+                { levenshteinDistance(it.name.lowercase(), pattern.lowercase()) }
+            ))
+    }
+
+    /**
+     * Search using platform ChooseByNameContributor extension points.
+     */
+    private fun searchUsingChooseByNameContributors(
+        project: Project,
+        pattern: String,
+        scope: GlobalSearchScope,
+        limit: Int
+    ): List<SymbolData> {
+        val matches = mutableListOf<SymbolData>()
+
+        // Get all registered symbol contributors via extension point
+        val contributors = ChooseByNameContributor.SYMBOL_EP_NAME.extensionList
+
+        for (contributor in contributors) {
+            if (matches.size >= limit) break
+
+            try {
+                if (contributor is ChooseByNameContributorEx) {
+                    // Use the modern ChooseByNameContributorEx interface
+                    val matchingNames = mutableListOf<String>()
+
+                    contributor.processNames(
+                        { name ->
+                            if (matchesQuery(name, pattern)) {
+                                matchingNames.add(name)
+                            }
+                            matchingNames.size < limit * 2 // Collect more names for better matching
+                        },
+                        scope,
+                        null
+                    )
+
+                    for (name in matchingNames) {
+                        if (matches.size >= limit) break
+
+                        val params = FindSymbolParameters.wrap(pattern, scope)
+                        contributor.processElementsWithName(
+                            name,
+                            { item ->
+                                if (matches.size >= limit) return@processElementsWithName false
+
+                                val element = when (item) {
+                                    is PsiElement -> item
+                                    is NavigationItem -> {
+                                        // Try to get PSI element from NavigationItem
+                                        try {
+                                            val getElementMethod = item.javaClass.getMethod("getElement")
+                                            getElementMethod.invoke(item) as? PsiElement
+                                        } catch (e: Exception) {
+                                            null
+                                        }
+                                    }
+                                    else -> null
+                                }
+
+                                if (element != null && isJavaScriptLanguage(element)) {
+                                    val file = element.containingFile?.virtualFile
+                                    if (file != null) {
+                                        matches.add(SymbolData(
+                                            name = getName(element) ?: name,
+                                            qualifiedName = getQualifiedName(element),
+                                            kind = determineElementKind(element),
+                                            file = getRelativePath(project, file),
+                                            line = getLineNumber(project, element) ?: 1,
+                                            containerName = findContainingJSClass(element)?.let { getName(it) },
+                                            language = getLanguageName(element)
+                                        ))
+                                    }
+                                }
+                                true
+                            },
+                            params
+                        )
+                    }
+                } else {
+                    // Use legacy ChooseByNameContributor interface
+                    val names = contributor.getNames(project, true)
+                    val matchingNames = names.filter { matchesQuery(it, pattern) }
+
+                    for (name in matchingNames) {
+                        if (matches.size >= limit) break
+
+                        val items = contributor.getItemsByName(name, pattern, project, true)
+                        for (item in items) {
+                            if (matches.size >= limit) break
+
+                            val element = when (item) {
+                                is PsiElement -> item
+                                is NavigationItem -> {
+                                    try {
+                                        val getElementMethod = item.javaClass.getMethod("getElement")
+                                        getElementMethod.invoke(item) as? PsiElement
+                                    } catch (e: Exception) {
+                                        null
+                                    }
+                                }
+                                else -> null
+                            }
+
+                            if (element != null && isJavaScriptLanguage(element)) {
+                                val file = element.containingFile?.virtualFile
+                                if (file != null) {
+                                    matches.add(SymbolData(
+                                        name = getName(element) ?: name,
+                                        qualifiedName = getQualifiedName(element),
+                                        kind = determineElementKind(element),
+                                        file = getRelativePath(project, file),
+                                        line = getLineNumber(project, element) ?: 1,
+                                        containerName = findContainingJSClass(element)?.let { getName(it) },
+                                        language = getLanguageName(element)
+                                    ))
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                LOG.debug("Error processing contributor ${contributor.javaClass.name}: ${e.message}")
+            }
+        }
+
+        return matches
+    }
+
+    /**
+     * Search using JSGotoSymbolContributor directly via reflection.
+     */
+    private fun searchUsingJSGotoSymbolContributor(
+        project: Project,
+        pattern: String,
+        scope: GlobalSearchScope,
+        limit: Int
+    ): List<SymbolData> {
+        val matches = mutableListOf<SymbolData>()
+
+        try {
+            val contributorClass = Class.forName("com.intellij.lang.javascript.navigation.JSGotoSymbolContributor")
+            val contributor = contributorClass.getDeclaredConstructor().newInstance()
+
+            // Check if it implements ChooseByNameContributorEx
+            if (contributor is ChooseByNameContributorEx) {
+                val matchingNames = mutableListOf<String>()
+
+                contributor.processNames(
+                    { name ->
+                        if (matchesQuery(name, pattern)) {
+                            matchingNames.add(name)
+                        }
+                        matchingNames.size < limit * 2
+                    },
+                    scope,
+                    null
+                )
+
+                for (name in matchingNames) {
+                    if (matches.size >= limit) break
+
+                    val params = FindSymbolParameters.wrap(pattern, scope)
+                    contributor.processElementsWithName(
+                        name,
+                        { item ->
+                            if (matches.size >= limit) return@processElementsWithName false
+
+                            val element = when (item) {
+                                is PsiElement -> item
+                                else -> {
+                                    try {
+                                        val getElementMethod = item.javaClass.getMethod("getElement")
+                                        getElementMethod.invoke(item) as? PsiElement
+                                    } catch (e: Exception) {
+                                        null
+                                    }
+                                }
+                            }
+
+                            if (element != null) {
+                                val file = element.containingFile?.virtualFile
+                                if (file != null && scope.contains(file)) {
+                                    matches.add(SymbolData(
+                                        name = getName(element) ?: name,
+                                        qualifiedName = getQualifiedName(element),
+                                        kind = determineElementKind(element),
+                                        file = getRelativePath(project, file),
+                                        line = getLineNumber(project, element) ?: 1,
+                                        containerName = findContainingJSClass(element)?.let { getName(it) },
+                                        language = getLanguageName(element)
+                                    ))
+                                }
+                            }
+                            true
+                        },
+                        params
+                    )
+                }
+            } else {
+                // Use legacy interface
+                val getNamesMethod = contributorClass.getMethod("getNames", Project::class.java, Boolean::class.javaPrimitiveType)
+                val names = getNamesMethod.invoke(contributor, project, true) as? Array<String> ?: return emptyList()
+
+                val matchingNames = names.filter { matchesQuery(it, pattern) }
+
+                val getItemsByNameMethod = contributorClass.getMethod(
+                    "getItemsByName",
+                    String::class.java,
+                    String::class.java,
+                    Project::class.java,
+                    Boolean::class.javaPrimitiveType
+                )
+
+                for (name in matchingNames) {
+                    if (matches.size >= limit) break
+
+                    val items = getItemsByNameMethod.invoke(contributor, name, pattern, project, true) as? Array<*>
+                    items?.filterIsInstance<NavigationItem>()?.forEach { item ->
+                        if (matches.size >= limit) return@forEach
+
+                        val element = try {
+                            when (item) {
+                                is PsiElement -> item
+                                else -> {
+                                    val getElementMethod = item.javaClass.getMethod("getElement")
+                                    getElementMethod.invoke(item) as? PsiElement
+                                }
+                            }
+                        } catch (e: Exception) {
+                            null
+                        }
+
+                        if (element != null) {
+                            val file = element.containingFile?.virtualFile
+                            if (file != null && scope.contains(file)) {
+                                matches.add(SymbolData(
+                                    name = getName(element) ?: name,
+                                    qualifiedName = getQualifiedName(element),
+                                    kind = determineElementKind(element),
+                                    file = getRelativePath(project, file),
+                                    line = getLineNumber(project, element) ?: 1,
+                                    containerName = findContainingJSClass(element)?.let { getName(it) },
+                                    language = getLanguageName(element)
+                                ))
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (e: ClassNotFoundException) {
+            LOG.debug("JSGotoSymbolContributor not found")
+        } catch (e: Exception) {
+            LOG.debug("Error using JSGotoSymbolContributor: ${e.message}")
+        }
+
+        return matches
+    }
+
+    /**
+     * Fallback: Scan JS/TS files in the project and find named elements.
+     */
+    private fun searchUsingFileScan(
+        project: Project,
+        pattern: String,
+        scope: GlobalSearchScope,
+        limit: Int
+    ): List<SymbolData> {
+        val matches = mutableListOf<SymbolData>()
+
+        try {
+            // Find all JS/TS files
+            val extensions = listOf("js", "jsx", "ts", "tsx", "mjs")
+            val psiManager = PsiManager.getInstance(project)
+
+            for (ext in extensions) {
                 if (matches.size >= limit) break
 
-                val getElementsMethod = stubIndex.javaClass.getMethod(
-                    "getElements",
-                    Class.forName("com.intellij.psi.stubs.StubIndexKey"),
-                    java.lang.Object::class.java,
-                    Project::class.java,
-                    GlobalSearchScope::class.java,
-                    java.lang.Class::class.java
-                )
-                val elements = getElementsMethod.invoke(stubIndex, key, symbolName, project, scope, PsiElement::class.java) as? Collection<*>
+                val files = FilenameIndex.getAllFilesByExt(project, ext, scope)
 
-                elements?.filterIsInstance<PsiElement>()?.forEach { element ->
-                    if (matches.size >= limit) return@forEach
-                    val file = element.containingFile?.virtualFile ?: return@forEach
+                for (file in files) {
+                    if (matches.size >= limit) break
 
-                    val kind = when {
-                        isJSClass(element) -> getClassKind(element)
-                        isJSFunction(element) -> {
-                            val containingClass = findContainingJSClass(element)
-                            if (containingClass != null) "METHOD" else "FUNCTION"
+                    val psiFile = psiManager.findFile(file) ?: continue
+
+                    // Find named elements in the file
+                    findNamedElementsInFile(psiFile, pattern, project, file).forEach { symbolData ->
+                        if (matches.size < limit && matches.none {
+                            it.file == symbolData.file && it.line == symbolData.line && it.name == symbolData.name
+                        }) {
+                            matches.add(symbolData)
                         }
-                        else -> "SYMBOL"
                     }
+                }
+            }
+        } catch (e: Exception) {
+            LOG.debug("File scan failed: ${e.message}")
+        }
 
-                    val containingClass = findContainingJSClass(element)
-                    matches.add(SymbolData(
-                        name = getName(element) ?: symbolName,
+        return matches
+    }
+
+    private fun findNamedElementsInFile(
+        psiFile: PsiFile,
+        pattern: String,
+        project: Project,
+        file: com.intellij.openapi.vfs.VirtualFile
+    ): List<SymbolData> {
+        val results = mutableListOf<SymbolData>()
+
+        // Find JSClasses
+        jsClassClass?.let { cls ->
+            @Suppress("UNCHECKED_CAST")
+            PsiTreeUtil.findChildrenOfType(psiFile, cls as Class<out PsiElement>).forEach { element ->
+                val name = getName(element)
+                if (name != null && matchesQuery(name, pattern)) {
+                    results.add(SymbolData(
+                        name = name,
                         qualifiedName = getQualifiedName(element),
-                        kind = kind,
+                        kind = getClassKind(element),
                         file = getRelativePath(project, file),
                         line = getLineNumber(project, element) ?: 1,
-                        containerName = containingClass?.let { getName(it) },
+                        containerName = null,
                         language = getLanguageName(element)
                     ))
                 }
             }
-        } catch (e: Exception) {
-            // Try fallback approach using PsiShortNamesCache for JS
-            searchSymbolsFallback(project, pattern, scope, matches, limit)
         }
 
-        return matches.sortedWith(compareBy(
-            { !it.name.equals(pattern, ignoreCase = true) },
-            { levenshteinDistance(it.name.lowercase(), pattern.lowercase()) }
-        ))
-    }
-
-    private fun searchSymbolsFallback(
-        project: Project,
-        pattern: String,
-        scope: GlobalSearchScope,
-        matches: MutableList<SymbolData>,
-        limit: Int
-    ) {
-        try {
-            // Use GotoSymbolContributor
-            val contributorClass = Class.forName("com.intellij.lang.javascript.navigation.JSGotoSymbolContributor")
-            val contributor = contributorClass.getDeclaredConstructor().newInstance()
-
-            val getItemsByNameMethod = contributorClass.getMethod(
-                "getItemsByName",
-                String::class.java,
-                String::class.java,
-                Project::class.java,
-                java.lang.Boolean.TYPE
-            )
-
-            // This is a simplified search - real implementation would need to handle navigation items
-            val items = getItemsByNameMethod.invoke(contributor, pattern, pattern, project, false) as? Array<*>
-            items?.filterIsInstance<com.intellij.navigation.NavigationItem>()?.take(limit)?.forEach { item ->
-                val psiElement = (item as? com.intellij.pom.Navigatable) ?: return@forEach
-                // Would need to extract PSI element from navigation item
+        // Find JSFunctions (top-level only)
+        jsFunctionClass?.let { cls ->
+            @Suppress("UNCHECKED_CAST")
+            PsiTreeUtil.findChildrenOfType(psiFile, cls as Class<out PsiElement>).forEach { element ->
+                // Skip methods (those inside classes)
+                val containingClass = findContainingJSClass(element)
+                if (containingClass == null || containingClass == element) {
+                    val name = getName(element)
+                    if (name != null && matchesQuery(name, pattern)) {
+                        results.add(SymbolData(
+                            name = name,
+                            qualifiedName = null,
+                            kind = if (containingClass != null && containingClass != element) "METHOD" else "FUNCTION",
+                            file = getRelativePath(project, file),
+                            line = getLineNumber(project, element) ?: 1,
+                            containerName = containingClass?.let { getName(it) },
+                            language = getLanguageName(element)
+                        ))
+                    }
+                }
             }
-        } catch (e: Exception) {
-            // Fallback failed, return empty results
         }
+
+        // Find JSVariables (top-level exports/constants)
+        jsVariableClass?.let { cls ->
+            @Suppress("UNCHECKED_CAST")
+            PsiTreeUtil.findChildrenOfType(psiFile, cls as Class<out PsiElement>).forEach { element ->
+                val containingClass = findContainingJSClass(element)
+                val containingFunction = findContainingJSFunction(element)
+                // Only include top-level variables
+                if (containingClass == null && containingFunction == null) {
+                    val name = getName(element)
+                    if (name != null && matchesQuery(name, pattern)) {
+                        results.add(SymbolData(
+                            name = name,
+                            qualifiedName = null,
+                            kind = "VARIABLE",
+                            file = getRelativePath(project, file),
+                            line = getLineNumber(project, element) ?: 1,
+                            containerName = null,
+                            language = getLanguageName(element)
+                        ))
+                    }
+                }
+            }
+        }
+
+        return results
     }
 
     private fun matchesQuery(name: String, query: String): Boolean {
@@ -924,6 +1381,8 @@ class JavaScriptSuperMethodsHandler : BaseJavaScriptHandler<SuperMethodsData>(),
         val jsFunction = findContainingJSFunction(element) ?: return null
         val containingClass = findContainingJSClass(jsFunction) ?: return null
 
+        LOG.debug("Finding super methods for ${getName(jsFunction)} in ${getName(containingClass)}")
+
         val file = jsFunction.containingFile?.virtualFile
         val methodData = MethodData(
             name = getName(jsFunction) ?: "unknown",
@@ -935,6 +1394,7 @@ class JavaScriptSuperMethodsHandler : BaseJavaScriptHandler<SuperMethodsData>(),
         )
 
         val hierarchy = buildHierarchy(project, jsFunction)
+        LOG.debug("Found ${hierarchy.size} super methods")
 
         return SuperMethodsData(
             method = methodData,
@@ -1008,26 +1468,10 @@ class JavaScriptSuperMethodsHandler : BaseJavaScriptHandler<SuperMethodsData>(),
                 }
             }
         } catch (e: Exception) {
-            // Handle gracefully
+            LOG.debug("Error building hierarchy: ${e.message}")
         }
 
         return hierarchy
-    }
-
-    private fun findMethodInClass(jsClass: PsiElement, methodName: String): PsiElement? {
-        return try {
-            val findFunctionMethod = jsClass.javaClass.getMethod("findFunctionByName", String::class.java)
-            findFunctionMethod.invoke(jsClass, methodName) as? PsiElement
-        } catch (e: Exception) {
-            // Try alternative: iterate through functions
-            try {
-                val getFunctionsMethod = jsClass.javaClass.getMethod("getFunctions")
-                val functions = getFunctionsMethod.invoke(jsClass) as? Array<*> ?: return null
-                functions.filterIsInstance<PsiElement>().find { getName(it) == methodName }
-            } catch (e2: Exception) {
-                null
-            }
-        }
     }
 
     private fun buildMethodSignature(jsFunction: PsiElement): String {
@@ -1042,7 +1486,6 @@ class JavaScriptSuperMethodsHandler : BaseJavaScriptHandler<SuperMethodsData>(),
                     val getNameMethod = param.javaClass.getMethod("getName")
                     val name = getNameMethod.invoke(param) as? String
 
-                    // Try to get type
                     val type = try {
                         val getTypeMethod = param.javaClass.getMethod("getType")
                         val typeElement = getTypeMethod.invoke(param)
@@ -1059,7 +1502,6 @@ class JavaScriptSuperMethodsHandler : BaseJavaScriptHandler<SuperMethodsData>(),
 
             val functionName = getName(jsFunction) ?: "unknown"
 
-            // Try to get return type
             val returnType = try {
                 val getReturnTypeMethod = jsFunction.javaClass.getMethod("getReturnType")
                 val returnTypeElement = getReturnTypeMethod.invoke(jsFunction)
