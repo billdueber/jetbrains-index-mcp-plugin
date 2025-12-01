@@ -104,7 +104,7 @@ class JavaTypeHierarchyHandler : BaseJavaHandler<TypeHierarchyData>(), TypeHiera
     override val languageId = "JAVA"
 
     override fun canHandle(element: PsiElement): Boolean {
-        return isAvailable() && (element is PsiClass || findContainingClass(element) != null)
+        return isAvailable() && isJavaOrKotlinLanguage(element)
     }
 
     override fun isAvailable(): Boolean = JavaPluginDetector.isJavaPluginAvailable
@@ -265,8 +265,7 @@ class JavaImplementationsHandler : BaseJavaHandler<List<ImplementationData>>(), 
     override val languageId = "JAVA"
 
     override fun canHandle(element: PsiElement): Boolean {
-        return isAvailable() && (element is PsiClass || element is PsiMethod ||
-            findContainingClass(element) != null || findContainingMethod(element) != null)
+        return isAvailable() && isJavaOrKotlinLanguage(element)
     }
 
     override fun isAvailable(): Boolean = JavaPluginDetector.isJavaPluginAvailable
