@@ -1,24 +1,21 @@
 package com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.refactoring
 
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.server.models.ToolCallResult
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.AbstractMcpTool
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.models.RefactoringResult
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.models.SuggestedRename
+import com.intellij.lang.LanguageNamesValidation
 import com.intellij.openapi.application.EDT
-import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.fileEditor.FileDocumentManager
-import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.Project
-import com.intellij.psi.PsiClass
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiElement
-import com.intellij.psi.PsiField
-import com.intellij.psi.PsiMethod
 import com.intellij.psi.PsiNamedElement
-import com.intellij.psi.PsiParameter
-import com.intellij.psi.PsiReference
-import com.intellij.psi.search.searches.OverridingMethodsSearch
-import com.intellij.psi.search.searches.ReferencesSearch
+import com.intellij.psi.util.PsiTreeUtil
+import com.intellij.refactoring.rename.RenameProcessor
 import com.intellij.refactoring.rename.RenamePsiElementProcessor
-import com.intellij.util.Processor
+import com.intellij.refactoring.rename.naming.AutomaticRenamerFactory
+import com.intellij.util.containers.MultiMap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonObject
@@ -31,25 +28,34 @@ import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 
 /**
- * Headless rename tool that performs renaming without showing any dialogs.
+ * Universal rename tool that works across all languages supported by JetBrains IDEs.
  *
- * This implementation uses a two-phase approach to avoid UI freezes:
- * 1. **Background Phase**: Collect all references and prepare changes (in read action)
- * 2. **EDT Phase**: Apply pre-computed changes quickly (in write action)
+ * This tool uses IntelliJ's `RenameProcessor` which is language-agnostic and delegates
+ * to language-specific `RenamePsiElementProcessor` implementations. This enables:
+ * - Java/Kotlin: getter/setter renaming, overriding methods, test classes
+ * - Python: function/class/variable renaming
+ * - JavaScript/TypeScript: symbol renaming across files
+ * - Go: function/type/variable renaming
+ * - And more languages via their respective plugins
  *
- * This ensures the EDT is only blocked for the minimal time required to apply changes,
- * not for the potentially slow reference search operations.
+ * The tool uses a two-phase approach:
+ * 1. **Background Phase**: Find element and validate (read action)
+ * 2. **EDT Phase**: Execute rename via RenameProcessor (handles all references)
  */
-class RenameSymbolTool : AbstractRefactoringTool() {
+class RenameSymbolTool : AbstractMcpTool() {
 
     override val name = "ide_refactor_rename"
 
     override val description = """
         Renames a symbol and updates all references across the project. Supports Ctrl+Z undo.
 
+        SUPPORTED LANGUAGES: Java, Kotlin, Python, JavaScript, TypeScript, Go, and more.
+
         REQUIRED: file + line + column to identify the symbol, plus newName.
 
-        WARNING: This modifies files. Returns affected files and change count.
+        WARNING: This modifies files. Returns affected files, change count, and suggestedRenames.
+
+        RESPONSE includes `suggestedRenames` array with related elements (getters/setters, overriding methods, test classes) that you may want to rename separately for consistency.
 
         EXAMPLE: {"file": "src/main/java/com/example/UserService.java", "line": 15, "column": 18, "newName": "CustomerService"}
     """.trimIndent()
@@ -87,13 +93,13 @@ class RenameSymbolTool : AbstractRefactoringTool() {
     }
 
     /**
-     * Data class to hold all information collected in background for rename operation.
+     * Data class holding validated rename parameters from Phase 1.
      */
-    private data class RenamePreparation(
-        val elementsToRename: Map<PsiNamedElement, String>,
-        val allReferences: Map<PsiNamedElement, List<PsiReference>>,
-        val affectedFiles: Set<String>,
-        val oldName: String
+    private data class RenameValidation(
+        val element: PsiNamedElement,
+        val oldName: String,
+        val error: String? = null,
+        val suggestedRenames: List<SuggestedRename> = emptyList()
     )
 
     override suspend fun doExecute(project: Project, arguments: JsonObject): ToolCallResult {
@@ -113,240 +119,355 @@ class RenameSymbolTool : AbstractRefactoringTool() {
         requireSmartMode(project)
 
         // ═══════════════════════════════════════════════════════════════════════
-        // PHASE 1: BACKGROUND - Collect all data (read action, can be slow)
+        // PHASE 1: BACKGROUND - Find element and validate (read action)
         // ═══════════════════════════════════════════════════════════════════════
-        val preparation = readAction {
-            prepareRename(project, file, line, column, newName)
-        } ?: return createErrorResult("No renameable symbol found at the specified position")
-
-        if (preparation.oldName == newName) {
-            return createErrorResult("New name is the same as the current name")
+        val validation = readAction {
+            validateAndPrepare(project, file, line, column, newName)
         }
 
+        if (validation.error != null) {
+            return createErrorResult(validation.error)
+        }
+
+        val element = validation.element
+        val oldName = validation.oldName
+        val suggestedRenames = validation.suggestedRenames
+
         // ═══════════════════════════════════════════════════════════════════════
-        // PHASE 2: EDT - Apply changes quickly (write action, must be fast)
+        // PHASE 2: EDT - Execute rename using RenameProcessor
         // ═══════════════════════════════════════════════════════════════════════
         var changesCount = 0
+        val affectedFiles = mutableSetOf<String>()
         var errorMessage: String? = null
 
         withContext(Dispatchers.EDT) {
-            WriteCommandAction.writeCommandAction(project)
-                .withName("Rename: ${preparation.oldName} to $newName")
-                .withGroupId("MCP Refactoring")
-                .run<Throwable> {
-                    try {
-                        // Rename all references first (using pre-collected data)
-                        for ((elem, targetName) in preparation.elementsToRename) {
-                            val refs = preparation.allReferences[elem] ?: continue
-                            for (reference in refs) {
-                                if (reference.element.isValid) {
-                                    try {
-                                        reference.handleElementRename(targetName)
-                                        changesCount++
-                                    } catch (e: Exception) {
-                                        // Some references may not support direct rename
-                                    }
-                                }
-                            }
-                        }
-
-                        // Now rename the declarations themselves
-                        for ((elem, targetName) in preparation.elementsToRename) {
-                            if (elem.isValid) {
-                                val processor = RenamePsiElementProcessor.forElement(elem)
-                                val substitutor = processor.substituteElementToRename(elem, null)
-                                val elementToRename = substitutor ?: elem
-
-                                if (elementToRename is PsiNamedElement && elementToRename.isValid) {
-                                    elementToRename.setName(targetName)
-                                    changesCount++
-                                }
-                            }
-                        }
-
-                        // Commit and save
-                        PsiDocumentManager.getInstance(project).commitAllDocuments()
-                        FileDocumentManager.getInstance().saveAllDocuments()
-                    } catch (e: Exception) {
-                        errorMessage = e.message
-                    }
-                }
+            try {
+                changesCount = executeRename(project, element, newName, affectedFiles)
+            } catch (e: Exception) {
+                errorMessage = e.message ?: "Unknown error during rename"
+            }
         }
 
         return if (errorMessage != null) {
             createErrorResult("Rename failed: $errorMessage")
         } else {
+            val suggestionsNote = if (suggestedRenames.isNotEmpty()) {
+                " (${suggestedRenames.size} related element(s) may also need renaming - see suggestedRenames)"
+            } else ""
+
             createJsonResult(
                 RefactoringResult(
                     success = true,
-                    affectedFiles = preparation.affectedFiles.toList(),
+                    affectedFiles = affectedFiles.toList(),
                     changesCount = changesCount,
-                    message = "Successfully renamed '${preparation.oldName}' to '$newName'" +
-                        if (preparation.elementsToRename.size > 1)
-                            " (including ${preparation.elementsToRename.size - 1} related element(s))"
-                        else ""
+                    message = "Successfully renamed '$oldName' to '$newName'$suggestionsNote",
+                    suggestedRenames = suggestedRenames
                 )
             )
         }
     }
 
     /**
-     * Prepares all data needed for rename in a read action.
-     * This is the slow part that runs in background.
+     * Validates rename parameters and prepares the element for renaming.
+     * Runs in a read action (background thread).
      */
-    private fun prepareRename(
+    private fun validateAndPrepare(
         project: Project,
         file: String,
         line: Int,
         column: Int,
         newName: String
-    ): RenamePreparation? {
-        val element = findNamedElement(project, file, line, column) ?: return null
+    ): RenameValidation {
+        val psiElement = findPsiElement(project, file, line, column)
+            ?: return RenameValidation(
+                element = DummyNamedElement,
+                oldName = "",
+                error = "No element found at the specified position"
+            )
 
-        val oldName = element.name ?: return null
+        val namedElement = findNamedElement(psiElement)
+            ?: return RenameValidation(
+                element = DummyNamedElement,
+                oldName = "",
+                error = "No renameable symbol found at the specified position"
+            )
 
-        val elementsToRename = mutableMapOf<PsiNamedElement, String>()
-        val allReferences = mutableMapOf<PsiNamedElement, List<PsiReference>>()
-        val affectedFiles = mutableSetOf<String>()
+        val oldName = namedElement.name
+            ?: return RenameValidation(
+                element = DummyNamedElement,
+                oldName = "",
+                error = "Element has no name"
+            )
 
-        // Add the main element
-        elementsToRename[element] = newName
-
-        // Find related elements that should also be renamed
-        findRelatedElementsToRename(element, oldName, newName, elementsToRename)
-
-        // Collect all references for all elements (HEAVY WORK - but in background!)
-        for ((elem, _) in elementsToRename) {
-            ProgressManager.checkCanceled() // Allow cancellation
-
-            elem.containingFile?.virtualFile?.let { vf ->
-                affectedFiles.add(getRelativePath(project, vf))
-            }
-
-            val refs = mutableListOf<PsiReference>()
-            ReferencesSearch.search(elem).forEach(Processor { ref ->
-                ProgressManager.checkCanceled()
-                refs.add(ref)
-                ref.element.containingFile?.virtualFile?.let { vf ->
-                    affectedFiles.add(getRelativePath(project, vf))
-                }
-                true // Continue collecting all references for rename
-            })
-            allReferences[elem] = refs
+        if (oldName == newName) {
+            return RenameValidation(
+                element = DummyNamedElement,
+                oldName = oldName,
+                error = "New name is the same as the current name"
+            )
         }
 
-        return RenamePreparation(
-            elementsToRename = elementsToRename,
-            allReferences = allReferences,
-            affectedFiles = affectedFiles,
-            oldName = oldName
+        // Validate the new name using language-specific rules
+        val validationError = validateNewName(project, namedElement, newName)
+        if (validationError != null) {
+            return RenameValidation(
+                element = DummyNamedElement,
+                oldName = oldName,
+                error = validationError
+            )
+        }
+
+        // Check for naming conflicts (would show dialog otherwise)
+        val conflictError = checkForConflicts(namedElement, newName)
+        if (conflictError != null) {
+            return RenameValidation(
+                element = DummyNamedElement,
+                oldName = oldName,
+                error = conflictError
+            )
+        }
+
+        // Collect suggested renames from automatic renamers (what the popup would have shown)
+        val suggestedRenames = collectSuggestedRenames(project, namedElement, newName)
+
+        return RenameValidation(
+            element = namedElement,
+            oldName = oldName,
+            suggestedRenames = suggestedRenames
         )
     }
 
     /**
-     * Finds related elements that should be renamed together with the main element.
-     * This includes:
-     * - Constructor parameters that match field names
-     * - Getter/setter methods that follow naming conventions
-     * - Overriding/implementing methods
+     * Collects suggested renames from all applicable AutomaticRenamerFactory instances.
+     * This is what the popup dialog would have shown - getters/setters, overriding methods, etc.
      */
-    private fun findRelatedElementsToRename(
+    private fun collectSuggestedRenames(
+        project: Project,
         element: PsiNamedElement,
-        oldName: String,
-        newName: String,
-        elementsToRename: MutableMap<PsiNamedElement, String>
-    ) {
-        ProgressManager.checkCanceled()
+        newName: String
+    ): List<SuggestedRename> {
+        val suggestions = mutableListOf<SuggestedRename>()
 
-        when (element) {
-            is PsiField -> {
-                findMatchingConstructorParameters(element, oldName, newName, elementsToRename)
-                findMatchingAccessorMethods(element, oldName, newName, elementsToRename)
-            }
-            is PsiParameter -> {
-                val method = element.declarationScope
-                if (method is PsiMethod && method.isConstructor) {
-                    findMatchingField(method.containingClass, oldName, newName, elementsToRename)
+        // Empty usage list - we're just collecting suggestions, not performing the rename
+        val emptyUsages = mutableListOf<com.intellij.usageView.UsageInfo>()
+
+        for (factory in AutomaticRenamerFactory.EP_NAME.extensionList) {
+            if (!factory.isApplicable(element)) continue
+
+            try {
+                val renamer = factory.createRenamer(element, newName, emptyUsages)
+                if (renamer == null) continue
+
+                // Get the category name from the factory
+                val category = factory.optionName?.replace("Rename ", "")?.lowercase() ?: "related"
+
+                // Iterate through elements the renamer would rename
+                for (suggestedElement in renamer.elements) {
+                    val suggestedNewName = renamer.getNewName(suggestedElement) ?: continue
+                    val currentName = suggestedElement.name ?: continue
+
+                    // Don't suggest if it's the same element or same name
+                    if (suggestedElement == element || currentName == suggestedNewName) continue
+
+                    val containingFile = suggestedElement.containingFile?.virtualFile ?: continue
+                    val document = PsiDocumentManager.getInstance(project)
+                        .getDocument(suggestedElement.containingFile) ?: continue
+                    val lineNumber = document.getLineNumber(suggestedElement.textOffset) + 1
+
+                    suggestions.add(
+                        SuggestedRename(
+                            category = category,
+                            currentName = currentName,
+                            suggestedName = suggestedNewName,
+                            file = getRelativePath(project, containingFile),
+                            line = lineNumber
+                        )
+                    )
                 }
-            }
-            is PsiMethod -> {
-                findOverridingMethods(element, newName, elementsToRename)
+            } catch (e: Exception) {
+                // Some factories may fail for certain elements - skip them
             }
         }
+
+        return suggestions
     }
 
-    private fun findMatchingConstructorParameters(
-        field: PsiField,
-        oldName: String,
-        newName: String,
-        elementsToRename: MutableMap<PsiNamedElement, String>
-    ) {
-        val containingClass = field.containingClass ?: return
+    /**
+     * Checks for naming conflicts that would prevent the rename.
+     * Returns an error message if conflicts exist, null otherwise.
+     */
+    private fun checkForConflicts(element: PsiNamedElement, newName: String): String? {
+        val processor = RenamePsiElementProcessor.forElement(element)
+        val conflicts = MultiMap<PsiElement, String>()
 
-        for (constructor in containingClass.constructors) {
-            ProgressManager.checkCanceled()
-            for (parameter in constructor.parameterList.parameters) {
-                if (parameter.name == oldName) {
-                    elementsToRename[parameter] = newName
-                }
-            }
+        // Let the processor find existing name conflicts
+        processor.findExistingNameConflicts(element, newName, conflicts)
+
+        if (!conflicts.isEmpty) {
+            val conflictMessages = conflicts.values().take(3).joinToString("; ")
+            val moreCount = conflicts.values().size - 3
+            val suffix = if (moreCount > 0) " (and $moreCount more)" else ""
+            return "Name conflict: $conflictMessages$suffix"
         }
+
+        return null
     }
 
-    private fun findMatchingAccessorMethods(
-        field: PsiField,
-        oldName: String,
-        newName: String,
-        elementsToRename: MutableMap<PsiNamedElement, String>
-    ) {
-        val containingClass = field.containingClass ?: return
-        val capitalizedOldName = oldName.replaceFirstChar { it.uppercase() }
-        val capitalizedNewName = newName.replaceFirstChar { it.uppercase() }
+    /**
+     * Validates the new name using language-specific identifier rules.
+     */
+    private fun validateNewName(
+        project: Project,
+        element: PsiElement,
+        newName: String
+    ): String? {
+        val psiFile = element.containingFile ?: return null
+        val language = psiFile.language
 
-        val getterNames = listOf("get$capitalizedOldName", "is$capitalizedOldName")
-        val setterName = "set$capitalizedOldName"
+        val validator = LanguageNamesValidation.INSTANCE.forLanguage(language)
 
-        for (method in containingClass.methods) {
-            ProgressManager.checkCanceled()
-            val methodName = method.name
-            when {
-                methodName in getterNames && method.parameterList.parametersCount == 0 -> {
-                    val newGetterName = if (methodName.startsWith("is")) "is$capitalizedNewName" else "get$capitalizedNewName"
-                    elementsToRename[method] = newGetterName
-                }
-                methodName == setterName && method.parameterList.parametersCount == 1 -> {
-                    elementsToRename[method] = "set$capitalizedNewName"
-                }
-            }
+        if (!validator.isIdentifier(newName, project)) {
+            return "'$newName' is not a valid identifier in ${language.displayName}"
         }
-    }
 
-    private fun findMatchingField(
-        containingClass: PsiClass?,
-        oldName: String,
-        newName: String,
-        elementsToRename: MutableMap<PsiNamedElement, String>
-    ) {
-        containingClass ?: return
-
-        for (field in containingClass.fields) {
-            ProgressManager.checkCanceled()
-            if (field.name == oldName) {
-                elementsToRename[field] = newName
-                findMatchingAccessorMethods(field, oldName, newName, elementsToRename)
-            }
+        if (validator.isKeyword(newName, project)) {
+            return "'$newName' is a reserved keyword in ${language.displayName}"
         }
+
+        return null
     }
 
-    private fun findOverridingMethods(
-        method: PsiMethod,
+    /**
+     * Executes the rename using IntelliJ's RenameProcessor.
+     * Must be called on EDT.
+     *
+     * HEADLESS OPERATION:
+     * - AutomaticRenamerFactory is NOT used to avoid interactive dialogs
+     * - This means related elements (getters/setters, overriding methods) are NOT auto-renamed
+     * - The agent should rename related elements separately if needed
+     *
+     * @return The number of affected files
+     */
+    private fun executeRename(
+        project: Project,
+        element: PsiNamedElement,
         newName: String,
-        elementsToRename: MutableMap<PsiNamedElement, String>
-    ) {
-        OverridingMethodsSearch.search(method).forEach(Processor { overridingMethod ->
-            ProgressManager.checkCanceled()
-            elementsToRename[overridingMethod] = newName
-            true // Continue collecting all overriding methods
-        })
+        affectedFiles: MutableSet<String>
+    ): Int {
+        // Get the language-specific processor for this element
+        val elementProcessor = RenamePsiElementProcessor.forElement(element)
+
+        // Some elements need substitution (e.g., light elements → real elements)
+        val substituted = elementProcessor.substituteElementToRename(element, null)
+        val targetElement = (substituted as? PsiNamedElement) ?: element
+
+        // Track the file containing the declaration
+        targetElement.containingFile?.virtualFile?.let { vf ->
+            affectedFiles.add(getRelativePath(project, vf))
+        }
+
+        // Create the RenameProcessor with language-appropriate settings
+        // NOTE: We intentionally DON'T search in comments/text occurrences to avoid
+        // non-code usage dialogs. The basic rename is more predictable for agents.
+        val renameProcessor = RenameProcessor(
+            project,
+            targetElement,
+            newName,
+            false,  // searchInComments = false (avoid dialogs)
+            false   // searchTextOccurrences = false (avoid dialogs)
+        )
+
+        // IMPORTANT: Do NOT add AutomaticRenamerFactory instances!
+        // Adding them causes interactive dialogs asking which related elements to rename.
+        // For headless/autonomous operation, we skip automatic renaming of:
+        // - Getters/setters (Java)
+        // - Overriding methods
+        // - Test classes
+        // - Companion objects (Kotlin)
+        // The agent can rename these separately if needed.
+
+        // Disable preview dialog for headless operation
+        renameProcessor.setPreviewUsages(false)
+
+        // Execute the rename - this modifies files in place
+        renameProcessor.run()
+
+        // Commit documents and save
+        PsiDocumentManager.getInstance(project).commitAllDocuments()
+        FileDocumentManager.getInstance().saveAllDocuments()
+
+        // Return the count of affected files (usages are handled internally by RenameProcessor)
+        return affectedFiles.size
+    }
+
+    /**
+     * Finds the named element from a PSI element (traverses up if needed).
+     */
+    private fun findNamedElement(element: PsiElement): PsiNamedElement? {
+        if (element is PsiNamedElement && element.name != null) {
+            return element
+        }
+        return PsiTreeUtil.getParentOfType(element, PsiNamedElement::class.java)
+    }
+
+    /**
+     * Dummy placeholder for error cases to satisfy non-null return type.
+     */
+    private object DummyNamedElement : PsiNamedElement {
+        override fun setName(name: String): PsiElement = this
+        override fun getName(): String? = null
+        override fun getProject() = throw UnsupportedOperationException()
+        override fun getLanguage() = throw UnsupportedOperationException()
+        override fun getManager() = throw UnsupportedOperationException()
+        override fun getChildren() = throw UnsupportedOperationException()
+        override fun getParent() = throw UnsupportedOperationException()
+        override fun getFirstChild() = throw UnsupportedOperationException()
+        override fun getLastChild() = throw UnsupportedOperationException()
+        override fun getNextSibling() = throw UnsupportedOperationException()
+        override fun getPrevSibling() = throw UnsupportedOperationException()
+        override fun getContainingFile() = throw UnsupportedOperationException()
+        override fun getTextRange() = throw UnsupportedOperationException()
+        override fun getStartOffsetInParent() = throw UnsupportedOperationException()
+        override fun getTextLength() = throw UnsupportedOperationException()
+        override fun findElementAt(offset: Int) = throw UnsupportedOperationException()
+        override fun findReferenceAt(offset: Int) = throw UnsupportedOperationException()
+        override fun getTextOffset() = throw UnsupportedOperationException()
+        override fun getText() = throw UnsupportedOperationException()
+        override fun textToCharArray() = throw UnsupportedOperationException()
+        override fun getNavigationElement() = throw UnsupportedOperationException()
+        override fun getOriginalElement() = throw UnsupportedOperationException()
+        override fun textMatches(text: CharSequence) = throw UnsupportedOperationException()
+        override fun textMatches(element: PsiElement) = throw UnsupportedOperationException()
+        override fun textContains(c: Char) = throw UnsupportedOperationException()
+        override fun accept(visitor: com.intellij.psi.PsiElementVisitor) = throw UnsupportedOperationException()
+        override fun acceptChildren(visitor: com.intellij.psi.PsiElementVisitor) = throw UnsupportedOperationException()
+        override fun copy() = throw UnsupportedOperationException()
+        override fun add(element: PsiElement) = throw UnsupportedOperationException()
+        override fun addBefore(element: PsiElement, anchor: PsiElement?) = throw UnsupportedOperationException()
+        override fun addAfter(element: PsiElement, anchor: PsiElement?) = throw UnsupportedOperationException()
+        override fun checkAdd(element: PsiElement) = throw UnsupportedOperationException()
+        override fun addRange(first: PsiElement, last: PsiElement) = throw UnsupportedOperationException()
+        override fun addRangeBefore(first: PsiElement, last: PsiElement, anchor: PsiElement) = throw UnsupportedOperationException()
+        override fun addRangeAfter(first: PsiElement, last: PsiElement, anchor: PsiElement) = throw UnsupportedOperationException()
+        override fun delete() = throw UnsupportedOperationException()
+        override fun checkDelete() = throw UnsupportedOperationException()
+        override fun deleteChildRange(first: PsiElement, last: PsiElement) = throw UnsupportedOperationException()
+        override fun replace(newElement: PsiElement) = throw UnsupportedOperationException()
+        override fun isValid() = false
+        override fun isWritable() = false
+        override fun getReference() = throw UnsupportedOperationException()
+        override fun getReferences() = throw UnsupportedOperationException()
+        override fun <T> getCopyableUserData(key: com.intellij.openapi.util.Key<T>) = throw UnsupportedOperationException()
+        override fun <T> putCopyableUserData(key: com.intellij.openapi.util.Key<T>, value: T?) = throw UnsupportedOperationException()
+        override fun processDeclarations(processor: com.intellij.psi.scope.PsiScopeProcessor, state: com.intellij.psi.ResolveState, lastParent: PsiElement?, place: PsiElement) = throw UnsupportedOperationException()
+        override fun getContext() = throw UnsupportedOperationException()
+        override fun isPhysical() = false
+        override fun getResolveScope() = throw UnsupportedOperationException()
+        override fun getUseScope() = throw UnsupportedOperationException()
+        override fun getNode() = throw UnsupportedOperationException()
+        override fun isEquivalentTo(another: PsiElement?) = false
+        override fun getIcon(flags: Int) = throw UnsupportedOperationException()
+        override fun <T> getUserData(key: com.intellij.openapi.util.Key<T>): T? = null
+        override fun <T> putUserData(key: com.intellij.openapi.util.Key<T>, value: T?) {}
     }
 }

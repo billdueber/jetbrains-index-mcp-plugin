@@ -273,6 +273,7 @@ Tools are organized by IDE availability.
 - `ide_find_definition` - Find symbol definition location
 - `ide_diagnostics` - Analyze file for problems and available intentions
 - `ide_index_status` - Check indexing status (dumb/smart mode)
+- `ide_refactor_rename` - Rename a symbol across the project (uses platform RenameProcessor, works for ALL languages)
 
 **Extended Navigation Tools (Language-Aware):**
 
@@ -283,9 +284,8 @@ These activate based on available language plugins (Java, Python, JavaScript/Typ
 - `ide_find_symbol` - Search for symbols (classes, methods, fields) by name with fuzzy/camelCase matching
 - `ide_find_super_methods` - Find methods that a given method overrides/implements (full hierarchy chain)
 
-**Refactoring Tools (Java/Kotlin Only):**
-- `ide_refactor_rename` - Rename a symbol across the project
-- `ide_refactor_safe_delete` - Safely delete element
+**Java/Kotlin-Only Refactoring Tools:**
+- `ide_refactor_safe_delete` - Safely delete element (requires Java plugin)
 
 ### Multi-Language Architecture
 
@@ -310,8 +310,9 @@ The plugin uses a language handler pattern for multi-IDE support:
 
 **Registration Flow:**
 1. `LanguageHandlerRegistry.registerHandlers()` - Registers handlers for available language plugins
-2. `ToolRegistry.registerLanguageNavigationTools()` - Registers tools if any language handlers available
-3. `ToolRegistry.registerJavaRefactoringTools()` - Registers refactoring tools if Java plugin available
+2. `ToolRegistry.registerUniversalTools()` - Registers universal tools including `ide_refactor_rename`
+3. `ToolRegistry.registerLanguageNavigationTools()` - Registers tools if any language handlers available
+4. `ToolRegistry.registerJavaRefactoringTools()` - Registers `ide_refactor_safe_delete` if Java plugin available
 
 **Reflection Pattern:** Python and JavaScript handlers use reflection to avoid compile-time dependencies on language-specific plugins. This prevents `NoClassDefFoundError` in IDEs without those plugins.
 

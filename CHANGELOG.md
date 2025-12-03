@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+### Changed
+- **Universal Rename Tool** - `ide_refactor_rename` now works across ALL languages (Python, JavaScript, TypeScript, Go, etc.), not just Java/Kotlin
+  - Uses IntelliJ's platform-level `RenameProcessor` which delegates to language-specific handlers
+  - Language-specific name validation using `LanguageNamesValidation` (identifier rules, keyword detection)
+  - Tool is now registered as a universal tool, available in all JetBrains IDEs
+  - **Fully headless operation** - No popups or dialogs, suitable for autonomous AI agents
+  - Returns `suggestedRenames` array with related elements (getters/setters, overriding methods, test classes) that the agent can rename separately
+
 ## [1.6.0] - 2025-12-01
 
 ### Added

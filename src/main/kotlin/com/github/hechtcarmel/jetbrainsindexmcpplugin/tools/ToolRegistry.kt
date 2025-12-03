@@ -6,6 +6,7 @@ import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.intelligence.GetDiag
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.navigation.FindUsagesTool
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.navigation.FindDefinitionTool
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.project.GetIndexStatusTool
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.refactoring.RenameSymbolTool
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.util.JavaPluginDetector
 import com.intellij.openapi.diagnostic.logger
 import java.util.concurrent.ConcurrentHashMap
@@ -29,18 +30,24 @@ import java.util.concurrent.ConcurrentHashMap
  * - `ide_diagnostics` - Analyze code for problems and available intentions
  * - `ide_index_status` - Check indexing status
  *
- * ### Java-Specific Tools (IntelliJ IDEA & Android Studio Only)
+ * ### Language-Specific Navigation Tools
  *
- * These tools require the Java plugin and are only available in IntelliJ IDEA
- * and Android Studio:
+ * These tools support multiple languages (Java, Kotlin, Python, JavaScript/TypeScript)
+ * and are registered when at least one language handler is available:
  *
  * - `ide_type_hierarchy` - Get class inheritance hierarchy
  * - `ide_call_hierarchy` - Analyze method call relationships
  * - `ide_find_implementations` - Find interface/method implementations
  * - `ide_find_symbol` - Search for symbols by name
  * - `ide_find_super_methods` - Find methods that a method overrides
- * - `ide_refactor_rename` - Rename symbol
- * - `ide_refactor_safe_delete` - Safely delete element
+ *
+ * ### Universal Refactoring Tools
+ *
+ * - `ide_refactor_rename` - Rename symbol (works across ALL languages via RenameProcessor)
+ *
+ * ### Java-Specific Refactoring Tools (IntelliJ IDEA & Android Studio Only)
+ *
+ * - `ide_refactor_safe_delete` - Safely delete element (requires Java plugin)
  *
  * ## Custom Tool Registration
  *
@@ -173,6 +180,9 @@ class ToolRegistry {
         // Project tools
         register(GetIndexStatusTool())
 
+        // Refactoring tools (universal - uses platform RenameProcessor)
+        register(RenameSymbolTool())
+
         LOG.info("Registered universal tools (available in all JetBrains IDEs)")
     }
 
@@ -229,12 +239,15 @@ class ToolRegistry {
      * These tools use Java-specific refactoring APIs and are only available
      * when the Java plugin is present (IntelliJ IDEA, Android Studio).
      *
+     * Note: RenameSymbolTool has been moved to registerUniversalTools() as it
+     * now uses the platform-level RenameProcessor which works across all languages.
+     *
      * IMPORTANT: This method must only be called after checking [JavaPluginDetector.isJavaPluginAvailable]
      */
     private fun registerJavaRefactoringTools() {
         try {
             val refactoringToolClasses = listOf(
-                "com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.refactoring.RenameSymbolTool",
+                // RenameSymbolTool moved to registerUniversalTools() - now language-agnostic
                 "com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.refactoring.SafeDeleteTool"
             )
 
