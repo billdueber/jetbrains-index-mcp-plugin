@@ -16,6 +16,7 @@ These tools work in **every** JetBrains IDE:
 | `ide_find_definition` | Find symbol definition location |
 | `ide_diagnostics` | Analyze code for problems and intentions |
 | `ide_index_status` | Check indexing status |
+| `ide_refactor_rename` | Rename symbol with reference updates (all languages) |
 
 ### Extended Tools (Language-Aware)
 
@@ -33,7 +34,6 @@ These tools activate based on available language plugins:
 
 | Tool | Description |
 |------|-------------|
-| `ide_refactor_rename` | Rename symbol with reference updates |
 | `ide_refactor_safe_delete` | Safely delete with usage check |
 
 ---
@@ -46,14 +46,14 @@ These tools activate based on available language plugins:
   - [ide_find_definition](#ide_find_definition)
   - [ide_diagnostics](#ide_diagnostics)
   - [ide_index_status](#ide_index_status)
+  - [ide_refactor_rename](#ide_refactor_rename)
 - [Extended Tools (Language-Aware)](#extended-tools-language-aware)
   - [ide_type_hierarchy](#ide_type_hierarchy)
   - [ide_call_hierarchy](#ide_call_hierarchy)
   - [ide_find_implementations](#ide_find_implementations)
   - [ide_find_symbol](#ide_find_symbol)
   - [ide_find_super_methods](#ide_find_super_methods)
-- [Refactoring Tools (Java/Kotlin Only)](#refactoring-tools-javakotlin-only)
-  - [ide_refactor_rename](#ide_refactor_rename)
+- [Java-Specific Refactoring Tools](#java-specific-refactoring-tools)
   - [ide_refactor_safe_delete](#ide_refactor_safe_delete)
 - [Error Handling](#error-handling)
 
@@ -726,15 +726,22 @@ Checks if the IDE is in dumb mode (indexing) or smart mode.
 
 ---
 
-## Refactoring Tools (Java/Kotlin Only)
-
-These tools require the Java plugin and are only available in **IntelliJ IDEA** and **Android Studio**.
+## Refactoring Tools
 
 > **Note**: All refactoring tools modify source files. Changes can be undone with Ctrl/Cmd+Z.
 
-### ide_refactor_rename
+### ide_refactor_rename (Universal - All Languages)
 
-Renames a symbol and updates all references across the project.
+Renames a symbol and updates all references across the project. This tool uses IntelliJ's `RenameProcessor` which is language-agnostic and works across **all languages** supported by your IDE.
+
+**Supported Languages:** Java, Kotlin, Python, JavaScript, TypeScript, Go, PHP, Ruby, and any language with IntelliJ plugin support.
+
+**Features:**
+- Language-specific name validation (identifier rules, keyword detection)
+- **Fully headless/autonomous operation** (no popups or dialogs)
+- **Automatic related element renaming** - getters/setters, overriding methods, test classes are renamed automatically
+- Conflict detection before rename execution (returns error instead of showing dialog)
+- Single atomic operation - all renames (primary + related) can be undone with one Ctrl/Cmd+Z
 
 **Use when:**
 - Renaming identifiers to improve code clarity
@@ -750,7 +757,7 @@ Renames a symbol and updates all references across the project.
 | `column` | integer | Yes | 1-based column number |
 | `newName` | string | Yes | The new name for the symbol |
 
-**Example Request:**
+**Example Request (Java):**
 
 ```json
 {
@@ -767,6 +774,23 @@ Renames a symbol and updates all references across the project.
 }
 ```
 
+**Example Request (Python):**
+
+```json
+{
+  "method": "tools/call",
+  "params": {
+    "name": "ide_refactor_rename",
+    "arguments": {
+      "file": "src/services/user_service.py",
+      "line": 10,
+      "column": 5,
+      "newName": "fetch_user_data"
+    }
+  }
+}
+```
+
 **Example Response:**
 
 ```json
@@ -777,12 +801,27 @@ Renames a symbol and updates all references across the project.
     "src/main/java/com/example/UserController.java",
     "src/test/java/com/example/UserServiceTest.java"
   ],
-  "changesCount": 8,
-  "message": "Successfully renamed 'findUser' to 'findUserById'"
+  "changesCount": 3,
+  "message": "Successfully renamed 'findUser' to 'findUserById' (also renamed 2 related element(s))"
 }
 ```
 
+**Automatic Related Renames:**
+
+Related elements are automatically renamed without any prompts or dialogs:
+
+| Language | What Gets Auto-Renamed |
+|----------|------------------------|
+| Java/Kotlin | Getters/setters for fields, constructor parameters ↔ matching fields, overriding methods in subclasses, test classes |
+| All Languages | Method implementations in subclasses, interface method implementations |
+
+All renames happen in a single atomic operation, so one undo (Ctrl/Cmd+Z) reverts everything.
+
 ---
+
+## Java-Specific Refactoring Tools
+
+These tools require the Java plugin and are only available in **IntelliJ IDEA** and **Android Studio**.
 
 ### ide_refactor_safe_delete
 

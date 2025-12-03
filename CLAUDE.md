@@ -50,7 +50,8 @@ src/
 │   │   │   ├── OptimizedSymbolSearch.kt # Optimized symbol search using platform APIs
 │   │   │   ├── java/JavaHandlers.kt    # Java/Kotlin handlers
 │   │   │   ├── python/PythonHandlers.kt # Python handlers (reflection)
-│   │   │   └── javascript/JavaScriptHandlers.kt # JS/TS handlers (reflection)
+│   │   │   ├── javascript/JavaScriptHandlers.kt # JS/TS handlers (reflection)
+│   │   │   └── go/GoHandlers.kt        # Go handlers (reflection)
 │   │   ├── services/                   # Application/project services
 │   │   ├── startup/                    # Startup activities
 │   │   ├── tools/                      # MCP tool implementations
@@ -64,7 +65,8 @@ src/
 │       │   ├── java-features.xml       # Java-specific extensions
 │       │   ├── kotlin-features.xml     # Kotlin-specific extensions
 │       │   ├── python-features.xml     # Python-specific extensions
-│       │   └── javascript-features.xml # JS/TS-specific extensions
+│       │   ├── javascript-features.xml # JS/TS-specific extensions
+│       │   └── go-features.xml         # Go-specific extensions
 │       └── messages/MyBundle.properties # i18n messages
 └── test/
     ├── kotlin/                         # Test sources
@@ -273,19 +275,19 @@ Tools are organized by IDE availability.
 - `ide_find_definition` - Find symbol definition location
 - `ide_diagnostics` - Analyze file for problems and available intentions
 - `ide_index_status` - Check indexing status (dumb/smart mode)
+- `ide_refactor_rename` - Rename a symbol across the project with automatic related element renaming (getters/setters, overriding methods). Fully headless, works for ALL languages.
 
 **Extended Navigation Tools (Language-Aware):**
 
-These activate based on available language plugins (Java, Python, JavaScript/TypeScript):
+These activate based on available language plugins (Java, Python, JavaScript/TypeScript, Go):
 - `ide_type_hierarchy` - Get type hierarchy for a class
 - `ide_call_hierarchy` - Get call hierarchy for a method
 - `ide_find_implementations` - Find implementations of interface/method
 - `ide_find_symbol` - Search for symbols (classes, methods, fields) by name with fuzzy/camelCase matching
 - `ide_find_super_methods` - Find methods that a given method overrides/implements (full hierarchy chain)
 
-**Refactoring Tools (Java/Kotlin Only):**
-- `ide_refactor_rename` - Rename a symbol across the project
-- `ide_refactor_safe_delete` - Safely delete element
+**Java/Kotlin-Only Refactoring Tools:**
+- `ide_refactor_safe_delete` - Safely delete element (requires Java plugin)
 
 ### Multi-Language Architecture
 
@@ -300,6 +302,7 @@ The plugin uses a language handler pattern for multi-IDE support:
 - `handlers/java/JavaHandlers.kt` - Direct PSI access for Java/Kotlin
 - `handlers/python/PythonHandlers.kt` - Reflection-based Python PSI access
 - `handlers/javascript/JavaScriptHandlers.kt` - Reflection-based JS/TS PSI access
+- `handlers/go/GoHandlers.kt` - Reflection-based Go PSI access
 
 **Handler Types:**
 - `TypeHierarchyHandler` - Type hierarchy lookup
@@ -310,10 +313,11 @@ The plugin uses a language handler pattern for multi-IDE support:
 
 **Registration Flow:**
 1. `LanguageHandlerRegistry.registerHandlers()` - Registers handlers for available language plugins
-2. `ToolRegistry.registerLanguageNavigationTools()` - Registers tools if any language handlers available
-3. `ToolRegistry.registerJavaRefactoringTools()` - Registers refactoring tools if Java plugin available
+2. `ToolRegistry.registerUniversalTools()` - Registers universal tools including `ide_refactor_rename`
+3. `ToolRegistry.registerLanguageNavigationTools()` - Registers tools if any language handlers available
+4. `ToolRegistry.registerJavaRefactoringTools()` - Registers `ide_refactor_safe_delete` if Java plugin available
 
-**Reflection Pattern:** Python and JavaScript handlers use reflection to avoid compile-time dependencies on language-specific plugins. This prevents `NoClassDefFoundError` in IDEs without those plugins.
+**Reflection Pattern:** Python, JavaScript, and Go handlers use reflection to avoid compile-time dependencies on language-specific plugins. This prevents `NoClassDefFoundError` in IDEs without those plugins.
 
 ### Optimized Symbol Search
 
