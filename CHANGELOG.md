@@ -7,12 +7,32 @@
 ## [1.7.0] - 2025-12-03
 
 ### Added
-- **Go Language Support** - Full support for GoLand and IntelliJ IDEA with Go plugin
+- **Go Language Support** - Support for GoLand and IntelliJ IDEA with Go plugin
+  - `ide_type_hierarchy` - Find Go struct/interface hierarchies and interface implementations
+  - `ide_call_hierarchy` - Analyze caller/callee relationships for Go functions and methods
+  - `ide_find_symbol` - Search for Go types, functions, methods, and fields
+  - `ide_find_definition` - Navigate to Go symbol definitions
+  - `ide_find_references` - Find all usages of Go symbols
+  - `ide_diagnostics` - Detect Go code problems (errors, warnings, style issues)
+  - `ide_refactor_rename` - Rename Go symbols with automatic JSON tag updates
+  - Uses reflection-based handlers to avoid compile-time Go plugin dependency
 
 ### Changed
 - **Universal Rename Tool** - `ide_refactor_rename` now works across ALL languages (Python, JavaScript, TypeScript, Go, etc.), not just Java/Kotlin
+  - Uses IntelliJ's platform-level `RenameProcessor` which delegates to language-specific handlers
+  - Language-specific name validation using `LanguageNamesValidation` (identifier rules, keyword detection)
   - Tool is now registered as a universal tool, available in all JetBrains IDEs
+  - **Fully headless operation** - No popups or dialogs, suitable for autonomous AI agents
   - **Automatic related element renaming** - Getters/setters, overriding methods, test classes, constructor parameters ↔ fields, etc. are automatically renamed in a single atomic operation (no dialog)
+  - Constructor parameter and matching field are automatically renamed together (no dialog)
+  - Conflict detection before rename execution (returns error instead of showing dialog)
+
+### Not Supported for Go
+- `ide_find_implementations` - Go uses implicit interfaces (structural typing). Use `ide_type_hierarchy` with file+line+column instead to find types that satisfy an interface.
+- `ide_find_super_methods` - Go has no inheritance. Methods don't override parent methods; Go uses composition via struct embedding.
+
+### Removed
+- Removed design specification files (`design.md`, `MultiIDEPlan.md`, `requirements.md`) - consolidated into CLAUDE.md
 
 ## [1.6.0] - 2025-12-01
 

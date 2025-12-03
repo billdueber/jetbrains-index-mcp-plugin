@@ -34,15 +34,30 @@ import com.intellij.util.Processor
  *   A type implements an interface if it has all required methods.
  * - **Composition via Embedding**: Go uses struct embedding instead of inheritance.
  * - **Receiver Types**: Methods are associated with types via receivers.
+ *
+ * ## Unsupported Tools for Go
+ *
+ * Some tools are intentionally NOT registered for Go because they don't fit Go's language design:
+ *
+ * - **ide_find_implementations**: Go uses implicit interfaces (structural typing), not explicit
+ *   implementation declarations. Use `ide_type_hierarchy` with file+line+column instead to find
+ *   types that implement an interface.
+ *
+ * - **ide_find_super_methods**: Go has no inheritance. Methods don't "override" parent methods.
+ *   Go uses composition via struct embedding and implicit interface satisfaction.
  */
 object GoHandlers {
 
     private val LOG = logger<GoHandlers>()
 
     /**
-     * Registers all Go handlers with the registry.
+     * Registers Go handlers with the registry.
      *
      * Called via reflection from [LanguageHandlerRegistry].
+     *
+     * Note: Implementations and SuperMethods handlers are NOT registered because
+     * Go's implicit interfaces and lack of inheritance make these tools inapplicable.
+     * Use `ide_type_hierarchy` to find interface implementations in Go.
      */
     @JvmStatic
     fun register(registry: LanguageHandlerRegistry) {
@@ -56,13 +71,18 @@ object GoHandlers {
             Class.forName("com.goide.psi.GoFile")
             Class.forName("com.goide.psi.GoTypeSpec")
 
+            // Register handlers for tools that work well with Go
             registry.registerTypeHierarchyHandler(GoTypeHierarchyHandler())
-            registry.registerImplementationsHandler(GoImplementationsHandler())
             registry.registerCallHierarchyHandler(GoCallHierarchyHandler())
             registry.registerSymbolSearchHandler(GoSymbolSearchHandler())
-            registry.registerSuperMethodsHandler(GoSuperMethodsHandler())
 
-            LOG.info("Registered Go handlers")
+            // Note: GoImplementationsHandler and GoSuperMethodsHandler are intentionally
+            // NOT registered because:
+            // - Go uses implicit interfaces (structural typing), so "find implementations"
+            //   doesn't work reliably. Use ide_type_hierarchy instead.
+            // - Go has no inheritance, so "find super methods" is not applicable.
+
+            LOG.info("Registered Go handlers (TypeHierarchy, CallHierarchy, SymbolSearch)")
         } catch (e: ClassNotFoundException) {
             LOG.warn("Go PSI classes not found, skipping registration: ${e.message}")
         } catch (e: Exception) {
