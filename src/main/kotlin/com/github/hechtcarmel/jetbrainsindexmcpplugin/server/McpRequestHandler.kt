@@ -13,18 +13,23 @@ import io.netty.handler.codec.http.*
 import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import org.jetbrains.ide.BuiltInServerManager
+import kotlinx.serialization.json.JsonElement
 import org.jetbrains.ide.HttpRequestHandler
 import java.nio.charset.StandardCharsets
 
 /**
- * MCP Request Handler implementing the HTTP+SSE transport.
+ * MCP Request Handler implementing both SSE and Streamable HTTP transports.
  *
- * This transport uses two endpoints:
- * - GET /index-mcp/sse → Opens SSE stream, sends `endpoint` event with POST URL
- * - POST /index-mcp → JSON-RPC messages, immediate JSON response
+ * Supports two MCP transport modes:
  *
- * This is the standard transport used by MCP clients like Cursor, Claude Desktop, etc.
+ * 1. SSE Transport (2024-11-05 spec):
+ *    - GET /index-mcp/sse → Opens SSE stream, sends `endpoint` event with POST URL including sessionId
+ *    - POST /index-mcp?sessionId=xxx → JSON-RPC messages, response sent via SSE `message` event
+ *
+ * 2. Streamable HTTP Transport (for clients like Claude Code):
+ *    - POST /index-mcp (no sessionId) → JSON-RPC messages, immediate JSON response
+ *
+ * The transport mode is auto-detected based on presence of sessionId parameter.
  *
  * @see <a href="https://modelcontextprotocol.io/docs/concepts/transports#http-with-sse">MCP HTTP+SSE Transport</a>
  */
@@ -33,13 +38,15 @@ class McpRequestHandler : HttpRequestHandler() {
     private val json = Json {
         ignoreUnknownKeys = true
         encodeDefaults = true
+        explicitNulls = false
         prettyPrint = false
     }
 
     companion object {
         private val LOG = logger<McpRequestHandler>()
         const val MCP_PATH = McpConstants.MCP_ENDPOINT_PATH
-        const val SSE_PATH = "${MCP_PATH}/sse"
+        const val SSE_PATH = McpConstants.SSE_ENDPOINT_PATH
+        const val SESSION_ID_PARAM = McpConstants.SESSION_ID_PARAM
     }
 
     override fun isSupported(request: FullHttpRequest): Boolean {
@@ -64,10 +71,10 @@ class McpRequestHandler : HttpRequestHandler() {
                 handleSseRequest(context)
                 true
             }
-            // POST /index-mcp OR /index-mcp/sse → JSON-RPC
-            // (Some clients POST to /sse endpoint for streamable HTTP fallback)
+            // POST /index-mcp or /index-mcp/sse → JSON-RPC
+            // Some clients POST to /sse endpoint directly for Streamable HTTP
             request.method() == HttpMethod.POST && (path == MCP_PATH || path == SSE_PATH) -> {
-                handlePostRequest(request, context)
+                handlePostRequest(urlDecoder, request, context)
                 true
             }
             // OPTIONS for CORS
@@ -82,12 +89,19 @@ class McpRequestHandler : HttpRequestHandler() {
     /**
      * GET /index-mcp/sse → Opens SSE stream.
      *
-     * Sends an `endpoint` event with the URL for POST requests,
-     * then keeps the connection open for server-initiated messages.
+     * Creates a new SSE session and sends the `endpoint` event with the POST URL
+     * including the session ID. The connection is kept open for sending responses.
      */
     private fun handleSseRequest(context: ChannelHandlerContext) {
-        LOG.info("Opening SSE connection")
+        LOG.info("Opening SSE connection for index MCP")
 
+        val mcpService = ApplicationManager.getApplication().service<McpServerService>()
+        val sessionManager = mcpService.getSseSessionManager()
+
+        // Create a new session
+        val sessionId = sessionManager.createSession(context)
+
+        // Send HTTP response headers for SSE
         val response = DefaultHttpResponse(
             HttpVersion.HTTP_1_1,
             HttpResponseStatus.OK
@@ -102,41 +116,62 @@ class McpRequestHandler : HttpRequestHandler() {
 
         context.write(response)
 
-        // Send the endpoint event - this tells the client where to POST
-        val port = BuiltInServerManager.getInstance().port
-        val endpointUrl = "http://localhost:$port$MCP_PATH"
+        // Send the endpoint event with relative URL including session ID
+        // Using relative URL as per MCP spec - client will resolve against connection origin
+        val endpointPath = "$MCP_PATH?$SESSION_ID_PARAM=$sessionId"
 
-        val endpointEvent = "event: endpoint\ndata: $endpointUrl\n\n"
+        val endpointEvent = "event: endpoint\ndata: $endpointPath\n\n"
         val buffer = Unpooled.copiedBuffer(endpointEvent, StandardCharsets.UTF_8)
         context.writeAndFlush(DefaultHttpContent(buffer))
 
-        LOG.info("SSE connection established, endpoint: $endpointUrl")
-
-        // Connection stays open for server-initiated messages
-        // The channel will be closed by the client or on error
+        LOG.info("SSE session established: $sessionId, endpoint: $endpointPath")
     }
 
     /**
      * POST /index-mcp → Handles JSON-RPC requests.
      *
-     * Parses the JSON-RPC request, routes to the appropriate handler,
-     * and returns the response as JSON.
-     *
-     * Uses non-blocking coroutine execution to avoid freezing the UI.
-     * Tool execution happens on background threads, responses are sent
-     * back on the Netty event loop thread.
+     * Supports two modes:
+     * - With sessionId: SSE transport - sends response via SSE `message` event, returns 202 Accepted
+     * - Without sessionId: Streamable HTTP - returns immediate JSON response
      */
-    private fun handlePostRequest(request: FullHttpRequest, context: ChannelHandlerContext) {
+    private fun handlePostRequest(
+        urlDecoder: QueryStringDecoder,
+        request: FullHttpRequest,
+        context: ChannelHandlerContext
+    ) {
         val body = request.content().toString(StandardCharsets.UTF_8)
 
+        // Extract session ID from query parameters (optional)
+        val sessionIdParams = urlDecoder.parameters()[SESSION_ID_PARAM]
+        val sessionId = sessionIdParams?.firstOrNull()
+
+        val mcpService = ApplicationManager.getApplication().service<McpServerService>()
+
+        // Determine transport mode based on sessionId presence
+        if (sessionId.isNullOrBlank()) {
+            // Streamable HTTP mode - immediate JSON response
+            handleStreamableHttpRequest(body, context, mcpService)
+        } else {
+            // SSE transport mode - response via SSE stream
+            handleSsePostRequest(sessionId, body, context, mcpService)
+        }
+    }
+
+    /**
+     * Handles POST request in Streamable HTTP mode (no sessionId).
+     * Returns immediate JSON response.
+     */
+    private fun handleStreamableHttpRequest(
+        body: String,
+        context: ChannelHandlerContext,
+        mcpService: McpServerService
+    ) {
         if (body.isBlank()) {
             sendJsonRpcError(context, null, JsonRpcErrorCodes.PARSE_ERROR, "Empty request body")
             return
         }
 
-        val mcpService = ApplicationManager.getApplication().service<McpServerService>()
-
-        // Launch tool execution on background thread (non-blocking)
+        // Process request asynchronously
         mcpService.coroutineScope.launch {
             try {
                 val response = mcpService.getJsonRpcHandler().handleRequest(body)
@@ -148,9 +183,8 @@ class McpRequestHandler : HttpRequestHandler() {
                     }
                 }
             } catch (e: Exception) {
-                LOG.error("Error processing MCP request", e)
+                LOG.error("Error processing index MCP request (Streamable HTTP)", e)
 
-                // Send error response back on Netty event loop thread
                 context.channel().eventLoop().execute {
                     if (context.channel().isActive) {
                         sendJsonRpcError(
@@ -161,6 +195,70 @@ class McpRequestHandler : HttpRequestHandler() {
                         )
                     }
                 }
+            }
+        }
+    }
+
+    /**
+     * Handles POST request in SSE transport mode (with sessionId).
+     * Sends response via SSE `message` event, returns 202 Accepted immediately.
+     */
+    private fun handleSsePostRequest(
+        sessionId: String,
+        body: String,
+        context: ChannelHandlerContext,
+        mcpService: McpServerService
+    ) {
+        val sessionManager = mcpService.getSseSessionManager()
+
+        // Verify session exists
+        val session = sessionManager.getSession(sessionId)
+        if (session == null) {
+            LOG.warn("POST request with invalid sessionId: $sessionId")
+            sendHttpError(
+                context,
+                HttpResponseStatus.NOT_FOUND,
+                "Session not found: $sessionId"
+            )
+            return
+        }
+
+        if (body.isBlank()) {
+            // Send error via SSE
+            val errorResponse = JsonRpcResponse(
+                error = JsonRpcError(
+                    code = JsonRpcErrorCodes.PARSE_ERROR,
+                    message = "Empty request body"
+                )
+            )
+            sessionManager.sendEvent(sessionId, "message", json.encodeToString(errorResponse))
+            sendAccepted(context)
+            return
+        }
+
+        // Return 202 Accepted immediately
+        sendAccepted(context)
+
+        // Process request asynchronously and send response via SSE
+        mcpService.coroutineScope.launch {
+            try {
+                val response = mcpService.getJsonRpcHandler().handleRequest(body)
+
+                // Send response as SSE message event
+                val sent = sessionManager.sendEvent(sessionId, "message", response)
+                if (!sent) {
+                    LOG.warn("Failed to send response to session $sessionId - session may have closed")
+                }
+            } catch (e: Exception) {
+                LOG.error("Error processing index MCP request (SSE)", e)
+
+                val errorResponse = JsonRpcResponse(
+                    error = JsonRpcError(
+                        code = JsonRpcErrorCodes.INTERNAL_ERROR,
+                        message = e.message ?: "Internal error"
+                    )
+                )
+                sessionManager.sendEvent(sessionId, "message", json.encodeToString(errorResponse))
             }
         }
     }
@@ -179,7 +277,44 @@ class McpRequestHandler : HttpRequestHandler() {
     }
 
     /**
-     * Sends a JSON response.
+     * Sends a 202 Accepted response.
+     */
+    private fun sendAccepted(context: ChannelHandlerContext) {
+        val response = DefaultFullHttpResponse(
+            HttpVersion.HTTP_1_1,
+            HttpResponseStatus.ACCEPTED
+        )
+        response.headers().set(HttpHeaderNames.CONTENT_LENGTH, 0)
+        addCorsHeaders(response)
+        context.writeAndFlush(response)
+    }
+
+    /**
+     * Sends an HTTP error response.
+     */
+    private fun sendHttpError(
+        context: ChannelHandlerContext,
+        status: HttpResponseStatus,
+        message: String
+    ) {
+        val content = Unpooled.copiedBuffer(message, StandardCharsets.UTF_8)
+        val response = DefaultFullHttpResponse(
+            HttpVersion.HTTP_1_1,
+            status,
+            content
+        )
+
+        response.headers().apply {
+            set(HttpHeaderNames.CONTENT_TYPE, "text/plain; charset=UTF-8")
+            set(HttpHeaderNames.CONTENT_LENGTH, content.readableBytes())
+        }
+        addCorsHeaders(response)
+
+        context.writeAndFlush(response)
+    }
+
+    /**
+     * Sends a JSON response (for Streamable HTTP mode).
      */
     private fun sendJsonResponse(
         context: ChannelHandlerContext,
@@ -203,11 +338,11 @@ class McpRequestHandler : HttpRequestHandler() {
     }
 
     /**
-     * Sends a JSON-RPC error response.
+     * Sends a JSON-RPC error response (for Streamable HTTP mode).
      */
     private fun sendJsonRpcError(
         context: ChannelHandlerContext,
-        id: kotlinx.serialization.json.JsonElement?,
+        id: JsonElement?,
         code: Int,
         message: String
     ) {
