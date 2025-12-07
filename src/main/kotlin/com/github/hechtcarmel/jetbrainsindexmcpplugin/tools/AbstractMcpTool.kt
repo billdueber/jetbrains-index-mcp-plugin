@@ -411,13 +411,15 @@ abstract class AbstractMcpTool : McpTool {
     }
 
     /**
-     * Finds a PHP class or interface by its fully qualified name using PhpIndex.
+     * Finds a PHP class, interface, or trait by its fully qualified name using PhpIndex.
      *
-     * This method normalizes the FQN to ensure it has a leading backslash,
-     * as required by the PHP plugin API.
+     * This method handles various FQN formats:
+     * - With leading backslash: `\App\Models\User`
+     * - Without leading backslash: `App\Models\User`
+     * - JSON-escaped backslashes: `App\\Models\\User` (automatically normalized)
      *
      * @param project The project context
-     * @param qualifiedName PHP FQN (e.g., "App\Models\User" or "\App\Models\User")
+     * @param qualifiedName PHP FQN in any of the above formats
      * @return The PhpClass, or null if not found
      */
     private fun findClassByNameWithPhpPlugin(project: Project, qualifiedName: String): PsiElement? {
@@ -427,14 +429,17 @@ abstract class AbstractMcpTool : McpTool {
             val getInstanceMethod = phpIndexClass.getMethod("getInstance", Project::class.java)
             val phpIndex = getInstanceMethod.invoke(null, project)
 
-            // Normalize FQN: PHP requires leading backslash
-            val normalizedFqn = if (qualifiedName.startsWith("\\")) {
-                qualifiedName
+            // Normalize FQN:
+            // 1. Handle double-escaped backslashes from JSON (\\) -> single backslash (\)
+            // 2. Ensure leading backslash (PHP FQN requirement)
+            val cleanedFqn = qualifiedName.replace("\\\\", "\\")
+            val normalizedFqn = if (cleanedFqn.startsWith("\\")) {
+                cleanedFqn
             } else {
-                "\\$qualifiedName"
+                "\\$cleanedFqn"
             }
 
-            // Try getClassesByFQN first (for classes, abstract classes, traits)
+            // Try getClassesByFQN first (for classes, abstract classes)
             val getClassesByFQNMethod = phpIndexClass.getMethod("getClassesByFQN", String::class.java)
             val classes = getClassesByFQNMethod.invoke(phpIndex, normalizedFqn) as? Collection<*>
             if (!classes.isNullOrEmpty()) {
@@ -448,14 +453,25 @@ abstract class AbstractMcpTool : McpTool {
                 return interfaces.firstOrNull() as? PsiElement
             }
 
+            // Try getTraitsByFQN (for traits)
+            try {
+                val getTraitsByFQNMethod = phpIndexClass.getMethod("getTraitsByFQN", String::class.java)
+                val traits = getTraitsByFQNMethod.invoke(phpIndex, normalizedFqn) as? Collection<*>
+                if (!traits.isNullOrEmpty()) {
+                    return traits.firstOrNull() as? PsiElement
+                }
+            } catch (e: NoSuchMethodException) {
+                // getTraitsByFQN may not exist in older PHP plugin versions
+            }
+
             // Try without leading backslash if normalized version didn't work
-            if (normalizedFqn != qualifiedName) {
-                val classesAlt = getClassesByFQNMethod.invoke(phpIndex, qualifiedName) as? Collection<*>
+            if (normalizedFqn != cleanedFqn) {
+                val classesAlt = getClassesByFQNMethod.invoke(phpIndex, cleanedFqn) as? Collection<*>
                 if (!classesAlt.isNullOrEmpty()) {
                     return classesAlt.firstOrNull() as? PsiElement
                 }
 
-                val interfacesAlt = getInterfacesByFQNMethod.invoke(phpIndex, qualifiedName) as? Collection<*>
+                val interfacesAlt = getInterfacesByFQNMethod.invoke(phpIndex, cleanedFqn) as? Collection<*>
                 if (!interfacesAlt.isNullOrEmpty()) {
                     return interfacesAlt.firstOrNull() as? PsiElement
                 }
