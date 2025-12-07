@@ -9,6 +9,9 @@
 ### Added
 - **Rust Language Support** - Full support for RustRover, IntelliJ IDEA Ultimate with Rust plugin, and CLion
 
+### Changed
+- **Simplified tool descriptions** - Streamlined descriptions across navigation, refactoring, and intelligence tools for improved clarity and consistency
+
 ## [1.10.1] - 2025-12-07
 
 ### Removed
