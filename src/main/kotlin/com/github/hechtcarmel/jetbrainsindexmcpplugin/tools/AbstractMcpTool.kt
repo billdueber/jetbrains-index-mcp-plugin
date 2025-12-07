@@ -5,6 +5,7 @@ import com.github.hechtcarmel.jetbrainsindexmcpplugin.server.models.ContentBlock
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.server.models.ToolCallResult
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.settings.McpSettings
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.util.JavaPluginDetector
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.util.PhpPluginDetector
 import com.intellij.openapi.application.EDT
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.application.readAction as platformReadAction
@@ -378,31 +379,92 @@ abstract class AbstractMcpTool : McpTool {
     }
 
     /**
-     * Finds a Java/Kotlin class by its fully qualified name.
+     * Finds a class by its fully qualified name.
      *
-     * **NOTE**: This method requires the Java plugin to be available.
-     * Returns null immediately if the Java plugin is not installed.
-     *
-     * Uses multiple lookup strategies:
-     * 1. JavaPsiFacade with project scope (fastest, index-based)
-     * 2. JavaPsiFacade with all scope (includes libraries)
-     * 3. Filename index fallback (when index lookup fails)
+     * Supports multiple languages:
+     * - **PHP**: Uses `PhpIndex.getClassesByFQN()` and `getInterfacesByFQN()`
+     * - **Java/Kotlin**: Uses `JavaPsiFacade.findClass()`
      *
      * @param project The project context
-     * @param qualifiedName Fully qualified class name (e.g., "com.example.MyClass")
-     * @return The PsiClass, or null if not found or Java plugin is not available
+     * @param qualifiedName Fully qualified class name (e.g., "com.example.MyClass" or "\App\Models\User")
+     * @return The PsiClass/PhpClass, or null if not found or no suitable plugin is available
      * @see JavaPluginDetector.isJavaPluginAvailable
+     * @see PhpPluginDetector.isPhpPluginAvailable
      */
     protected fun findClassByName(project: Project, qualifiedName: String): PsiElement? {
-        // Early return if Java plugin is not available
-        if (!JavaPluginDetector.isJavaPluginAvailable) {
-            return null
+        // Try PHP first (if PHP plugin is available)
+        if (PhpPluginDetector.isPhpPluginAvailable) {
+            val phpResult = findClassByNameWithPhpPlugin(project, qualifiedName)
+            if (phpResult != null) return phpResult
         }
 
+        // Try Java/Kotlin (if Java plugin is available)
+        if (JavaPluginDetector.isJavaPluginAvailable) {
+            return try {
+                findClassByNameWithJavaPlugin(project, qualifiedName)
+            } catch (e: Exception) {
+                null
+            }
+        }
+
+        return null
+    }
+
+    /**
+     * Finds a PHP class or interface by its fully qualified name using PhpIndex.
+     *
+     * This method normalizes the FQN to ensure it has a leading backslash,
+     * as required by the PHP plugin API.
+     *
+     * @param project The project context
+     * @param qualifiedName PHP FQN (e.g., "App\Models\User" or "\App\Models\User")
+     * @return The PhpClass, or null if not found
+     */
+    private fun findClassByNameWithPhpPlugin(project: Project, qualifiedName: String): PsiElement? {
         return try {
-            // Use reflection to avoid compile-time dependency on Java plugin classes
-            // This allows the code to compile and run even when Java plugin is not available
-            findClassByNameWithJavaPlugin(project, qualifiedName)
+            // Load PhpIndex class via reflection
+            val phpIndexClass = Class.forName("com.jetbrains.php.PhpIndex")
+            val getInstanceMethod = phpIndexClass.getMethod("getInstance", Project::class.java)
+            val phpIndex = getInstanceMethod.invoke(null, project)
+
+            // Normalize FQN: PHP requires leading backslash
+            val normalizedFqn = if (qualifiedName.startsWith("\\")) {
+                qualifiedName
+            } else {
+                "\\$qualifiedName"
+            }
+
+            // Try getClassesByFQN first (for classes, abstract classes, traits)
+            val getClassesByFQNMethod = phpIndexClass.getMethod("getClassesByFQN", String::class.java)
+            val classes = getClassesByFQNMethod.invoke(phpIndex, normalizedFqn) as? Collection<*>
+            if (!classes.isNullOrEmpty()) {
+                return classes.firstOrNull() as? PsiElement
+            }
+
+            // Try getInterfacesByFQN (for interfaces)
+            val getInterfacesByFQNMethod = phpIndexClass.getMethod("getInterfacesByFQN", String::class.java)
+            val interfaces = getInterfacesByFQNMethod.invoke(phpIndex, normalizedFqn) as? Collection<*>
+            if (!interfaces.isNullOrEmpty()) {
+                return interfaces.firstOrNull() as? PsiElement
+            }
+
+            // Try without leading backslash if normalized version didn't work
+            if (normalizedFqn != qualifiedName) {
+                val classesAlt = getClassesByFQNMethod.invoke(phpIndex, qualifiedName) as? Collection<*>
+                if (!classesAlt.isNullOrEmpty()) {
+                    return classesAlt.firstOrNull() as? PsiElement
+                }
+
+                val interfacesAlt = getInterfacesByFQNMethod.invoke(phpIndex, qualifiedName) as? Collection<*>
+                if (!interfacesAlt.isNullOrEmpty()) {
+                    return interfacesAlt.firstOrNull() as? PsiElement
+                }
+            }
+
+            null
+        } catch (e: ClassNotFoundException) {
+            // PHP plugin classes not available
+            null
         } catch (e: Exception) {
             null
         }
