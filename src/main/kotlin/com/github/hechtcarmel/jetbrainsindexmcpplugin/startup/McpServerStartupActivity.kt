@@ -22,18 +22,25 @@ class McpServerStartupActivity : ProjectActivity {
             // Initialize the MCP server service (this triggers tool registration)
             val mcpService = McpServerService.getInstance()
             val serverUrl = mcpService.getServerUrl()
+            val serverError = mcpService.getServerError()
 
-            LOG.info("MCP Server available at: $serverUrl")
+            if (serverError != null) {
+                // Server failed to start (e.g., port in use)
+                LOG.warn("MCP Server failed to start: ${serverError.message}")
+                // Notification is already shown by McpServerService
+            } else if (serverUrl != null) {
+                LOG.info("MCP Server available at: $serverUrl")
 
-            // Show notification
-            NotificationGroupManager.getInstance()
-                .getNotificationGroup(McpConstants.NOTIFICATION_GROUP_ID)
-                .createNotification(
-                    McpConstants.PLUGIN_NAME,
-                    McpBundle.message("notification.serverStarted", serverUrl),
-                    NotificationType.INFORMATION
-                )
-                .notify(project)
+                // Show notification
+                NotificationGroupManager.getInstance()
+                    .getNotificationGroup(McpConstants.NOTIFICATION_GROUP_ID)
+                    .createNotification(
+                        McpConstants.PLUGIN_NAME,
+                        McpBundle.message("notification.serverStarted", serverUrl),
+                        NotificationType.INFORMATION
+                    )
+                    .notify(project)
+            }
 
         } catch (e: Exception) {
             LOG.error("Failed to start MCP Server", e)

@@ -190,6 +190,7 @@ class ServerStatusPanel(private val project: Project) : JBPanel<ServerStatusPane
     private val statusLabel: JBLabel
     private val urlLabel: JBLabel
     private val projectLabel: JBLabel
+    private val settingsLink: JBLabel
 
     init {
         border = JBUI.Borders.empty(8)
@@ -207,8 +208,27 @@ class ServerStatusPanel(private val project: Project) : JBPanel<ServerStatusPane
 
         projectLabel = JBLabel()
 
+        settingsLink = JBLabel("Open Settings").apply {
+            foreground = JBColor.BLUE
+            cursor = Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
+            isVisible = false
+            addMouseListener(object : MouseAdapter() {
+                override fun mouseClicked(e: MouseEvent) {
+                    com.intellij.openapi.options.ShowSettingsUtil.getInstance()
+                        .showSettingsDialog(project, com.github.hechtcarmel.jetbrainsindexmcpplugin.settings.McpSettingsConfigurable::class.java)
+                }
+                override fun mouseEntered(e: MouseEvent) {
+                    text = "<html><u>Open Settings</u></html>"
+                }
+                override fun mouseExited(e: MouseEvent) {
+                    text = "Open Settings"
+                }
+            })
+        }
+
         leftPanel.add(statusLabel)
         leftPanel.add(urlLabel)
+        leftPanel.add(settingsLink)
         leftPanel.add(projectLabel)
 
         add(leftPanel, BorderLayout.WEST)
@@ -219,17 +239,40 @@ class ServerStatusPanel(private val project: Project) : JBPanel<ServerStatusPane
     fun refresh() {
         try {
             val mcpService = McpServerService.getInstance()
-            val url = mcpService.getServerUrl()
+            val error = mcpService.getServerError()
 
-            statusLabel.text = "MCP Server Running"
-            statusLabel.foreground = JBColor(0x59A869, 0x59A869)
-            urlLabel.text = url
-            projectLabel.text = "| Project: ${project.name}"
+            if (error != null) {
+                // Error state - show error message with settings link
+                statusLabel.text = "MCP Server Error"
+                statusLabel.foreground = JBColor.RED
+                urlLabel.text = error.message
+                urlLabel.foreground = JBColor.RED
+                settingsLink.isVisible = true
+                projectLabel.text = ""
+            } else if (mcpService.isServerRunning()) {
+                // Running state
+                val url = mcpService.getServerUrl()
+                statusLabel.text = "MCP Server Running"
+                statusLabel.foreground = JBColor(0x59A869, 0x59A869)
+                urlLabel.text = url ?: ""
+                urlLabel.foreground = JBColor.BLUE
+                settingsLink.isVisible = false
+                projectLabel.text = "| Project: ${project.name}"
+            } else {
+                // Stopped state
+                statusLabel.text = "MCP Server Stopped"
+                statusLabel.foreground = JBColor.GRAY
+                urlLabel.text = ""
+                settingsLink.isVisible = true
+                projectLabel.text = ""
+            }
         } catch (e: Exception) {
             statusLabel.text = "MCP Server Error"
             statusLabel.foreground = JBColor.RED
-            urlLabel.text = ""
-            projectLabel.text = e.message ?: ""
+            urlLabel.text = e.message ?: ""
+            urlLabel.foreground = JBColor.RED
+            settingsLink.isVisible = true
+            projectLabel.text = ""
         }
     }
 }

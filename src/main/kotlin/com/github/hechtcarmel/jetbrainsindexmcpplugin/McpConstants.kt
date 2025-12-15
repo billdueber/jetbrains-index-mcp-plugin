@@ -6,6 +6,10 @@ object McpConstants {
     const val NOTIFICATION_GROUP_ID = PLUGIN_NAME
     const val SETTINGS_DISPLAY_NAME = PLUGIN_NAME
 
+    // Server configuration
+    const val DEFAULT_SERVER_PORT = 29277
+    const val DEFAULT_SERVER_HOST = "127.0.0.1"
+
     // MCP Endpoint paths (HTTP+SSE transport)
     const val MCP_ENDPOINT_PATH = "/index-mcp"
     const val SSE_ENDPOINT_PATH = "$MCP_ENDPOINT_PATH/sse"

@@ -1,7 +1,12 @@
 package com.github.hechtcarmel.jetbrainsindexmcpplugin.settings
 
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.McpBundle
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.McpConstants
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.server.KtorMcpServer
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.server.McpServerService
+import com.intellij.notification.NotificationGroupManager
+import com.intellij.notification.NotificationType
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.options.Configurable
 import com.intellij.ui.JBColor
 import com.intellij.ui.components.JBCheckBox
@@ -19,6 +24,7 @@ class McpSettingsConfigurable : Configurable {
 
     private var panel: JPanel? = null
     private var maxHistorySizeSpinner: JSpinner? = null
+    private var serverPortSpinner: JSpinner? = null
     private var syncExternalChangesCheckBox: JBCheckBox? = null
     private val toolCheckBoxes = mutableMapOf<String, JBCheckBox>()
 
@@ -26,6 +32,9 @@ class McpSettingsConfigurable : Configurable {
 
     override fun createComponent(): JComponent {
         maxHistorySizeSpinner = JSpinner(SpinnerNumberModel(100, 10, 10000, 10))
+        serverPortSpinner = JSpinner(SpinnerNumberModel(McpConstants.DEFAULT_SERVER_PORT, 1024, 65535, 1)).apply {
+            toolTipText = McpBundle.message("settings.serverPort.tooltip")
+        }
         syncExternalChangesCheckBox = JBCheckBox(McpBundle.message("settings.syncExternalChanges")).apply {
             toolTipText = McpBundle.message("settings.syncExternalChanges.tooltip")
         }
@@ -49,6 +58,7 @@ class McpSettingsConfigurable : Configurable {
         val toolsPanel = createToolsPanel()
 
         panel = FormBuilder.createFormBuilder()
+            .addLabeledComponent(JBLabel(McpBundle.message("settings.serverPort") + ":"), serverPortSpinner!!, 1, false)
             .addLabeledComponent(JBLabel(McpBundle.message("settings.maxHistorySize") + ":"), maxHistorySizeSpinner!!, 1, false)
             .addComponent(syncPanel, 1)
             .addSeparator(10)
@@ -83,7 +93,8 @@ class McpSettingsConfigurable : Configurable {
     override fun isModified(): Boolean {
         val settings = McpSettings.getInstance()
 
-        if (maxHistorySizeSpinner?.value != settings.maxHistorySize ||
+        if (serverPortSpinner?.value != settings.serverPort ||
+            maxHistorySizeSpinner?.value != settings.maxHistorySize ||
             syncExternalChangesCheckBox?.isSelected != settings.syncExternalChanges) {
             return true
         }
@@ -99,6 +110,10 @@ class McpSettingsConfigurable : Configurable {
 
     override fun apply() {
         val settings = McpSettings.getInstance()
+        val oldPort = settings.serverPort
+        val newPort = serverPortSpinner?.value as? Int ?: McpConstants.DEFAULT_SERVER_PORT
+
+        settings.serverPort = newPort
         settings.maxHistorySize = maxHistorySizeSpinner?.value as? Int ?: 100
         settings.syncExternalChanges = syncExternalChangesCheckBox?.isSelected ?: false
 
@@ -109,10 +124,43 @@ class McpSettingsConfigurable : Configurable {
             }
         }
         settings.disabledTools = disabledTools
+
+        // Auto-restart server if port changed
+        if (newPort != oldPort) {
+            ApplicationManager.getApplication().invokeLater {
+                val result = McpServerService.getInstance().restartServer(newPort)
+                when (result) {
+                    is KtorMcpServer.StartResult.Success -> {
+                        NotificationGroupManager.getInstance()
+                            .getNotificationGroup(McpConstants.NOTIFICATION_GROUP_ID)
+                            .createNotification(
+                                McpBundle.message("notification.serverRestarted.title"),
+                                McpBundle.message("notification.serverRestarted", newPort),
+                                NotificationType.INFORMATION
+                            )
+                            .notify(null)
+                    }
+                    is KtorMcpServer.StartResult.PortInUse -> {
+                        // Notification is already shown by McpServerService
+                    }
+                    is KtorMcpServer.StartResult.Error -> {
+                        NotificationGroupManager.getInstance()
+                            .getNotificationGroup(McpConstants.NOTIFICATION_GROUP_ID)
+                            .createNotification(
+                                "MCP Server Error",
+                                result.message,
+                                NotificationType.ERROR
+                            )
+                            .notify(null)
+                    }
+                }
+            }
+        }
     }
 
     override fun reset() {
         val settings = McpSettings.getInstance()
+        serverPortSpinner?.value = settings.serverPort
         maxHistorySizeSpinner?.value = settings.maxHistorySize
         syncExternalChangesCheckBox?.isSelected = settings.syncExternalChanges
 
@@ -123,6 +171,7 @@ class McpSettingsConfigurable : Configurable {
 
     override fun disposeUIResources() {
         panel = null
+        serverPortSpinner = null
         maxHistorySizeSpinner = null
         syncExternalChangesCheckBox = null
         toolCheckBoxes.clear()

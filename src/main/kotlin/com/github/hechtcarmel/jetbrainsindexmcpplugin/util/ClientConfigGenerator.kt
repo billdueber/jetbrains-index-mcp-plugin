@@ -1,6 +1,8 @@
 package com.github.hechtcarmel.jetbrainsindexmcpplugin.util
 
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.McpConstants
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.server.McpServerService
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.settings.McpSettings
 
 /**
  * Generates MCP client configuration snippets for various AI coding assistants.
@@ -14,9 +16,21 @@ import com.github.hechtcarmel.jetbrainsindexmcpplugin.server.McpServerService
  * - Standard SSE (for clients with native SSE support)
  * - mcp-remote (for clients without SSE support)
  *
- * All configurations use the HTTP+SSE transport to connect to the IDE's built-in web server.
+ * All configurations use the HTTP+SSE transport with a configurable port.
  */
 object ClientConfigGenerator {
+
+    /**
+     * Gets the server URL, using the running server URL if available,
+     * or constructing a URL from settings if the server is not running.
+     */
+    private fun getServerUrlOrDefault(): String {
+        return McpServerService.getInstance().getServerUrl()
+            ?: run {
+                val port = McpSettings.getInstance().serverPort
+                "http://${McpConstants.DEFAULT_SERVER_HOST}:$port${McpConstants.SSE_ENDPOINT_PATH}"
+            }
+    }
 
     /**
      * Supported MCP client types.
@@ -35,7 +49,7 @@ object ClientConfigGenerator {
      * @return The configuration string in the appropriate format for the client
      */
     fun generateConfig(clientType: ClientType, serverName: String = "jetbrains-index"): String {
-        val serverUrl = McpServerService.getInstance().getServerUrl()
+        val serverUrl = getServerUrlOrDefault()
 
         return when (clientType) {
             ClientType.CLAUDE_CODE -> generateClaudeCodeConfig(serverUrl, serverName)
@@ -53,7 +67,7 @@ object ClientConfigGenerator {
      */
     fun generateInstallCommand(clientType: ClientType, serverName: String = "jetbrains-index"): String? {
         if (!clientType.supportsInstallCommand) return null
-        val serverUrl = McpServerService.getInstance().getServerUrl()
+        val serverUrl = getServerUrlOrDefault()
 
         return when (clientType) {
             ClientType.CLAUDE_CODE -> buildClaudeCodeCommand(serverUrl, serverName)
@@ -130,7 +144,7 @@ object ClientConfigGenerator {
      * Generates standard SSE configuration for MCP clients with native SSE support.
      */
     fun generateStandardSseConfig(serverName: String = "jetbrains-index"): String {
-        val serverUrl = McpServerService.getInstance().getServerUrl()
+        val serverUrl = getServerUrlOrDefault()
         return """
 {
   "mcpServers": {
@@ -147,7 +161,7 @@ object ClientConfigGenerator {
      * Uses npx mcp-remote to bridge SSE to stdio transport.
      */
     fun generateMcpRemoteConfig(serverName: String = "jetbrains-index"): String {
-        val serverUrl = McpServerService.getInstance().getServerUrl()
+        val serverUrl = getServerUrlOrDefault()
         return """
 {
   "mcpServers": {

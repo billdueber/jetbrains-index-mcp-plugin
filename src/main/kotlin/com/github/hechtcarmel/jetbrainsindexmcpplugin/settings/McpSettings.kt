@@ -1,5 +1,6 @@
 package com.github.hechtcarmel.jetbrainsindexmcpplugin.settings
 
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.McpConstants
 import com.intellij.openapi.components.PersistentStateComponent
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.State
@@ -16,7 +17,8 @@ class McpSettings : PersistentStateComponent<McpSettings.State> {
     data class State(
         var maxHistorySize: Int = 100,
         var syncExternalChanges: Boolean = false,
-        var disabledTools: MutableSet<String> = mutableSetOf()
+        var disabledTools: MutableSet<String> = mutableSetOf(),
+        var serverPort: Int = McpConstants.DEFAULT_SERVER_PORT
     )
 
     private var state = State()
@@ -38,6 +40,10 @@ class McpSettings : PersistentStateComponent<McpSettings.State> {
     var disabledTools: Set<String>
         get() = state.disabledTools.toSet()
         set(value) { state.disabledTools = value.toMutableSet() }
+
+    var serverPort: Int
+        get() = state.serverPort
+        set(value) { state.serverPort = value }
 
     fun isToolEnabled(toolName: String): Boolean = toolName !in state.disabledTools
 
