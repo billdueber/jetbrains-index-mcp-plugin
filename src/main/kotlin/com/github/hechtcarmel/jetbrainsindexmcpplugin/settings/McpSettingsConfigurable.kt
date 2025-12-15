@@ -32,7 +32,7 @@ class McpSettingsConfigurable : Configurable {
 
     override fun createComponent(): JComponent {
         maxHistorySizeSpinner = JSpinner(SpinnerNumberModel(100, 10, 10000, 10))
-        serverPortSpinner = JSpinner(SpinnerNumberModel(McpConstants.DEFAULT_SERVER_PORT, 1024, 65535, 1)).apply {
+        serverPortSpinner = JSpinner(SpinnerNumberModel(McpConstants.getDefaultServerPort(), 1024, 65535, 1)).apply {
             toolTipText = McpBundle.message("settings.serverPort.tooltip")
         }
         syncExternalChangesCheckBox = JBCheckBox(McpBundle.message("settings.syncExternalChanges")).apply {
@@ -111,7 +111,7 @@ class McpSettingsConfigurable : Configurable {
     override fun apply() {
         val settings = McpSettings.getInstance()
         val oldPort = settings.serverPort
-        val newPort = serverPortSpinner?.value as? Int ?: McpConstants.DEFAULT_SERVER_PORT
+        val newPort = serverPortSpinner?.value as? Int ?: McpConstants.getDefaultServerPort()
 
         settings.serverPort = newPort
         settings.maxHistorySize = maxHistorySizeSpinner?.value as? Int ?: 100

@@ -109,7 +109,7 @@ MCP servers expose:
 
 **Server Infrastructure:**
 - Custom embedded **Ktor CIO** HTTP server (not IntelliJ's built-in server)
-- Configurable port (default: **29277**) via Settings → Index MCP Server → Server Port
+- Configurable port with IDE-specific defaults (e.g., IntelliJ: 29170, PyCharm: 29172) via Settings → Index MCP Server → Server Port
 - Binds to `127.0.0.1` only (localhost) for security
 - Single server instance across all open projects
 - Auto-restart on port change
@@ -128,14 +128,32 @@ MCP servers expose:
 ```json
 {
   "mcpServers": {
-    "jetbrains-index": {
-      "url": "http://127.0.0.1:29277/index-mcp/sse"
+    "intellij-index": {
+      "url": "http://127.0.0.1:29170/index-mcp/sse"
     }
   }
 }
 ```
+Note: Server name and port are IDE-specific. Use the "Install on Coding Agents" button for automatic configuration.
 
-**Port Configuration**: Settings → Tools → Index MCP Server → Server Port (default: 29277, range: 1024-65535)
+**Port Configuration**: Settings → Tools → Index MCP Server → Server Port (IDE-specific defaults, range: 1024-65535)
+
+**IDE-Specific Defaults**:
+| IDE | Server Name | Default Port |
+|-----|-------------|--------------|
+| IntelliJ IDEA | `intellij-index` | 29170 |
+| Android Studio | `android-studio-index` | 29171 |
+| PyCharm | `pycharm-index` | 29172 |
+| WebStorm | `webstorm-index` | 29173 |
+| GoLand | `goland-index` | 29174 |
+| PhpStorm | `phpstorm-index` | 29175 |
+| RubyMine | `rubymine-index` | 29176 |
+| CLion | `clion-index` | 29177 |
+| RustRover | `rustrover-index` | 29178 |
+| DataGrip | `datagrip-index` | 29179 |
+| Aqua | `aqua-index` | 29180 |
+| DataSpell | `dataspell-index` | 29181 |
+| Rider | `rider-index` | 29182 |
 
 ## Development Guidelines
 

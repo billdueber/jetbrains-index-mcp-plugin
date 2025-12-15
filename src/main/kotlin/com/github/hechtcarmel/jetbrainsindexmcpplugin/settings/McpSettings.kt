@@ -14,11 +14,16 @@ import com.intellij.openapi.components.service
 )
 class McpSettings : PersistentStateComponent<McpSettings.State> {
 
+    /**
+     * Persistent state for MCP settings.
+     * Note: serverPort defaults to -1 (unset), which means "use IDE-specific default".
+     * This allows different IDEs to have different default ports.
+     */
     data class State(
         var maxHistorySize: Int = 100,
         var syncExternalChanges: Boolean = false,
         var disabledTools: MutableSet<String> = mutableSetOf(),
-        var serverPort: Int = McpConstants.DEFAULT_SERVER_PORT
+        var serverPort: Int = -1 // -1 means use IDE-specific default
     )
 
     private var state = State()
@@ -42,7 +47,7 @@ class McpSettings : PersistentStateComponent<McpSettings.State> {
         set(value) { state.disabledTools = value.toMutableSet() }
 
     var serverPort: Int
-        get() = state.serverPort
+        get() = if (state.serverPort == -1) McpConstants.getDefaultServerPort() else state.serverPort
         set(value) { state.serverPort = value }
 
     fun isToolEnabled(toolName: String): Boolean = toolName !in state.disabledTools

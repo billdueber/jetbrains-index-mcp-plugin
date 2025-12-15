@@ -42,13 +42,18 @@ object ClientConfigGenerator {
     }
 
     /**
+     * Returns the IDE-specific server name (e.g., "intellij-index", "pycharm-index").
+     */
+    fun getDefaultServerName(): String = McpConstants.getServerName()
+
+    /**
      * Generates the MCP configuration for the specified client type.
      *
      * @param clientType The type of MCP client to generate configuration for
-     * @param serverName Optional custom name for the server (defaults to "jetbrains-index")
+     * @param serverName Optional custom name for the server (defaults to IDE-specific name)
      * @return The configuration string in the appropriate format for the client
      */
-    fun generateConfig(clientType: ClientType, serverName: String = "jetbrains-index"): String {
+    fun generateConfig(clientType: ClientType, serverName: String = getDefaultServerName()): String {
         val serverUrl = getServerUrlOrDefault()
 
         return when (clientType) {
@@ -62,10 +67,10 @@ object ClientConfigGenerator {
      * Generates the install command for clients that support direct installation.
      *
      * @param clientType The type of MCP client
-     * @param serverName Optional custom name for the server
+     * @param serverName Optional custom name for the server (defaults to IDE-specific name)
      * @return The install command, or null if the client doesn't support install commands
      */
-    fun generateInstallCommand(clientType: ClientType, serverName: String = "jetbrains-index"): String? {
+    fun generateInstallCommand(clientType: ClientType, serverName: String = getDefaultServerName()): String? {
         if (!clientType.supportsInstallCommand) return null
         val serverUrl = getServerUrlOrDefault()
 
@@ -143,7 +148,7 @@ object ClientConfigGenerator {
     /**
      * Generates standard SSE configuration for MCP clients with native SSE support.
      */
-    fun generateStandardSseConfig(serverName: String = "jetbrains-index"): String {
+    fun generateStandardSseConfig(serverName: String = getDefaultServerName()): String {
         val serverUrl = getServerUrlOrDefault()
         return """
 {
@@ -160,7 +165,7 @@ object ClientConfigGenerator {
      * Generates mcp-remote configuration for MCP clients without SSE support.
      * Uses npx mcp-remote to bridge SSE to stdio transport.
      */
-    fun generateMcpRemoteConfig(serverName: String = "jetbrains-index"): String {
+    fun generateMcpRemoteConfig(serverName: String = getDefaultServerName()): String {
         val serverUrl = getServerUrlOrDefault()
         return """
 {
@@ -184,6 +189,7 @@ object ClientConfigGenerator {
      * for the specified client type.
      */
     fun getConfigLocationHint(clientType: ClientType): String {
+        val serverName = getDefaultServerName()
         return when (clientType) {
             ClientType.CLAUDE_CODE -> """
                 Runs installation command in your terminal.
@@ -192,7 +198,7 @@ object ClientConfigGenerator {
                 • --scope user: Adds globally for all projects
                 • --scope project: Adds to current project only
 
-                To remove manually: claude mcp remove jetbrains-index
+                To remove manually: claude mcp remove $serverName
             """.trimIndent()
 
             ClientType.GEMINI_CLI -> """

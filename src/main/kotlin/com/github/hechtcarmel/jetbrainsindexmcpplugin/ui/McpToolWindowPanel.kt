@@ -2,6 +2,7 @@ package com.github.hechtcarmel.jetbrainsindexmcpplugin.ui
 
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.McpBundle
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.McpConstants
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.ServerStatusListener
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.history.CommandEntry
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.history.CommandFilter
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.history.CommandHistoryListener
@@ -12,6 +13,7 @@ import com.intellij.icons.AllIcons
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.ide.CopyPasteManager
 import com.intellij.openapi.project.Project
 import com.intellij.ui.JBColor
@@ -22,6 +24,7 @@ import com.intellij.ui.components.JBList
 import com.intellij.ui.components.JBPanel
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.components.JBTextArea
+import com.intellij.util.messages.MessageBusConnection
 import com.intellij.util.ui.JBUI
 import java.awt.BorderLayout
 import java.awt.Component
@@ -37,7 +40,7 @@ import javax.swing.*
 
 class McpToolWindowPanel(
     private val project: Project
-) : JBPanel<McpToolWindowPanel>(BorderLayout()), Disposable, CommandHistoryListener {
+) : JBPanel<McpToolWindowPanel>(BorderLayout()), Disposable, CommandHistoryListener, ServerStatusListener {
 
     private val serverStatusPanel: ServerStatusPanel
     private val filterToolbar: FilterToolbar
@@ -46,8 +49,12 @@ class McpToolWindowPanel(
     private val detailsArea: JBTextArea
     private val historyService: CommandHistoryService
     private var currentFilter = CommandFilter()
+    private val messageBusConnection: MessageBusConnection
 
     init {
+        // Subscribe to server status changes
+        messageBusConnection = ApplicationManager.getApplication().messageBus.connect(this)
+        messageBusConnection.subscribe(McpConstants.SERVER_STATUS_TOPIC, this)
         // Header panel containing server status, agent rule tip, and filter toolbar
         val headerPanel = JBPanel<JBPanel<*>>().apply {
             layout = BoxLayout(this, BoxLayout.Y_AXIS)
@@ -178,6 +185,11 @@ class McpToolWindowPanel(
     override fun onHistoryCleared() {
         historyListModel.clear()
         detailsArea.text = ""
+    }
+
+    override fun serverStatusChanged() {
+        // Refresh UI when server status changes (e.g., after port change)
+        serverStatusPanel.refresh()
     }
 
     override fun dispose() {

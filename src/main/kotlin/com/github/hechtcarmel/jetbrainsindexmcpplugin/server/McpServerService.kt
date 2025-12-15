@@ -1,6 +1,7 @@
 package com.github.hechtcarmel.jetbrainsindexmcpplugin.server
 
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.McpConstants
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.ServerStatusListener
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.settings.McpSettings
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.settings.McpSettingsConfigurable
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.ToolRegistry
@@ -96,23 +97,39 @@ class McpServerService : Disposable {
             coroutineScope = coroutineScope
         )
 
-        return when (val result = server.start()) {
+        val result = when (val startResult = server.start()) {
             is KtorMcpServer.StartResult.Success -> {
                 ktorServer = server
                 serverError = null
                 LOG.info("MCP Server started successfully on port $port")
-                result
+                startResult
             }
             is KtorMcpServer.StartResult.PortInUse -> {
                 serverError = ServerError("Port $port is already in use", port)
                 showPortInUseNotification(port)
-                result
+                startResult
             }
             is KtorMcpServer.StartResult.Error -> {
-                serverError = ServerError(result.message)
-                LOG.error("Failed to start MCP Server: ${result.message}")
-                result
+                serverError = ServerError(startResult.message)
+                LOG.error("Failed to start MCP Server: ${startResult.message}")
+                startResult
             }
+        }
+
+        // Notify listeners that server status changed
+        notifyStatusChanged()
+
+        return result
+    }
+
+    /**
+     * Notifies all listeners that the server status has changed.
+     */
+    private fun notifyStatusChanged() {
+        ApplicationManager.getApplication().invokeLater {
+            ApplicationManager.getApplication().messageBus
+                .syncPublisher(McpConstants.SERVER_STATUS_TOPIC)
+                .serverStatusChanged()
         }
     }
 

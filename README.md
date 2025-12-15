@@ -80,11 +80,15 @@ Download the [latest release](https://github.com/hechtcarmel/jetbrains-index-mcp
 
 ## Quick Start
 
-1. **Install the plugin** and restart IntelliJ IDEA
-2. **Open a project** - the MCP server starts automatically on port **29277**
-3. **Configure your AI assistant** with the server URL: `http://127.0.0.1:29277/index-mcp/sse`
+1. **Install the plugin** and restart your JetBrains IDE
+2. **Open a project** - the MCP server starts automatically with IDE-specific defaults:
+   - IntelliJ IDEA: `intellij-index` on port **29170**
+   - PyCharm: `pycharm-index` on port **29172**
+   - WebStorm: `webstorm-index` on port **29173**
+   - Other IDEs: See [IDE-Specific Defaults](#ide-specific-defaults)
+3. **Configure your AI assistant** using the "Install on Coding Agents" button (easiest) or manually
 4. **Use the tool window** (bottom panel: "Index MCP Server") to copy configuration or monitor commands
-5. **Change port** (optional): <kbd>Settings</kbd> > <kbd>Tools</kbd> > <kbd>Index MCP Server</kbd> > <kbd>Server Port</kbd>
+5. **Change port** (optional): Click "Change port, disable tools" in the toolbar or go to <kbd>Settings</kbd> > <kbd>Tools</kbd> > <kbd>Index MCP Server</kbd>
 
 ### Using the "Install on Coding Agents" Button
 
@@ -100,27 +104,34 @@ The easiest way to configure your AI assistant:
 
 ### Claude Code (CLI)
 
-Run this command in your terminal:
+Use the "Install on Coding Agents" button in the tool window, or run this command (adjust name and port for your IDE):
 
 ```bash
-claude mcp add --transport http jetbrains-index http://127.0.0.1:29277/index-mcp/sse --scope user
+# IntelliJ IDEA
+claude mcp add --transport http intellij-index http://127.0.0.1:29170/index-mcp/sse --scope user
+
+# PyCharm
+claude mcp add --transport http pycharm-index http://127.0.0.1:29172/index-mcp/sse --scope user
+
+# WebStorm
+claude mcp add --transport http webstorm-index http://127.0.0.1:29173/index-mcp/sse --scope user
 ```
 
 Options:
 - `--scope user` - Adds globally for all projects
 - `--scope project` - Adds to current project only
 
-To remove: `claude mcp remove jetbrains-index`
+To remove: `claude mcp remove <server-name>` (e.g., `claude mcp remove intellij-index`)
 
 ### Cursor
 
-Add to `.cursor/mcp.json` in your project root or `~/.cursor/mcp.json` globally:
+Add to `.cursor/mcp.json` in your project root or `~/.cursor/mcp.json` globally (adjust name and port for your IDE):
 
 ```json
 {
   "mcpServers": {
-    "jetbrains-index": {
-      "url": "http://127.0.0.1:29277/index-mcp/sse"
+    "intellij-index": {
+      "url": "http://127.0.0.1:29170/index-mcp/sse"
     }
   }
 }
@@ -128,13 +139,13 @@ Add to `.cursor/mcp.json` in your project root or `~/.cursor/mcp.json` globally:
 
 ### Windsurf
 
-Add to `~/.codeium/windsurf/mcp_config.json`:
+Add to `~/.codeium/windsurf/mcp_config.json` (adjust name and port for your IDE):
 
 ```json
 {
   "mcpServers": {
-    "jetbrains-index": {
-      "serverUrl": "http://127.0.0.1:29277/index-mcp/sse"
+    "intellij-index": {
+      "serverUrl": "http://127.0.0.1:29170/index-mcp/sse"
     }
   }
 }
@@ -145,15 +156,37 @@ Add to `~/.codeium/windsurf/mcp_config.json`:
 ```json
 {
   "mcp.servers": {
-    "jetbrains-index": {
+    "intellij-index": {
       "transport": "sse",
-      "url": "http://127.0.0.1:29277/index-mcp/sse"
+      "url": "http://127.0.0.1:29170/index-mcp/sse"
     }
   }
 }
 ```
 
-> **Note**: Replace `29277` with your custom port if you changed it in <kbd>Settings</kbd> > <kbd>Tools</kbd> > <kbd>Index MCP Server</kbd> > <kbd>Server Port</kbd>.
+> **Note**: Replace the server name and port with your IDE's defaults. See [IDE-Specific Defaults](#ide-specific-defaults) below.
+
+### IDE-Specific Defaults
+
+Each JetBrains IDE has a unique default port and server name to allow running multiple IDEs simultaneously without conflicts:
+
+| IDE | Server Name | Default Port |
+|-----|-------------|--------------|
+| IntelliJ IDEA | `intellij-index` | 29170 |
+| Android Studio | `android-studio-index` | 29171 |
+| PyCharm | `pycharm-index` | 29172 |
+| WebStorm | `webstorm-index` | 29173 |
+| GoLand | `goland-index` | 29174 |
+| PhpStorm | `phpstorm-index` | 29175 |
+| RubyMine | `rubymine-index` | 29176 |
+| CLion | `clion-index` | 29177 |
+| RustRover | `rustrover-index` | 29178 |
+| DataGrip | `datagrip-index` | 29179 |
+| Aqua | `aqua-index` | 29180 |
+| DataSpell | `dataspell-index` | 29181 |
+| Rider | `rider-index` | 29182 |
+
+> **Tip**: Use the "Install on Coding Agents" button in the tool window - it automatically uses the correct server name and port for your IDE.
 
 ## Available Tools
 
@@ -287,7 +320,7 @@ Configure the plugin at <kbd>Settings</kbd> > <kbd>Tools</kbd> > <kbd>Index MCP 
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| Server Port | 29277 | MCP server port (range: 1024-65535, auto-restart on change) |
+| Server Port | IDE-specific | MCP server port (range: 1024-65535, auto-restart on change). See [IDE-Specific Defaults](#ide-specific-defaults) |
 | Max History Size | 100 | Maximum number of commands to keep in history |
 | Sync External Changes | false | Sync external file changes before operations |
 
