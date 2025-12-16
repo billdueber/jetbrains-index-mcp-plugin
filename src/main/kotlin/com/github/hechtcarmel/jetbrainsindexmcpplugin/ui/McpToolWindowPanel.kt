@@ -2,6 +2,7 @@ package com.github.hechtcarmel.jetbrainsindexmcpplugin.ui
 
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.McpBundle
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.McpConstants
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.ServerStatusListener
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.history.CommandEntry
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.history.CommandFilter
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.history.CommandHistoryListener
@@ -12,6 +13,7 @@ import com.intellij.icons.AllIcons
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.ide.CopyPasteManager
 import com.intellij.openapi.project.Project
 import com.intellij.ui.JBColor
@@ -22,6 +24,7 @@ import com.intellij.ui.components.JBList
 import com.intellij.ui.components.JBPanel
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.components.JBTextArea
+import com.intellij.util.messages.MessageBusConnection
 import com.intellij.util.ui.JBUI
 import java.awt.BorderLayout
 import java.awt.Component
@@ -37,7 +40,7 @@ import javax.swing.*
 
 class McpToolWindowPanel(
     private val project: Project
-) : JBPanel<McpToolWindowPanel>(BorderLayout()), Disposable, CommandHistoryListener {
+) : JBPanel<McpToolWindowPanel>(BorderLayout()), Disposable, CommandHistoryListener, ServerStatusListener {
 
     private val serverStatusPanel: ServerStatusPanel
     private val filterToolbar: FilterToolbar
@@ -46,8 +49,12 @@ class McpToolWindowPanel(
     private val detailsArea: JBTextArea
     private val historyService: CommandHistoryService
     private var currentFilter = CommandFilter()
+    private val messageBusConnection: MessageBusConnection
 
     init {
+        // Subscribe to server status changes
+        messageBusConnection = ApplicationManager.getApplication().messageBus.connect(this)
+        messageBusConnection.subscribe(McpConstants.SERVER_STATUS_TOPIC, this)
         // Header panel containing server status, agent rule tip, and filter toolbar
         val headerPanel = JBPanel<JBPanel<*>>().apply {
             layout = BoxLayout(this, BoxLayout.Y_AXIS)
@@ -180,6 +187,11 @@ class McpToolWindowPanel(
         detailsArea.text = ""
     }
 
+    override fun serverStatusChanged() {
+        // Refresh UI when server status changes (e.g., after port change)
+        serverStatusPanel.refresh()
+    }
+
     override fun dispose() {
         historyService.removeListener(this)
     }
@@ -190,6 +202,7 @@ class ServerStatusPanel(private val project: Project) : JBPanel<ServerStatusPane
     private val statusLabel: JBLabel
     private val urlLabel: JBLabel
     private val projectLabel: JBLabel
+    private val settingsLink: JBLabel
 
     init {
         border = JBUI.Borders.empty(8)
@@ -207,8 +220,27 @@ class ServerStatusPanel(private val project: Project) : JBPanel<ServerStatusPane
 
         projectLabel = JBLabel()
 
+        settingsLink = JBLabel("Open Settings").apply {
+            foreground = JBColor.BLUE
+            cursor = Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
+            isVisible = false
+            addMouseListener(object : MouseAdapter() {
+                override fun mouseClicked(e: MouseEvent) {
+                    com.intellij.openapi.options.ShowSettingsUtil.getInstance()
+                        .showSettingsDialog(project, com.github.hechtcarmel.jetbrainsindexmcpplugin.settings.McpSettingsConfigurable::class.java)
+                }
+                override fun mouseEntered(e: MouseEvent) {
+                    text = "<html><u>Open Settings</u></html>"
+                }
+                override fun mouseExited(e: MouseEvent) {
+                    text = "Open Settings"
+                }
+            })
+        }
+
         leftPanel.add(statusLabel)
         leftPanel.add(urlLabel)
+        leftPanel.add(settingsLink)
         leftPanel.add(projectLabel)
 
         add(leftPanel, BorderLayout.WEST)
@@ -219,17 +251,40 @@ class ServerStatusPanel(private val project: Project) : JBPanel<ServerStatusPane
     fun refresh() {
         try {
             val mcpService = McpServerService.getInstance()
-            val url = mcpService.getServerUrl()
+            val error = mcpService.getServerError()
 
-            statusLabel.text = "MCP Server Running"
-            statusLabel.foreground = JBColor(0x59A869, 0x59A869)
-            urlLabel.text = url
-            projectLabel.text = "| Project: ${project.name}"
+            if (error != null) {
+                // Error state - show error message with settings link
+                statusLabel.text = "MCP Server Error"
+                statusLabel.foreground = JBColor.RED
+                urlLabel.text = error.message
+                urlLabel.foreground = JBColor.RED
+                settingsLink.isVisible = true
+                projectLabel.text = ""
+            } else if (mcpService.isServerRunning()) {
+                // Running state
+                val url = mcpService.getServerUrl()
+                statusLabel.text = "MCP Server Running"
+                statusLabel.foreground = JBColor(0x59A869, 0x59A869)
+                urlLabel.text = url ?: ""
+                urlLabel.foreground = JBColor.BLUE
+                settingsLink.isVisible = false
+                projectLabel.text = "| Project: ${project.name}"
+            } else {
+                // Stopped state
+                statusLabel.text = "MCP Server Stopped"
+                statusLabel.foreground = JBColor.GRAY
+                urlLabel.text = ""
+                settingsLink.isVisible = true
+                projectLabel.text = ""
+            }
         } catch (e: Exception) {
             statusLabel.text = "MCP Server Error"
             statusLabel.foreground = JBColor.RED
-            urlLabel.text = ""
-            projectLabel.text = e.message ?: ""
+            urlLabel.text = e.message ?: ""
+            urlLabel.foreground = JBColor.RED
+            settingsLink.isVisible = true
+            projectLabel.text = ""
         }
     }
 }

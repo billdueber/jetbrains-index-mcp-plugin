@@ -18,6 +18,7 @@ Create an MCP server within an IntelliJ plugin that allows AI coding assistants 
 - **Language**: Kotlin (JVM 21)
 - **Build System**: Gradle 9.0 with Kotlin DSL
 - **IDE Platform**: IntelliJ IDEA 2024.3+ (platformType = IC)
+- **HTTP Server**: Ktor CIO 2.3.12 (embedded, configurable port)
 - **Protocol**: Model Context Protocol (MCP) 2024-11-05
 
 ## Key Documentation
@@ -106,6 +107,19 @@ MCP servers expose:
 - **Tools** - Operations that can be invoked (e.g., `rename_symbol`, `find_usages`)
 - **Prompts** - Pre-defined interaction templates (optional)
 
+**Server Infrastructure:**
+- Custom embedded **Ktor CIO** HTTP server (not IntelliJ's built-in server)
+- Configurable port with IDE-specific defaults (e.g., IntelliJ: 29170, PyCharm: 29172) via Settings → Index MCP Server → Server Port
+- Binds to `127.0.0.1` only (localhost) for security
+- Single server instance across all open projects
+- Auto-restart on port change
+
+**Key Server Classes:**
+- `McpServerService` - Application-level service managing server lifecycle
+- `KtorMcpServer` - Embedded Ktor CIO server with CORS support
+- `KtorSseSessionManager` - SSE session management using Kotlin channels
+- `JsonRpcHandler` - JSON-RPC 2.0 request processing
+
 **Transport**: This plugin uses HTTP+SSE transport with JSON-RPC 2.0:
 - `GET /index-mcp/sse` → Opens SSE stream, sends `endpoint` event with POST URL
 - `POST /index-mcp` → JSON-RPC requests/responses
@@ -114,14 +128,32 @@ MCP servers expose:
 ```json
 {
   "mcpServers": {
-    "jetbrains-index": {
-      "url": "http://127.0.0.1:{IDE_PORT}/index-mcp/sse"
+    "intellij-index": {
+      "url": "http://127.0.0.1:29170/index-mcp/sse"
     }
   }
 }
 ```
+Note: Server name and port are IDE-specific. Use the "Install on Coding Agents" button for automatic configuration.
 
-Find IDE port: Settings → Build, Execution, Deployment → Debugger → Built-in Server Port (default: 63342)
+**Port Configuration**: Settings → Tools → Index MCP Server → Server Port (IDE-specific defaults, range: 1024-65535)
+
+**IDE-Specific Defaults**:
+| IDE | Server Name | Default Port |
+|-----|-------------|--------------|
+| IntelliJ IDEA | `intellij-index` | 29170 |
+| Android Studio | `android-studio-index` | 29171 |
+| PyCharm | `pycharm-index` | 29172 |
+| WebStorm | `webstorm-index` | 29173 |
+| GoLand | `goland-index` | 29174 |
+| PhpStorm | `phpstorm-index` | 29175 |
+| RubyMine | `rubymine-index` | 29176 |
+| CLion | `clion-index` | 29177 |
+| RustRover | `rustrover-index` | 29178 |
+| DataGrip | `datagrip-index` | 29179 |
+| Aqua | `aqua-index` | 29180 |
+| DataSpell | `dataspell-index` | 29181 |
+| Rider | `rider-index` | 29182 |
 
 ## Development Guidelines
 
