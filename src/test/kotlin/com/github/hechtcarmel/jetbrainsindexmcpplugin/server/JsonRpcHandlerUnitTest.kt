@@ -47,7 +47,7 @@ class JsonRpcHandlerUnitTest : TestCase() {
         )
 
         val responseJson = handler.handleRequest(json.encodeToString(JsonRpcRequest.serializer(), request))
-        val response = json.decodeFromString<JsonRpcResponse>(responseJson)
+        val response = json.decodeFromString<JsonRpcResponse>(responseJson!!)
 
         assertNull("Initialize should not return error", response.error)
         assertNotNull("Initialize should return result", response.result)
@@ -72,7 +72,7 @@ class JsonRpcHandlerUnitTest : TestCase() {
         )
 
         val responseJson = handler.handleRequest(json.encodeToString(JsonRpcRequest.serializer(), request))
-        val response = json.decodeFromString<JsonRpcResponse>(responseJson)
+        val response = json.decodeFromString<JsonRpcResponse>(responseJson!!)
 
         assertNull("${JsonRpcMethods.TOOLS_LIST} should not return error", response.error)
         assertNotNull("${JsonRpcMethods.TOOLS_LIST} should return result", response.result)
@@ -88,7 +88,7 @@ class JsonRpcHandlerUnitTest : TestCase() {
         )
 
         val responseJson = handler.handleRequest(json.encodeToString(JsonRpcRequest.serializer(), request))
-        val response = json.decodeFromString<JsonRpcResponse>(responseJson)
+        val response = json.decodeFromString<JsonRpcResponse>(responseJson!!)
 
         assertNull("${JsonRpcMethods.PING} should not return error", response.error)
         assertNotNull("${JsonRpcMethods.PING} should return result", response.result)
@@ -101,7 +101,7 @@ class JsonRpcHandlerUnitTest : TestCase() {
         )
 
         val responseJson = handler.handleRequest(json.encodeToString(JsonRpcRequest.serializer(), request))
-        val response = json.decodeFromString<JsonRpcResponse>(responseJson)
+        val response = json.decodeFromString<JsonRpcResponse>(responseJson!!)
 
         assertNotNull("Unknown method should return error", response.error)
         assertEquals(JsonRpcErrorCodes.METHOD_NOT_FOUND, response.error?.code)
@@ -114,7 +114,7 @@ class JsonRpcHandlerUnitTest : TestCase() {
         )
 
         val responseJson = handler.handleRequest(json.encodeToString(JsonRpcRequest.serializer(), request))
-        val response = json.decodeFromString<JsonRpcResponse>(responseJson)
+        val response = json.decodeFromString<JsonRpcResponse>(responseJson!!)
 
         assertNotNull("${JsonRpcMethods.TOOLS_CALL} without params should return error", response.error)
         assertEquals(JsonRpcErrorCodes.INVALID_PARAMS, response.error?.code)
@@ -130,7 +130,7 @@ class JsonRpcHandlerUnitTest : TestCase() {
         )
 
         val responseJson = handler.handleRequest(json.encodeToString(JsonRpcRequest.serializer(), request))
-        val response = json.decodeFromString<JsonRpcResponse>(responseJson)
+        val response = json.decodeFromString<JsonRpcResponse>(responseJson!!)
 
         assertNotNull("${JsonRpcMethods.TOOLS_CALL} without tool name should return error", response.error)
         assertEquals(JsonRpcErrorCodes.INVALID_PARAMS, response.error?.code)
@@ -147,7 +147,7 @@ class JsonRpcHandlerUnitTest : TestCase() {
         )
 
         val responseJson = handler.handleRequest(json.encodeToString(JsonRpcRequest.serializer(), request))
-        val response = json.decodeFromString<JsonRpcResponse>(responseJson)
+        val response = json.decodeFromString<JsonRpcResponse>(responseJson!!)
 
         assertNotNull("${JsonRpcMethods.TOOLS_CALL} with unknown tool should return error", response.error)
         assertEquals(JsonRpcErrorCodes.METHOD_NOT_FOUND, response.error?.code)
@@ -155,7 +155,7 @@ class JsonRpcHandlerUnitTest : TestCase() {
 
     fun testParseError() = runBlocking {
         val responseJson = handler.handleRequest("not valid json")
-        val response = json.decodeFromString<JsonRpcResponse>(responseJson)
+        val response = json.decodeFromString<JsonRpcResponse>(responseJson!!)
 
         assertNotNull("Invalid JSON should return error", response.error)
         assertEquals(JsonRpcErrorCodes.PARSE_ERROR, response.error?.code)

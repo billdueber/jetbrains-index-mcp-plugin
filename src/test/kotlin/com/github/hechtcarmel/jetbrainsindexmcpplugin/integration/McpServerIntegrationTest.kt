@@ -46,7 +46,7 @@ class McpServerIntegrationTest : BasePlatformTestCase() {
         )
 
         val responseJson = handler.handleRequest(json.encodeToString(JsonRpcRequest.serializer(), request))
-        val response = json.decodeFromString<JsonRpcResponse>(responseJson)
+        val response = json.decodeFromString<JsonRpcResponse>(responseJson!!)
 
         assertNull("Initialize should not return error", response.error)
         assertNotNull("Initialize should return result", response.result)
@@ -67,15 +67,13 @@ class McpServerIntegrationTest : BasePlatformTestCase() {
     fun testInitializedEndpoint() = runBlocking {
         val request = JsonRpcRequest(
             id = JsonPrimitive(2),
-            method = "initialized",
+            method = "notifications/initialized",
             params = buildJsonObject { }
         )
 
         val responseJson = handler.handleRequest(json.encodeToString(JsonRpcRequest.serializer(), request))
-        val response = json.decodeFromString<JsonRpcResponse>(responseJson)
 
-        assertNull("Initialized should not return error", response.error)
-        assertNotNull("Initialized should return result", response.result)
+        assertNull("notifications/initialized should not have response", responseJson)
     }
 
     fun testPingEndpoint() = runBlocking {
@@ -86,7 +84,7 @@ class McpServerIntegrationTest : BasePlatformTestCase() {
         )
 
         val responseJson = handler.handleRequest(json.encodeToString(JsonRpcRequest.serializer(), request))
-        val response = json.decodeFromString<JsonRpcResponse>(responseJson)
+        val response = json.decodeFromString<JsonRpcResponse>(responseJson!!)
 
         assertNull("Ping should not return error", response.error)
         assertNotNull("Ping should return result", response.result)
@@ -102,7 +100,7 @@ class McpServerIntegrationTest : BasePlatformTestCase() {
         )
 
         val responseJson = handler.handleRequest(json.encodeToString(JsonRpcRequest.serializer(), request))
-        val response = json.decodeFromString<JsonRpcResponse>(responseJson)
+        val response = json.decodeFromString<JsonRpcResponse>(responseJson!!)
 
         assertNull("tools/list should not return error", response.error)
         assertNotNull("tools/list should return result", response.result)
@@ -122,7 +120,7 @@ class McpServerIntegrationTest : BasePlatformTestCase() {
         )
 
         val responseJson = handler.handleRequest(json.encodeToString(JsonRpcRequest.serializer(), request))
-        val response = json.decodeFromString<JsonRpcResponse>(responseJson)
+        val response = json.decodeFromString<JsonRpcResponse>(responseJson!!)
 
         val tools = response.result!!.jsonObject["tools"]?.jsonArray
         val toolNames = tools?.map { it.jsonObject["name"]?.jsonPrimitive?.content }
@@ -150,7 +148,7 @@ class McpServerIntegrationTest : BasePlatformTestCase() {
         )
 
         val responseJson = handler.handleRequest(json.encodeToString(JsonRpcRequest.serializer(), request))
-        val response = json.decodeFromString<JsonRpcResponse>(responseJson)
+        val response = json.decodeFromString<JsonRpcResponse>(responseJson!!)
 
         val tools = response.result!!.jsonObject["tools"]?.jsonArray
         val toolNames = tools?.map { it.jsonObject["name"]?.jsonPrimitive?.content }
@@ -172,7 +170,7 @@ class McpServerIntegrationTest : BasePlatformTestCase() {
         )
 
         val responseJson = handler.handleRequest(json.encodeToString(JsonRpcRequest.serializer(), request))
-        val response = json.decodeFromString<JsonRpcResponse>(responseJson)
+        val response = json.decodeFromString<JsonRpcResponse>(responseJson!!)
 
         val tools = response.result!!.jsonObject["tools"]?.jsonArray
         val toolNames = tools?.map { it.jsonObject["name"]?.jsonPrimitive?.content }
@@ -199,7 +197,7 @@ class McpServerIntegrationTest : BasePlatformTestCase() {
         )
 
         val responseJson = handler.handleRequest(json.encodeToString(JsonRpcRequest.serializer(), request))
-        val response = json.decodeFromString<JsonRpcResponse>(responseJson)
+        val response = json.decodeFromString<JsonRpcResponse>(responseJson!!)
 
         assertNull("${ToolNames.INDEX_STATUS} should not return JSON-RPC error", response.error)
         assertNotNull("${ToolNames.INDEX_STATUS} should return result", response.result)
@@ -216,7 +214,7 @@ class McpServerIntegrationTest : BasePlatformTestCase() {
         )
 
         val responseJson = handler.handleRequest(json.encodeToString(JsonRpcRequest.serializer(), request))
-        val response = json.decodeFromString<JsonRpcResponse>(responseJson)
+        val response = json.decodeFromString<JsonRpcResponse>(responseJson!!)
 
         assertNotNull("Non-existent tool should return error", response.error)
         assertEquals(-32601, response.error?.code)
@@ -232,7 +230,7 @@ class McpServerIntegrationTest : BasePlatformTestCase() {
         )
 
         val responseJson = handler.handleRequest(json.encodeToString(JsonRpcRequest.serializer(), request))
-        val response = json.decodeFromString<JsonRpcResponse>(responseJson)
+        val response = json.decodeFromString<JsonRpcResponse>(responseJson!!)
 
         assertNotNull("Missing tool name should return error", response.error)
         assertEquals(-32602, response.error?.code)
@@ -248,7 +246,7 @@ class McpServerIntegrationTest : BasePlatformTestCase() {
         )
 
         val responseJson = handler.handleRequest(json.encodeToString(JsonRpcRequest.serializer(), request))
-        val response = json.decodeFromString<JsonRpcResponse>(responseJson)
+        val response = json.decodeFromString<JsonRpcResponse>(responseJson!!)
 
         assertNotNull("Invalid method should return error", response.error)
         assertEquals(-32601, response.error?.code)
@@ -256,7 +254,7 @@ class McpServerIntegrationTest : BasePlatformTestCase() {
 
     fun testMalformedJsonReturnsError() = runBlocking {
         val responseJson = handler.handleRequest("{invalid json}")
-        val response = json.decodeFromString<JsonRpcResponse>(responseJson)
+        val response = json.decodeFromString<JsonRpcResponse>(responseJson!!)
 
         assertNotNull("Malformed JSON should return error", response.error)
         assertEquals(-32700, response.error?.code)
