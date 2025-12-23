@@ -43,7 +43,7 @@ class JsonRpcHandlerTest : BasePlatformTestCase() {
         )
 
         val responseJson = handler.handleRequest(json.encodeToString(JsonRpcRequest.serializer(), request))
-        val response = json.decodeFromString<JsonRpcResponse>(responseJson)
+        val response = json.decodeFromString<JsonRpcResponse>(responseJson!!)
 
         assertNull("${ToolNames.INDEX_STATUS} should not return JSON-RPC error", response.error)
         assertNotNull("${ToolNames.INDEX_STATUS} should return result", response.result)

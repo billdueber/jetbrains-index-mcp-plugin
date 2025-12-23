@@ -46,7 +46,7 @@ class MultiProjectResolutionTest : BasePlatformTestCase() {
         )
 
         val responseJson = handler.handleRequest(json.encodeToString(JsonRpcRequest.serializer(), request))
-        val response = json.decodeFromString<JsonRpcResponse>(responseJson)
+        val response = json.decodeFromString<JsonRpcResponse>(responseJson!!)
 
         assertNull("Single project should not return JSON-RPC error", response.error)
         assertNotNull("Should return result", response.result)
@@ -70,7 +70,7 @@ class MultiProjectResolutionTest : BasePlatformTestCase() {
         )
 
         val responseJson = handler.handleRequest(json.encodeToString(JsonRpcRequest.serializer(), request))
-        val response = json.decodeFromString<JsonRpcResponse>(responseJson)
+        val response = json.decodeFromString<JsonRpcResponse>(responseJson!!)
 
         assertNull("Explicit project_path should not return JSON-RPC error", response.error)
         assertNotNull("Should return result", response.result)
@@ -92,7 +92,7 @@ class MultiProjectResolutionTest : BasePlatformTestCase() {
         )
 
         val responseJson = handler.handleRequest(json.encodeToString(JsonRpcRequest.serializer(), request))
-        val response = json.decodeFromString<JsonRpcResponse>(responseJson)
+        val response = json.decodeFromString<JsonRpcResponse>(responseJson!!)
 
         assertNull("Should not return JSON-RPC level error", response.error)
         assertNotNull("Should return result", response.result)
