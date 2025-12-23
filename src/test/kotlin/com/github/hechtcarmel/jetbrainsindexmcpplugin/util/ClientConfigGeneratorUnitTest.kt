@@ -180,7 +180,7 @@ class ClientConfigGeneratorUnitTest : TestCase() {
 
         assertTrue(
             "Command should contain add command",
-            command.contains("claude mcp add --transport http test-server http://127.0.0.1:63342/index-mcp/sse --scope user")
+            command.contains("claude mcp add --transport sse test-server http://127.0.0.1:63342/index-mcp/sse --scope user")
         )
     }
 
@@ -239,7 +239,7 @@ class ClientConfigGeneratorUnitTest : TestCase() {
         )
         assertTrue(
             "Add command should use custom server name",
-            command.contains("claude mcp add --transport http custom-name")
+            command.contains("claude mcp add --transport sse custom-name")
         )
     }
 
@@ -263,7 +263,7 @@ class ClientConfigGeneratorUnitTest : TestCase() {
         )
 
         val expectedCommand = "claude mcp remove jetbrains-index 2>/dev/null ; " +
-            "claude mcp add --transport http jetbrains-index http://127.0.0.1:63342/index-mcp/sse --scope user"
+            "claude mcp add --transport sse jetbrains-index http://127.0.0.1:63342/index-mcp/sse --scope user"
 
         assertEquals(
             "Command format should match expected reinstall pattern",
