@@ -18,6 +18,7 @@ class ClientConfigGeneratorUnitTest : TestCase() {
     fun testExpectedClientTypesExist() {
         val expectedTypes = listOf(
             "CLAUDE_CODE",
+            "CODEX_CLI",
             "GEMINI_CLI",
             "CURSOR"
         )
@@ -30,17 +31,19 @@ class ClientConfigGeneratorUnitTest : TestCase() {
     }
 
     fun testClientTypeCount() {
-        assertEquals(3, ClientConfigGenerator.ClientType.entries.size)
+        assertEquals(4, ClientConfigGenerator.ClientType.entries.size)
     }
 
     fun testClientTypeDisplayNames() {
         assertEquals("Claude Code", ClientConfigGenerator.ClientType.CLAUDE_CODE.displayName)
+        assertEquals("Codex CLI", ClientConfigGenerator.ClientType.CODEX_CLI.displayName)
         assertEquals("Gemini CLI", ClientConfigGenerator.ClientType.GEMINI_CLI.displayName)
         assertEquals("Cursor", ClientConfigGenerator.ClientType.CURSOR.displayName)
     }
 
     fun testClientTypeSupportsInstallCommand() {
         assertTrue(ClientConfigGenerator.ClientType.CLAUDE_CODE.supportsInstallCommand)
+        assertTrue(ClientConfigGenerator.ClientType.CODEX_CLI.supportsInstallCommand)
         assertFalse(ClientConfigGenerator.ClientType.GEMINI_CLI.supportsInstallCommand)
         assertFalse(ClientConfigGenerator.ClientType.CURSOR.supportsInstallCommand)
     }
@@ -78,8 +81,9 @@ class ClientConfigGeneratorUnitTest : TestCase() {
     fun testGetInstallableClientsReturnsOnlyClientsWithInstallCommands() {
         val clients = ClientConfigGenerator.getInstallableClients()
 
-        assertEquals(1, clients.size)
+        assertEquals(2, clients.size)
         assertTrue(clients.contains(ClientConfigGenerator.ClientType.CLAUDE_CODE))
+        assertTrue(clients.contains(ClientConfigGenerator.ClientType.CODEX_CLI))
         assertFalse(clients.contains(ClientConfigGenerator.ClientType.GEMINI_CLI))
         assertFalse(clients.contains(ClientConfigGenerator.ClientType.CURSOR))
     }
@@ -89,7 +93,7 @@ class ClientConfigGeneratorUnitTest : TestCase() {
     fun testGetCopyableClientsReturnsAllClientTypes() {
         val clients = ClientConfigGenerator.getCopyableClients()
 
-        assertEquals(3, clients.size)
+        assertEquals(4, clients.size)
         assertEquals(ClientConfigGenerator.ClientType.entries.toList(), clients)
     }
 
@@ -101,6 +105,15 @@ class ClientConfigGeneratorUnitTest : TestCase() {
         assertTrue("Should mention terminal", hint.contains("terminal"))
         assertTrue("Should mention scope user", hint.contains("--scope user"))
         assertTrue("Should mention scope project", hint.contains("--scope project"))
+        assertTrue("Should mention remove command", hint.contains("mcp remove"))
+        assertTrue("Should mention automatic reinstall", hint.contains("reinstall") || hint.contains("Automatically"))
+    }
+
+    fun testCodexCliHintContainsTerminalInstructions() {
+        val hint = ClientConfigGenerator.getConfigLocationHint(ClientConfigGenerator.ClientType.CODEX_CLI)
+
+        assertTrue("Should mention terminal", hint.contains("terminal") || hint.contains("command"))
+        assertTrue("Should mention codex", hint.contains("codex"))
         assertTrue("Should mention remove command", hint.contains("mcp remove"))
         assertTrue("Should mention automatic reinstall", hint.contains("reinstall") || hint.contains("Automatically"))
     }
@@ -282,6 +295,120 @@ class ClientConfigGeneratorUnitTest : TestCase() {
         assertTrue(
             "Command should remove legacy v1.x server name jetbrains-index-mcp",
             command.contains("claude mcp remove jetbrains-index-mcp")
+        )
+    }
+
+    // buildCodexCommand tests (reinstall pattern)
+
+    fun testBuildCodexCommandContainsRemoveCommand() {
+        val command = ClientConfigGenerator.buildCodexCommand(
+            serverUrl = "http://127.0.0.1:63342/index-mcp/sse",
+            serverName = "test-server"
+        )
+
+        assertTrue(
+            "Command should contain remove command",
+            command.contains("codex mcp remove test-server")
+        )
+    }
+
+    fun testBuildCodexCommandContainsAddCommand() {
+        val command = ClientConfigGenerator.buildCodexCommand(
+            serverUrl = "http://127.0.0.1:63342/index-mcp/sse",
+            serverName = "test-server"
+        )
+
+        assertTrue(
+            "Command should contain add command",
+            command.contains("codex mcp add test-server --url http://127.0.0.1:63342/index-mcp/sse")
+        )
+    }
+
+    fun testBuildCodexCommandUsesSemicolonSeparator() {
+        val command = ClientConfigGenerator.buildCodexCommand(
+            serverUrl = "http://127.0.0.1:63342/index-mcp/sse",
+            serverName = "test-server"
+        )
+
+        assertTrue(
+            "Command should use ; separator (not &&) so add runs even if remove fails",
+            command.contains(";")
+        )
+        assertFalse(
+            "Command should not use && separator",
+            command.contains("&&")
+        )
+    }
+
+    fun testBuildCodexCommandSuppressesRemoveErrors() {
+        val command = ClientConfigGenerator.buildCodexCommand(
+            serverUrl = "http://127.0.0.1:63342/index-mcp/sse",
+            serverName = "test-server"
+        )
+
+        assertTrue(
+            "Remove command should redirect stderr to /dev/null to suppress errors if not installed",
+            command.contains(">/dev/null 2>&1")
+        )
+    }
+
+    fun testBuildCodexCommandRemoveBeforeAdd() {
+        val command = ClientConfigGenerator.buildCodexCommand(
+            serverUrl = "http://127.0.0.1:63342/index-mcp/sse",
+            serverName = "test-server"
+        )
+
+        val removeIndex = command.indexOf("remove")
+        val addIndex = command.indexOf("add")
+
+        assertTrue(
+            "Remove command should come before add command",
+            removeIndex < addIndex
+        )
+    }
+
+    fun testBuildCodexCommandWithDifferentServerName() {
+        val command = ClientConfigGenerator.buildCodexCommand(
+            serverUrl = "http://127.0.0.1:12345/mcp/sse",
+            serverName = "custom-name"
+        )
+
+        assertTrue(
+            "Remove command should use custom server name",
+            command.contains("codex mcp remove custom-name")
+        )
+        assertTrue(
+            "Add command should use custom server name",
+            command.contains("codex mcp add custom-name --url")
+        )
+    }
+
+    fun testBuildCodexCommandWithDifferentServerUrl() {
+        val customUrl = "http://127.0.0.1:12345/custom-mcp/sse"
+        val command = ClientConfigGenerator.buildCodexCommand(
+            serverUrl = customUrl,
+            serverName = "test-server"
+        )
+
+        assertTrue(
+            "Add command should include the server URL",
+            command.contains(customUrl)
+        )
+    }
+
+    fun testBuildCodexCommandFormat() {
+        val command = ClientConfigGenerator.buildCodexCommand(
+            serverUrl = "http://127.0.0.1:63342/index-mcp/sse",
+            serverName = "intellij-index"
+        )
+
+        val expectedCommand = "codex mcp remove intellij-index >/dev/null 2>&1 ; " +
+            "codex mcp add intellij-index --url http://127.0.0.1:63342/index-mcp/sse"
+
+        assertEquals(
+            "Command format should match expected reinstall pattern",
+            expectedCommand,
+            command
         )
     }
 
