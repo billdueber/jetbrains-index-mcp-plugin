@@ -4,7 +4,7 @@
 [![Version](https://img.shields.io/jetbrains/plugin/v/29174.svg)](https://plugins.jetbrains.com/plugin/29174-ide-index-mcp-server)
 [![Downloads](https://img.shields.io/jetbrains/plugin/d/29174.svg)](https://plugins.jetbrains.com/plugin/29174-ide-index-mcp-server)
 
-A JetBrains IDE plugin that exposes an **MCP (Model Context Protocol) server**, enabling AI coding assistants like Claude, Cursor, and Windsurf to leverage the IDE's powerful indexing and refactoring capabilities.
+A JetBrains IDE plugin that exposes an **MCP (Model Context Protocol) server**, enabling AI coding assistants like Claude, Codex, Cursor, and Windsurf to leverage the IDE's powerful indexing and refactoring capabilities.
 
 **Fully tested**: IntelliJ IDEA, PyCharm, WebStorm, GoLand, RustRover, Android Studio, PhpStorm
 **May work** (untested): RubyMine, CLion, DataGrip
@@ -96,7 +96,7 @@ The easiest way to configure your AI assistant:
 1. Open the "Index MCP Server" tool window (bottom panel)
 2. Click the prominent **"Install on Coding Agents"** button on the right side of the toolbar
 3. A popup appears with two sections:
-   - **Install Now** - For Claude Code CLI: Runs the installation command automatically
+   - **Install Now** - For Claude Code CLI and Codex CLI: Runs the installation command automatically
    - **Copy Configuration** - For other clients: Copies the JSON config to your clipboard
 4. For "Copy Configuration" clients, paste the config into the appropriate config file
 
@@ -122,6 +122,23 @@ Options:
 - `--scope project` - Adds to current project only
 
 To remove: `claude mcp remove <server-name>` (e.g., `claude mcp remove intellij-index`)
+
+### Codex CLI
+
+Use the "Install on Coding Agents" button in the tool window, or run this command (adjust name and port for your IDE):
+
+```bash
+# IntelliJ IDEA
+codex mcp add --transport sse intellij-index http://127.0.0.1:29170/index-mcp/sse
+
+# PyCharm
+codex mcp add --transport sse pycharm-index http://127.0.0.1:29172/index-mcp/sse
+
+# WebStorm
+codex mcp add --transport sse webstorm-index http://127.0.0.1:29173/index-mcp/sse
+```
+
+To remove: `codex mcp remove <server-name>` (e.g., `codex mcp remove intellij-index`)
 
 ### Cursor
 

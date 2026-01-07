@@ -42,7 +42,7 @@ import javax.swing.ListSelectionModel
  * Action that allows users to install MCP on coding agents or copy client configurations.
  *
  * Shows a popup with two sections:
- * 1. "Install Now" - Runs the installation command directly (Claude Code)
+ * 1. "Install Now" - Runs the installation command directly (Claude Code, Codex CLI)
  * 2. "Copy Configuration" - Copies config to clipboard (other clients)
  */
 class CopyClientConfigAction : AnAction() {

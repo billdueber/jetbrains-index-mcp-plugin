@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+## [3.1.0] - 2026-01-07
+
+### Added
+- **Codex CLI install command** - "Install Now" now supports Codex CLI with remove-then-add reinstall flow
+
 ## [3.0.1] - 2025-12-28
 
 ### Fixed
@@ -300,4 +305,3 @@
 - **Transport**: HTTP+SSE with JSON-RPC 2.0
 
 ---
-
