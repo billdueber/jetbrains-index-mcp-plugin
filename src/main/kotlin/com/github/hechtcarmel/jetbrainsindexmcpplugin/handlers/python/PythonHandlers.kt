@@ -827,7 +827,7 @@ class PythonStructureHandler : BasePythonHandler<List<StructureNode>>(), Structu
 
             for (method in methods) {
                 if (method is PsiElement) {
-                    children.add(extractFunctionStructure(method as PsiElement, project))
+                    children.add(extractFunctionStructure(method, project))
                 }
             }
 
@@ -837,7 +837,7 @@ class PythonStructureHandler : BasePythonHandler<List<StructureNode>>(), Structu
 
             for (innerClass in innerClasses) {
                 if (innerClass is PsiElement) {
-                    children.add(extractClassStructure(innerClass as PsiElement, project))
+                    children.add(extractClassStructure(innerClass, project))
                 }
             }
 

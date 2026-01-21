@@ -172,10 +172,26 @@ object LanguageHandlerRegistry {
             if (handler.isAvailable()) return handler
         }
 
+        // Try case-insensitive match (for Python: "Python" vs "python")
+        val caseInsensitiveMatch = structureHandlers.entries.firstOrNull { (langId, _) ->
+            langId.equals(language.id, ignoreCase = true)
+        }?.value
+        if (caseInsensitiveMatch != null && caseInsensitiveMatch.isAvailable()) {
+            return caseInsensitiveMatch
+        }
+
         // Try base language
         language.baseLanguage?.let { baseLanguage ->
             structureHandlers[baseLanguage.id]?.let { handler ->
                 if (handler.isAvailable()) return handler
+            }
+
+            // Try case-insensitive match for base language
+            val baseCaseInsensitiveMatch = structureHandlers.entries.firstOrNull { (langId, _) ->
+                langId.equals(baseLanguage.id, ignoreCase = true)
+            }?.value
+            if (baseCaseInsensitiveMatch != null && baseCaseInsensitiveMatch.isAvailable()) {
+                return baseCaseInsensitiveMatch
             }
         }
 
