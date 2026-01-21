@@ -5,6 +5,7 @@ import com.github.hechtcarmel.jetbrainsindexmcpplugin.constants.SchemaConstants
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.constants.ToolNames
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.intelligence.GetDiagnosticsTool
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.navigation.CallHierarchyTool
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.navigation.FileStructureTool
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.navigation.FindImplementationsTool
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.navigation.FindSuperMethodsTool
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.navigation.FindSymbolTool
@@ -355,5 +356,24 @@ class ToolsUnitTest : TestCase() {
             val projectPathProp = properties?.get(ParamNames.PROJECT_PATH)?.jsonObject
             assertNotNull("${tool.name} schema should include project_path property", projectPathProp)
         }
+    }
+
+    fun testFileStructureToolSchema() {
+        val tool = FileStructureTool()
+
+        assertEquals(ToolNames.FILE_STRUCTURE, tool.name)
+        assertNotNull(tool.description)
+
+        val schema = tool.inputSchema
+        assertEquals(SchemaConstants.TYPE_OBJECT, schema[SchemaConstants.TYPE]?.jsonPrimitive?.content)
+
+        val properties = schema[SchemaConstants.PROPERTIES]?.jsonObject
+        assertNotNull(properties)
+
+        assertNotNull("Should have project_path property", properties?.get(ParamNames.PROJECT_PATH))
+        assertNotNull("Should have file property", properties?.get(ParamNames.FILE))
+
+        val required = schema[SchemaConstants.REQUIRED]
+        assertNotNull("Should have required array", required)
     }
 }
