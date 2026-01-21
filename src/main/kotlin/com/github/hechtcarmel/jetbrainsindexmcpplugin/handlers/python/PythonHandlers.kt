@@ -1,11 +1,14 @@
 package com.github.hechtcarmel.jetbrainsindexmcpplugin.handlers.python
 
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.handlers.*
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.models.StructureKind
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.models.StructureNode
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.util.PythonPluginDetector
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiFile
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.util.PsiTreeUtil
 
@@ -51,6 +54,7 @@ object PythonHandlers {
             registry.registerCallHierarchyHandler(PythonCallHierarchyHandler())
             registry.registerSymbolSearchHandler(PythonSymbolSearchHandler())
             registry.registerSuperMethodsHandler(PythonSuperMethodsHandler())
+            registry.registerStructureHandler(PythonStructureHandler())
 
             LOG.info("Registered Python handlers")
         } catch (e: ClassNotFoundException) {
@@ -731,3 +735,182 @@ class PythonSuperMethodsHandler : BasePythonHandler<SuperMethodsData>(), SuperMe
         }
     }
 }
+
+/**
+ * Python implementation of [StructureHandler].
+ *
+ * Extracts the hierarchical structure of Python source files including
+ * classes, functions, and their nesting relationships.
+ *
+ * Uses reflection to access Python PSI classes to avoid compile-time dependencies.
+ */
+class PythonStructureHandler : BasePythonHandler<List<StructureNode>>(), StructureHandler {
+
+    companion object {
+        private val LOG = logger<PythonStructureHandler>()
+    }
+
+    override val languageId = "Python"
+
+    override fun canHandle(element: PsiElement): Boolean {
+        return isAvailable() && isPythonLanguage(element)
+    }
+
+    override fun isAvailable(): Boolean = PythonPluginDetector.isPythonPluginAvailable && pyClassClass != null
+
+    override fun getFileStructure(file: PsiFile, project: Project): List<StructureNode> {
+        val structure = mutableListOf<StructureNode>()
+
+        try {
+            val pyFileClass = Class.forName("com.jetbrains.python.psi.PyFile")
+            if (!pyFileClass.isInstance(file)) return emptyList()
+
+            // Get top-level classes
+            val getClassesMethod = pyFileClass.getMethod("getClasses")
+            val classes = getClassesMethod.invoke(file) as? List<*> ?: emptyList<Any?>()
+
+            for (pyClass in classes) {
+                if (pyClass is PsiElement) {
+                    structure.add(extractClassStructure(pyClass, project))
+                }
+            }
+
+            // Get top-level functions
+            val getFunctionsMethod = pyFileClass.getMethod("getFunctions")
+            val functions = getFunctionsMethod.invoke(file) as? List<*> ?: emptyList<Any?>()
+
+            for (pyFunction in functions) {
+                if (pyFunction is PsiElement) {
+                    structure.add(extractFunctionStructure(pyFunction, project))
+                }
+            }
+
+        } catch (e: Exception) {
+            // Ignore - return empty structure
+        }
+
+        return structure.sortedBy { it.line }
+    }
+
+    private fun extractClassStructure(pyClass: PsiElement, project: Project): StructureNode {
+        val children = mutableListOf<StructureNode>()
+
+        try {
+            // Get class methods
+            val getMethodsMethod = pyClass.javaClass.getMethod("getMethods")
+            val methods = getMethodsMethod.invoke(pyClass) as? Array<*> ?: emptyArray<Any?>()
+
+            for (method in methods) {
+                if (method is PsiElement) {
+                    children.add(extractFunctionStructure(method as PsiElement, project))
+                }
+            }
+
+            // Get nested classes
+            val getInnerClassesMethod = pyClass.javaClass.getMethod("getInnerClasses")
+            val innerClasses = getInnerClassesMethod.invoke(pyClass) as? List<*> ?: emptyList<Any?>()
+
+            for (innerClass in innerClasses) {
+                if (innerClass is PsiElement) {
+                    children.add(extractClassStructure(innerClass as PsiElement, project))
+                }
+            }
+
+        } catch (e: Exception) {
+            LOG.warn("Failed to extract Python class structure: ${e.message}")
+        }
+
+        val name = getName(pyClass) ?: "unknown"
+
+        return StructureNode(
+            name = name,
+            kind = StructureKind.CLASS,
+            modifiers = getPythonModifiers(pyClass),
+            signature = buildClassSignature(pyClass),
+            line = getLineNumber(project, pyClass) ?: 0,
+            children = children.sortedBy { it.line }
+        )
+    }
+
+    private fun extractFunctionStructure(pyFunction: PsiElement, project: Project): StructureNode {
+        val name = getName(pyFunction) ?: "unknown"
+
+        return StructureNode(
+            name = name,
+            kind = StructureKind.FUNCTION,
+            modifiers = getPythonModifiers(pyFunction),
+            signature = buildFunctionSignature(pyFunction),
+            line = getLineNumber(project, pyFunction) ?: 0
+        )
+    }
+
+    private fun getPythonModifiers(element: PsiElement): List<String> {
+        val modifiers = mutableListOf<String>()
+
+        try {
+            // Check for decorators using reflection
+            val hasDecoratorMethod = element.javaClass.getMethod("hasDecorator", String::class.java)
+
+            if (hasDecoratorMethod.invoke(element, "property") as? Boolean == true) {
+                modifiers.add("@property")
+            }
+            if (hasDecoratorMethod.invoke(element, "staticmethod") as? Boolean == true) {
+                modifiers.add("@staticmethod")
+            }
+            if (hasDecoratorMethod.invoke(element, "classmethod") as? Boolean == true) {
+                modifiers.add("@classmethod")
+            }
+        } catch (e: Exception) {
+            // Ignore
+        }
+
+        return modifiers
+    }
+
+    private fun buildClassSignature(pyClass: PsiElement): String {
+        return try {
+            val getSuperClassesMethod = pyClass.javaClass.getMethod(
+                "getSuperClasses",
+                GlobalSearchScope::class.java
+            )
+            val scope = GlobalSearchScope.allScope(pyClass.project)
+            val superClasses = getSuperClassesMethod.invoke(pyClass, scope) as? Array<*> ?: emptyArray<Any?>()
+
+            if (superClasses.isNotEmpty()) {
+                val names = superClasses.mapNotNull {
+                    val element = it as? PsiElement
+                    if (element != null) {
+                        getQualifiedName(element) ?: getName(element)
+                    } else null
+                }
+                return "(${names.joinToString(", ")})"
+            }
+            ""
+        } catch (e: Exception) {
+            ""
+        }
+    }
+
+    private fun buildFunctionSignature(pyFunction: PsiElement): String {
+        return try {
+            val getParameterListMethod = pyFunction.javaClass.getMethod("getParameterList")
+            val parameterList = getParameterListMethod.invoke(pyFunction)
+            val getParametersMethod = parameterList.javaClass.getMethod("getParameters")
+            val parameters = getParametersMethod.invoke(parameterList) as? Array<*> ?: emptyArray<Any?>()
+
+            val params = parameters.filterIsInstance<PsiElement>().mapNotNull { param ->
+                try {
+                    val getNameMethod = param.javaClass.getMethod("getName")
+                    getNameMethod.invoke(param) as? String
+                } catch (e: Exception) {
+                    null
+                }
+            }.joinToString(", ")
+
+            "($params)"
+        } catch (e: Exception) {
+            "()"
+        }
+    }
+}
+

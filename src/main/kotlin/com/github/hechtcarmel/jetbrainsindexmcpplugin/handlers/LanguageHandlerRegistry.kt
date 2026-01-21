@@ -270,11 +270,13 @@ object LanguageHandlerRegistry {
             )
             val registerMethod = javaHandlerClass.getMethod("register", LanguageHandlerRegistry::class.java)
             registerMethod.invoke(null, this)
-            LOG.info("Java handlers registered")
+            LOG.info("Java handlers registered successfully")
         } catch (e: ClassNotFoundException) {
-            LOG.info("Java handlers not available (Java plugin not installed)")
+            LOG.warn("Java handlers class not found - plugin may not be packaged correctly: ${e.message}")
+        } catch (e: NoSuchMethodException) {
+            LOG.error("Java handlers register method not found: ${e.message}")
         } catch (e: Exception) {
-            LOG.warn("Failed to register Java handlers: ${e.message}")
+            LOG.error("Failed to register Java handlers", e)
         }
     }
 

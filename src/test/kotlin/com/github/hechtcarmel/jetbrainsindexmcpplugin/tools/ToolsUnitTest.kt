@@ -187,7 +187,8 @@ class ToolsUnitTest : TestCase() {
             ToolNames.CALL_HIERARCHY,
             ToolNames.FIND_IMPLEMENTATIONS,
             ToolNames.FIND_SYMBOL,
-            ToolNames.FIND_SUPER_METHODS
+            ToolNames.FIND_SUPER_METHODS,
+            ToolNames.FILE_STRUCTURE
         )
 
         // Java-specific refactoring tools
@@ -200,18 +201,25 @@ class ToolsUnitTest : TestCase() {
         val registeredNavTools = navigationTools.count { registry.getTool(it) != null }
         val registeredRefTools = refactoringTools.count { registry.getTool(it) != null }
 
+        // Check if SafeDeleteTool is specifically registered (indicates Java plugin is available)
+        val safeDeleteRegistered = registry.getTool(ToolNames.REFACTOR_SAFE_DELETE) != null
+
         // In IntelliJ platform tests with Java plugin, all navigation and refactoring tools should be available
         // In unit tests without platform, these may not be available (which is expected)
         if (registeredNavTools > 0) {
             // If any navigation tools are registered, all should be registered (Java handlers provide all)
-            assertEquals("When language handlers available, all 5 navigation tools should be registered",
-                5, registeredNavTools)
+            assertEquals("When language handlers available, all 6 navigation tools should be registered",
+                6, registeredNavTools)
         }
 
-        if (registeredRefTools > 0) {
-            // If any refactoring tools are registered, all should be registered
+        if (safeDeleteRegistered) {
+            // If SafeDeleteTool is registered, Java plugin is available and both refactoring tools should be registered
             assertEquals("When Java plugin available, both refactoring tools should be registered",
                 2, registeredRefTools)
+        } else {
+            // SafeDeleteTool requires Java plugin, but RenameSymbolTool is universal and should always be registered
+            assertTrue("RenameSymbolTool should always be registered (universal tool)",
+                registry.getTool(ToolNames.REFACTOR_RENAME) != null)
         }
 
         // Log the actual tool count for debugging
