@@ -6,11 +6,7 @@ import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.models.StructureNode
 /**
  * Utility for formatting structure nodes as a tree string.
  *
- * Uses tree-drawing characters to show hierarchical relationships:
- * - ├── for non-last children
- * - └── for last children
- * - │   for vertical continuation lines
- * -     (4 spaces) for indentation after last child
+ * Uses 2-space indentation per nesting level to show hierarchical relationships.
  */
 object TreeFormatter {
 
@@ -28,13 +24,9 @@ object TreeFormatter {
         lines.add("$fileName")
         lines.add("")
 
-        // Format top-level nodes
-        if (nodes.size == 1) {
-            formatNode(nodes[0], "", lines, isLast = true)
-        } else {
-            nodes.forEachIndexed { index, node ->
-                formatNode(node, "", lines, isLast = index == nodes.size - 1)
-            }
+        // Format all top-level nodes
+        nodes.forEach { node ->
+            formatNode(node, indent = 0, output = lines)
         }
 
         return lines.joinToString("\n")
@@ -44,34 +36,22 @@ object TreeFormatter {
      * Recursively formats a structure node and its children.
      *
      * @param node The node to format
-     * @param prefix The prefix to add before this node (for indentation)
+     * @param indent The indentation level (number of 2-space units)
      * @param output The output list to append formatted lines to
-     * @param isLast Whether this node is the last child of its parent
      */
     private fun formatNode(
         node: StructureNode,
-        prefix: String,
-        output: MutableList<String>,
-        isLast: Boolean
+        indent: Int,
+        output: MutableList<String>
     ) {
-        // Build line for this node
-        val connector = if (prefix.isEmpty()) "" else if (isLast) "└── " else "├── "
-        val line = buildNodeLine(node, connector)
-        output.add(prefix + line)
+        val indentStr = "  ".repeat(indent)
+        val line = buildNodeLine(node)
+        output.add(indentStr + line)
 
-        // Format children
+        // Format children with increased indentation
         if (node.children.isNotEmpty()) {
-            val childPrefix = if (prefix.isEmpty()) "" else {
-                if (isLast) "$prefix    " else "$prefix│   "
-            }
-
-            node.children.forEachIndexed { index, child ->
-                formatNode(
-                    child,
-                    childPrefix,
-                    output,
-                    isLast = index == node.children.size - 1
-                )
+            node.children.forEach { child ->
+                formatNode(child, indent + 1, output)
             }
         }
     }
@@ -79,7 +59,7 @@ object TreeFormatter {
     /**
      * Builds a single line representing a structure node.
      */
-    private fun buildNodeLine(node: StructureNode, connector: String): String {
+    private fun buildNodeLine(node: StructureNode): String {
         val modifiers = if (node.modifiers.isNotEmpty()) {
             "${node.modifiers.joinToString(" ")} "
         } else ""
@@ -89,7 +69,7 @@ object TreeFormatter {
             " ${node.signature}"
         } else ""
 
-        return "$connector$kind $modifiers${node.name}$signature (line ${node.line})"
+        return "$kind $modifiers${node.name}$signature (line ${node.line})"
     }
 
     /**
