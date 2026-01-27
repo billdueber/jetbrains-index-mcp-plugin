@@ -1,11 +1,15 @@
 package com.github.hechtcarmel.jetbrainsindexmcpplugin.tools
 
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.handlers.LanguageHandlerRegistry
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.server.McpServerService
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.server.models.ToolDefinition
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.settings.McpSettings
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.intelligence.GetDiagnosticsTool
-import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.navigation.FindUsagesTool
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.navigation.FindClassTool
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.navigation.FindDefinitionTool
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.navigation.FindFileTool
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.navigation.FindUsagesTool
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.navigation.SearchTextTool
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.project.GetIndexStatusTool
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.refactoring.RenameSymbolTool
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.util.JavaPluginDetector
@@ -28,6 +32,9 @@ import java.util.concurrent.ConcurrentHashMap
  *
  * - `ide_find_references` - Find all usages of a symbol
  * - `ide_find_definition` - Find symbol definition location
+ * - `ide_find_class` - Class search using CLASS_EP_NAME index
+ * - `ide_find_file` - File search using FILE_EP_NAME index
+ * - `ide_search_text` - Text search using word index
  * - `ide_diagnostics` - Analyze code for problems and available intentions
  * - `ide_index_status` - Check indexing status
  *
@@ -205,6 +212,11 @@ class ToolRegistry {
 
         // Refactoring tools (universal - uses platform RenameProcessor)
         register(RenameSymbolTool())
+
+        // Fast search tools (universal)
+        register(FindClassTool())
+        register(FindFileTool())
+        register(SearchTextTool())
 
         LOG.info("Registered universal tools (available in all JetBrains IDEs)")
     }

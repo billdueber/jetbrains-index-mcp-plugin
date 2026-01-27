@@ -4,6 +4,16 @@
 
 ## [Unreleased]
 
+## [3.3.0] - 2026-01-27
+
+### Added
+- **New tool: `ide_find_class`** - Class/interface search using CLASS_EP_NAME index
+- **New tool: `ide_find_file`** - File search using FILE_EP_NAME index
+- **New tool: `ide_search_text`** - Text search using word index with context filtering (code/comments/strings)
+
+### Disabled by default
+ - ide_find_symbol
+
 ## [3.2.1] - 2026-01-26
 
 ### Fixed
