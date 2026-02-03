@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+## [3.3.3] - 2026-02-03
+
+### Fixed
+- **Symbol navigation resolution** - `ide_find_class` and optimized symbol search now resolve file/line/name via navigation elements for accurate locations.
+
 ## [3.3.2] - 2026-02-02
 
 ### Fixed

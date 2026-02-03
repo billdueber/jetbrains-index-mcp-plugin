@@ -233,17 +233,18 @@ class FindClassTool : AbstractMcpTool() {
                 }
             }
         } ?: return null
+        val targetElement = element.navigationElement ?: element
 
-        val file = element.containingFile?.virtualFile ?: return null
+        val file = targetElement.containingFile?.virtualFile ?: return null
         val basePath = project.basePath ?: ""
         val relativePath = file.path.removePrefix(basePath).removePrefix("/")
 
-        val name = when (element) {
-            is PsiNamedElement -> element.name
+        val name = when (targetElement) {
+            is PsiNamedElement -> targetElement.name
             else -> {
                 try {
-                    val method = element.javaClass.getMethod("getName")
-                    method.invoke(element) as? String
+                    val method = targetElement.javaClass.getMethod("getName")
+                    method.invoke(targetElement) as? String
                 } catch (_: Exception) {
                     null
                 }
@@ -251,15 +252,15 @@ class FindClassTool : AbstractMcpTool() {
         } ?: return null
 
         val qualifiedName = try {
-            val method = element.javaClass.getMethod("getQualifiedName")
-            method.invoke(element) as? String
+            val method = targetElement.javaClass.getMethod("getQualifiedName")
+            method.invoke(targetElement) as? String
         } catch (e: Exception) {
             null
         }
 
-        val line = getLineNumber(project, element) ?: 1
-        val kind = determineKind(element)
-        val language = getLanguageName(element)
+        val line = getLineNumber(project, targetElement) ?: 1
+        val kind = determineKind(targetElement)
+        val language = getLanguageName(targetElement)
 
         return SymbolMatch(
             name = name,
