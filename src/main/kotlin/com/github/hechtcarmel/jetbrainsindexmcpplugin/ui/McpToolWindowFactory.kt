@@ -7,11 +7,13 @@ import com.github.hechtcarmel.jetbrainsindexmcpplugin.actions.CopyServerUrlActio
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.actions.ExportHistoryAction
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.actions.RefreshAction
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.settings.McpSettingsConfigurable
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.icons.McpIcons
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.ActionPlaces
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.DefaultActionGroup
+import com.intellij.ide.BrowserUtil
 import com.intellij.openapi.options.ShowSettingsUtil
 import com.intellij.openapi.project.DumbAware
 import com.intellij.openapi.project.Project
@@ -28,6 +30,7 @@ import java.awt.FlowLayout
 import java.awt.Font
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
+import javax.swing.Icon
 import javax.swing.JButton
 import javax.swing.JPanel
 
@@ -79,9 +82,28 @@ class McpToolWindowFactory : ToolWindowFactory, DumbAware {
             }
         }
 
-        // Right panel with the button
+        // Right panel with external links + install button
         val rightPanel = JBPanel<JBPanel<*>>(FlowLayout(FlowLayout.RIGHT, 4, 0)).apply {
             border = JBUI.Borders.empty(2, 4)
+            add(createExternalLink(
+                AllIcons.Vcs.Vendors.Github,
+                McpBundle.message("footer.github"),
+                McpBundle.message("footer.github.tooltip"),
+                "https://github.com/hechtcarmel/jetbrains-index-mcp-plugin"
+            ))
+            add(createExternalLink(
+                McpIcons.DebuggerMcp,
+                McpBundle.message("footer.debugger"),
+                McpBundle.message("footer.debugger.tooltip"),
+                "https://plugins.jetbrains.com/plugin/29233-debugger-mcp-server"
+            ))
+            add(createExternalLink(
+                McpIcons.BuyMeACoffee,
+                McpBundle.message("footer.buymeacoffee"),
+                McpBundle.message("footer.buymeacoffee.tooltip"),
+                "https://buymeacoffee.com/hechtcarmel"
+            ))
+            add(createToolbarSeparator())
             add(installButton)
         }
 
@@ -129,8 +151,9 @@ class McpToolWindowFactory : ToolWindowFactory, DumbAware {
                 toolTipText = "Open MCP Server settings"
             }
 
-            // Label text
-            val settingsLabel = JBLabel(McpBundle.message("toolWindow.settingsLabel")).apply {
+            // Label text - always use HTML to prevent layout shift on hover
+            val settingsText = McpBundle.message("toolWindow.settingsLabel")
+            val settingsLabel = JBLabel("<html>$settingsText</html>").apply {
                 font = font.deriveFont(Font.PLAIN, 11f)
                 foreground = JBColor.BLUE
                 cursor = Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
@@ -143,10 +166,10 @@ class McpToolWindowFactory : ToolWindowFactory, DumbAware {
                     ShowSettingsUtil.getInstance().showSettingsDialog(project, McpSettingsConfigurable::class.java)
                 }
                 override fun mouseEntered(e: MouseEvent) {
-                    settingsLabel.text = "<html><u>${McpBundle.message("toolWindow.settingsLabel")}</u></html>"
+                    settingsLabel.text = "<html><u>$settingsText</u></html>"
                 }
                 override fun mouseExited(e: MouseEvent) {
-                    settingsLabel.text = McpBundle.message("toolWindow.settingsLabel")
+                    settingsLabel.text = "<html>$settingsText</html>"
                 }
             }
 
@@ -155,6 +178,49 @@ class McpToolWindowFactory : ToolWindowFactory, DumbAware {
 
             add(settingsIcon)
             add(settingsLabel)
+        }
+    }
+
+    private fun createToolbarSeparator(): JPanel {
+        return JBPanel<JBPanel<*>>(FlowLayout(FlowLayout.LEFT, 0, 0)).apply {
+            border = JBUI.Borders.empty(2, 4)
+            add(JBLabel("|").apply {
+                foreground = JBColor.GRAY
+            })
+        }
+    }
+
+    private fun createExternalLink(icon: Icon, text: String, tooltip: String, url: String): JPanel {
+        return JBPanel<JBPanel<*>>(FlowLayout(FlowLayout.LEFT, 4, 0)).apply {
+            val linkIcon = JBLabel(icon).apply {
+                cursor = Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
+                toolTipText = tooltip
+            }
+
+            val linkLabel = JBLabel("<html>$text</html>").apply {
+                font = font.deriveFont(Font.PLAIN, 11f)
+                foreground = JBColor.BLUE
+                cursor = Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
+                toolTipText = tooltip
+            }
+
+            val clickHandler = object : MouseAdapter() {
+                override fun mouseClicked(e: MouseEvent) {
+                    BrowserUtil.browse(url)
+                }
+                override fun mouseEntered(e: MouseEvent) {
+                    linkLabel.text = "<html><u>$text</u></html>"
+                }
+                override fun mouseExited(e: MouseEvent) {
+                    linkLabel.text = "<html>$text</html>"
+                }
+            }
+
+            linkIcon.addMouseListener(clickHandler)
+            linkLabel.addMouseListener(clickHandler)
+
+            add(linkIcon)
+            add(linkLabel)
         }
     }
 }
