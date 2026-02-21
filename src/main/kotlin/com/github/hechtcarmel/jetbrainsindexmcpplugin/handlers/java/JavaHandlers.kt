@@ -11,6 +11,7 @@ import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.search.searches.ClassInheritorsSearch
 import com.intellij.psi.search.searches.MethodReferencesSearch
 import com.intellij.psi.search.searches.OverridingMethodsSearch
+import com.intellij.psi.search.searches.ReferencesSearch
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.util.Processor
 
@@ -88,6 +89,24 @@ abstract class BaseJavaHandler<T> : LanguageHandler<T> {
                 Class.forName("org.jetbrains.kotlin.psi.KtNamedFunction")
             } catch (e: ClassNotFoundException) {
                 LOG.debug("Kotlin KtNamedFunction class not found: ${e.message}")
+                null
+            }
+        }
+
+        private val ktPropertyAccessorClass: Class<*>? by lazy {
+            try {
+                Class.forName("org.jetbrains.kotlin.psi.KtPropertyAccessor")
+            } catch (e: ClassNotFoundException) {
+                LOG.debug("Kotlin KtPropertyAccessor class not found: ${e.message}")
+                null
+            }
+        }
+
+        private val ktPropertyClass: Class<*>? by lazy {
+            try {
+                Class.forName("org.jetbrains.kotlin.psi.KtProperty")
+            } catch (e: ClassNotFoundException) {
+                LOG.debug("Kotlin KtProperty class not found: ${e.message}")
                 null
             }
         }
@@ -171,23 +190,29 @@ abstract class BaseJavaHandler<T> : LanguageHandler<T> {
 
     /**
      * Resolves a Kotlin function to its light method (PsiMethod).
+     * Walks up the parent chain to find a KtNamedFunction, KtPropertyAccessor, or KtProperty
+     * and converts via toLightMethods().
      */
-    private fun resolveKotlinMethod(element: PsiElement): PsiMethod? {
-        val ktFunctionClass = ktNamedFunctionClass ?: return null
+    protected fun resolveKotlinMethod(element: PsiElement): PsiMethod? {
         val lightClassExtensions = lightClassExtensionsClass ?: return null
 
-        // Find KtNamedFunction in parent chain
+        // Find Kotlin declaration in parent chain
         var current: PsiElement? = element
         var depth = 0
         while (current != null && depth < MAX_PARENT_TRAVERSAL_DEPTH) {
-            if (ktFunctionClass.isInstance(current)) {
+            // Check for KtNamedFunction, KtPropertyAccessor, or KtProperty
+            val isKotlinDeclaration = (ktNamedFunctionClass?.isInstance(current) == true) ||
+                (ktPropertyAccessorClass?.isInstance(current) == true) ||
+                (ktPropertyClass?.isInstance(current) == true)
+
+            if (isKotlinDeclaration) {
                 // Convert to light method via toLightMethods() extension function
                 return try {
                     val toLightMethodsMethod = lightClassExtensions.getMethod("toLightMethods", PsiElement::class.java)
                     val lightMethods = toLightMethodsMethod.invoke(null, current) as? List<*>
                     lightMethods?.firstOrNull() as? PsiMethod
                 } catch (e: ReflectiveOperationException) {
-                    LOG.debug("Failed to get light method for Kotlin function: ${e.javaClass.simpleName}: ${e.message}")
+                    LOG.debug("Failed to get light method for Kotlin element: ${e.javaClass.simpleName}: ${e.message}")
                     null
                 }
             }
@@ -305,6 +330,10 @@ class JavaTypeHierarchyHandler : BaseJavaHandler<TypeHierarchyData>(), TypeHiera
         val supertypes = getSupertypes(project, psiClass)
         val subtypes = getSubtypes(project, psiClass)
 
+        // Detect language from the navigation element (original source), not the light class wrapper.
+        // Light classes for Kotlin report language as "JAVA", but navigationElement preserves the original language.
+        val language = if (psiClass.navigationElement.language.id == "kotlin") "Kotlin" else "Java"
+
         return TypeHierarchyData(
             element = TypeElementData(
                 name = psiClass.qualifiedName ?: psiClass.name ?: "unknown",
@@ -312,7 +341,7 @@ class JavaTypeHierarchyHandler : BaseJavaHandler<TypeHierarchyData>(), TypeHiera
                 file = psiClass.containingFile?.virtualFile?.let { getRelativePath(project, it) },
                 line = getLineNumber(project, psiClass),
                 kind = getClassKind(psiClass),
-                language = "Java"
+                language = language
             ),
             supertypes = supertypes,
             subtypes = subtypes
@@ -343,7 +372,7 @@ class JavaTypeHierarchyHandler : BaseJavaHandler<TypeHierarchyData>(), TypeHiera
                 file = superClass.containingFile?.virtualFile?.let { getRelativePath(project, it) },
                 line = getLineNumber(project, superClass),
                 kind = getClassKind(superClass),
-                language = if (superClass.language.id == "kotlin") "Kotlin" else "Java",
+                language = if (superClass.navigationElement.language.id == "kotlin") "Kotlin" else "Java",
                 supertypes = superSupertypes.takeIf { it.isNotEmpty() }
             ))
         } else {
@@ -358,7 +387,7 @@ class JavaTypeHierarchyHandler : BaseJavaHandler<TypeHierarchyData>(), TypeHiera
                         file = resolved.containingFile?.virtualFile?.let { getRelativePath(project, it) },
                         line = getLineNumber(project, resolved),
                         kind = getClassKind(resolved),
-                        language = if (resolved.language.id == "kotlin") "Kotlin" else "Java",
+                        language = if (resolved.navigationElement.language.id == "kotlin") "Kotlin" else "Java",
                         supertypes = superSupertypes.takeIf { it.isNotEmpty() }
                     ))
                 } else {
@@ -389,7 +418,7 @@ class JavaTypeHierarchyHandler : BaseJavaHandler<TypeHierarchyData>(), TypeHiera
                     file = iface.containingFile?.virtualFile?.let { getRelativePath(project, it) },
                     line = getLineNumber(project, iface),
                     kind = "INTERFACE",
-                    language = if (iface.language.id == "kotlin") "Kotlin" else "Java",
+                    language = if (iface.navigationElement.language.id == "kotlin") "Kotlin" else "Java",
                     supertypes = ifaceSupertypes.takeIf { it.isNotEmpty() }
                 ))
             }
@@ -405,7 +434,7 @@ class JavaTypeHierarchyHandler : BaseJavaHandler<TypeHierarchyData>(), TypeHiera
                         file = resolved.containingFile?.virtualFile?.let { getRelativePath(project, it) },
                         line = getLineNumber(project, resolved),
                         kind = "INTERFACE",
-                        language = if (resolved.language.id == "kotlin") "Kotlin" else "Java",
+                        language = if (resolved.navigationElement.language.id == "kotlin") "Kotlin" else "Java",
                         supertypes = ifaceSupertypes.takeIf { it.isNotEmpty() }
                     ))
                 } else {
@@ -532,6 +561,19 @@ class JavaCallHierarchyHandler : BaseJavaHandler<CallHierarchyData>(), CallHiera
     companion object {
         private const val MAX_RESULTS_PER_LEVEL = 20
         private const val MAX_STACK_DEPTH = 50
+
+        // Cached via lazy — getMethod() is non-trivial and called in a loop for every KtCallExpression
+        private val ktCallExpressionClass: Class<*>? by lazy {
+            try {
+                Class.forName("org.jetbrains.kotlin.psi.KtCallExpression")
+            } catch (_: ClassNotFoundException) { null }
+        }
+
+        private val getCalleeExpressionMethod by lazy {
+            try {
+                ktCallExpressionClass?.getMethod("getCalleeExpression")
+            } catch (_: Exception) { null }
+        }
     }
 
     override val languageId = "JAVA"
@@ -583,19 +625,44 @@ class JavaCallHierarchyHandler : BaseJavaHandler<CallHierarchyData>(), CallHiera
             methodsToSearch.addAll(method.findDeepestSuperMethods().take(10))
 
             val allReferences = mutableListOf<PsiElement>()
+            // Dedup key includes file path — textOffset alone is not globally unique across files
+            val seenKeys = mutableSetOf<String>()
             for (methodToSearch in methodsToSearch) {
                 if (allReferences.size >= MAX_RESULTS_PER_LEVEL * 2) break
                 MethodReferencesSearch.search(methodToSearch, GlobalSearchScope.projectScope(project), true)
                     .forEach(Processor { reference ->
-                        allReferences.add(reference.element)
+                        val file = reference.element.containingFile?.virtualFile?.path ?: ""
+                        if (seenKeys.add("$file:${reference.element.textOffset}")) {
+                            allReferences.add(reference.element)
+                        }
                         allReferences.size < MAX_RESULTS_PER_LEVEL * 2
                     })
+            }
+
+            // Fallback: use broader ReferencesSearch for Kotlin methods where MethodReferencesSearch may miss references
+            if (allReferences.isEmpty()) {
+                val scope = GlobalSearchScope.projectScope(project)
+                for (methodToSearch in methodsToSearch) {
+                    if (allReferences.size >= MAX_RESULTS_PER_LEVEL * 2) break
+                    // Search the navigation element (Kotlin PSI) for broader coverage
+                    val searchTarget = methodToSearch.navigationElement ?: methodToSearch
+                    ReferencesSearch.search(searchTarget, scope, false)
+                        .forEach(Processor { reference ->
+                            val file = reference.element.containingFile?.virtualFile?.path ?: ""
+                            if (seenKeys.add("$file:${reference.element.textOffset}")) {
+                                allReferences.add(reference.element)
+                            }
+                            allReferences.size < MAX_RESULTS_PER_LEVEL * 2
+                        })
+                }
             }
 
             allReferences
                 .take(MAX_RESULTS_PER_LEVEL)
                 .mapNotNull { refElement ->
+                    // Find the containing method — works for both Java (PsiMethod) and Kotlin (KtNamedFunction → light method)
                     val containingMethod = PsiTreeUtil.getParentOfType(refElement, PsiMethod::class.java)
+                        ?: resolveKotlinMethod(refElement)
                     if (containingMethod != null && containingMethod != method && !methodsToSearch.contains(containingMethod)) {
                         val children = if (depth > 1) {
                             findCallersRecursive(project, containingMethod, depth - 1, visited, stackDepth + 1)
@@ -624,6 +691,7 @@ class JavaCallHierarchyHandler : BaseJavaHandler<CallHierarchyData>(), CallHiera
 
         val callees = mutableListOf<CallElementData>()
         try {
+            // Try Java PSI first (works for Java methods that have a body)
             method.body?.let { body ->
                 PsiTreeUtil.findChildrenOfType(body, PsiMethodCallExpression::class.java)
                     .take(MAX_RESULTS_PER_LEVEL)
@@ -654,10 +722,90 @@ class JavaCallHierarchyHandler : BaseJavaHandler<CallHierarchyData>(), CallHiera
                         }
                     }
             }
+
+            // For Kotlin light methods, the body is null — find callees from the original Kotlin PSI
+            if (callees.isEmpty()) {
+                findKotlinCallees(project, method, depth, visited, stackDepth, callees)
+            }
         } catch (e: Exception) {
             // Handle gracefully
         }
         return callees
+    }
+
+    /**
+     * Find callees from a Kotlin light method by locating its original KtNamedFunction
+     * and resolving references within the function body.
+     */
+    private fun findKotlinCallees(
+        project: Project,
+        method: PsiMethod,
+        depth: Int,
+        visited: MutableSet<String>,
+        stackDepth: Int,
+        callees: MutableList<CallElementData>
+    ) {
+        val callExprClass = ktCallExpressionClass ?: return
+
+        // Navigate from light method back to the original Kotlin PSI element
+        val navigationElement = method.navigationElement ?: return
+        if (navigationElement.language.id != "kotlin") return
+
+        // Find all call expressions in the Kotlin function body via reflection
+        @Suppress("UNCHECKED_CAST")
+        val callExpressions = PsiTreeUtil.findChildrenOfType(navigationElement, callExprClass as Class<PsiElement>)
+            .take(MAX_RESULTS_PER_LEVEL)
+
+        for (callExpr in callExpressions) {
+            if (callees.size >= MAX_RESULTS_PER_LEVEL) break
+
+            // Resolve the call expression's reference to find the called method
+            val calledMethod = callExpr.references
+                .asSequence()
+                .mapNotNull { ref ->
+                    try { ref.resolve() } catch (_: Exception) { null }
+                }
+                .filterIsInstance<PsiMethod>()
+                .firstOrNull()
+                // Fallback: try resolving via the callExpression's calleeExpression
+                ?: resolveKotlinCalleeFromExpression(callExpr)
+
+            if (calledMethod != null) {
+                val children = if (depth > 1) {
+                    findCalleesRecursive(project, calledMethod, depth - 1, visited, stackDepth + 1)
+                } else null
+                val element = createCallElement(project, calledMethod, children)
+                if (callees.none { it.name == element.name && it.file == element.file }) {
+                    callees.add(element)
+                }
+            }
+        }
+    }
+
+    /**
+     * Try to resolve a Kotlin call expression's callee by navigating into the calleeExpression
+     * and resolving its reference. Uses a cached Method reference to avoid repeated reflection
+     * lookups in the call loop.
+     */
+    private fun resolveKotlinCalleeFromExpression(callExpr: PsiElement): PsiMethod? {
+        return try {
+            // KtCallExpression has getCalleeExpression() which returns the name reference
+            val calleeMethod = getCalleeExpressionMethod ?: return null
+            val calleeExpr = calleeMethod.invoke(callExpr) as? PsiElement ?: return null
+            // The callee expression's reference resolves to the called method/function
+            val resolved = calleeExpr.reference?.resolve()
+            when (resolved) {
+                is PsiMethod -> resolved
+                else -> {
+                    // May be a KtNamedFunction — convert to light method
+                    if (resolved != null && resolved.language.id == "kotlin") {
+                        resolveKotlinMethod(resolved)
+                    } else null
+                }
+            }
+        } catch (_: Exception) {
+            null
+        }
     }
 
     private fun getMethodKey(method: PsiMethod): String {
@@ -684,7 +832,7 @@ class JavaCallHierarchyHandler : BaseJavaHandler<CallHierarchyData>(), CallHiera
             file = file?.let { getRelativePath(project, it) } ?: "unknown",
             line = getLineNumber(project, method) ?: 0,
             column = getColumnNumber(project, method) ?: 0,
-            language = if (method.language.id == "kotlin") "Kotlin" else "Java",
+            language = if (method.navigationElement.language.id == "kotlin") "Kotlin" else "Java",
             children = children?.takeIf { it.isNotEmpty() }
         )
     }
@@ -711,7 +859,8 @@ class JavaSymbolSearchHandler : BaseJavaHandler<List<SymbolData>>(), SymbolSearc
         project: Project,
         pattern: String,
         includeLibraries: Boolean,
-        limit: Int
+        limit: Int,
+        matchMode: String
     ): List<SymbolData> {
         val scope = if (includeLibraries) {
             GlobalSearchScope.allScope(project)
@@ -725,7 +874,8 @@ class JavaSymbolSearchHandler : BaseJavaHandler<List<SymbolData>>(), SymbolSearc
             pattern = pattern,
             scope = scope,
             limit = limit,
-            languageFilter = setOf("Java", "Kotlin")
+            languageFilter = setOf("Java", "Kotlin"),
+            matchMode = matchMode
         )
     }
 }
@@ -1082,6 +1232,12 @@ class KotlinStructureHandler : BaseJavaHandler<List<StructureNode>>(), Structure
                 }
             }
 
+            // For Kotlin script files (.kts), declarations live inside the script body.
+            // If no top-level declarations were found, check the script's block expression.
+            if (structure.isEmpty()) {
+                extractScriptStructure(file, project, structure)
+            }
+
         } catch (e: Exception) {
             LOG.warn("Failed to extract Kotlin file structure: ${e.message}")
             // Fallback: try Java handler
@@ -1089,6 +1245,71 @@ class KotlinStructureHandler : BaseJavaHandler<List<StructureNode>>(), Structure
         }
 
         return structure.sortedBy { it.line }
+    }
+
+    /**
+     * Extract structure from Kotlin script files (.kts).
+     * Script files have a KtScript child containing the script body with statements and declarations.
+     */
+    private fun extractScriptStructure(file: PsiFile, project: Project, structure: MutableList<StructureNode>) {
+        try {
+            val ktScriptClass = Class.forName("org.jetbrains.kotlin.psi.KtScript")
+
+            // Find KtScript child in the file
+            val script = PsiTreeUtil.findChildOfType(file, ktScriptClass as Class<PsiElement>) ?: return
+
+            // Get the block expression from the script
+            val getBlockMethod = script.javaClass.getMethod("getBlockExpression")
+            val blockExpression = getBlockMethod.invoke(script) as? PsiElement ?: return
+
+            // Extract declarations and top-level call expressions from the script body
+            val statements = blockExpression.children
+            for (statement in statements) {
+                // Try known declaration types first
+                val node = extractDeclarationStructure(statement, project)
+                if (node != null) {
+                    structure.add(node)
+                    continue
+                }
+
+                // For script files, also capture top-level function calls (e.g., plugins {}, dependencies {})
+                val ktCallExprClass = try {
+                    Class.forName("org.jetbrains.kotlin.psi.KtCallExpression")
+                } catch (_: ClassNotFoundException) { null }
+
+                if (ktCallExprClass?.isInstance(statement) == true) {
+                    val callNode = extractScriptCallStructure(statement, project)
+                    if (callNode != null) {
+                        structure.add(callNode)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            LOG.debug("Failed to extract Kotlin script structure: ${e.message}")
+        }
+    }
+
+    /**
+     * Extract structure from a top-level call expression in a Kotlin script (e.g., plugins {}, dependencies {}).
+     */
+    private fun extractScriptCallStructure(callExpr: PsiElement, project: Project): StructureNode? {
+        return try {
+            val getCalleeMethod = callExpr.javaClass.getMethod("getCalleeExpression")
+            val callee = getCalleeMethod.invoke(callExpr) as? PsiElement
+            val name = callee?.text ?: return null
+            val line = getLineNumber(project, callExpr) ?: return null
+
+            StructureNode(
+                name = "$name { ... }",
+                kind = StructureKind.FUNCTION,
+                line = line,
+                signature = name,
+                modifiers = emptyList(),
+                children = emptyList()
+            )
+        } catch (_: Exception) {
+            null
+        }
     }
 
     private fun extractDeclarationStructure(

@@ -1,5 +1,8 @@
 package com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.navigation
 
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.handlers.createMatcher
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.handlers.createNameFilter
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.handlers.isBuildOutputPath
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.constants.ParamNames
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.constants.SchemaConstants
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.constants.ToolNames
@@ -43,6 +46,11 @@ class FindClassTool : AbstractMcpTool() {
         private val LOG = logger<FindClassTool>()
         private const val DEFAULT_LIMIT = 25
         private const val MAX_LIMIT = 100
+        // processNames may emit names from broader scope (including libraries/JDK) even when
+        // we search in project scope. Short/common patterns like "Tool" would fill a small buffer
+        // with library class names (e.g., "Toolkit", "ToolProvider") before reaching project classes.
+        // Use a generous limit so project classes are always collected.
+        private const val MAX_NAME_COLLECTION_LIMIT = 5000
     }
 
     override val name = ToolNames.FIND_CLASS
@@ -74,6 +82,19 @@ class FindClassTool : AbstractMcpTool() {
                 put(SchemaConstants.TYPE, SchemaConstants.TYPE_BOOLEAN)
                 put(SchemaConstants.DESCRIPTION, "Include classes from library dependencies. Default: false.")
             }
+            putJsonObject(ParamNames.LANGUAGE) {
+                put(SchemaConstants.TYPE, SchemaConstants.TYPE_STRING)
+                put(SchemaConstants.DESCRIPTION, "Filter results by language (e.g., \"Kotlin\", \"Java\", \"Python\"). Case-insensitive. Optional.")
+            }
+            putJsonObject(ParamNames.MATCH_MODE) {
+                put(SchemaConstants.TYPE, SchemaConstants.TYPE_STRING)
+                put(SchemaConstants.DESCRIPTION, "How to match the query. Default: \"substring\".")
+                putJsonArray("enum") {
+                    add(JsonPrimitive("substring"))
+                    add(JsonPrimitive("prefix"))
+                    add(JsonPrimitive("exact"))
+                }
+            }
             putJsonObject(ParamNames.LIMIT) {
                 put(SchemaConstants.TYPE, SchemaConstants.TYPE_INTEGER)
                 put(SchemaConstants.DESCRIPTION, "Maximum results to return. Default: 25, Max: 100.")
@@ -88,6 +109,8 @@ class FindClassTool : AbstractMcpTool() {
         val query = arguments[ParamNames.QUERY]?.jsonPrimitive?.content
             ?: return createErrorResult("Missing required parameter: ${ParamNames.QUERY}")
         val includeLibraries = arguments[ParamNames.INCLUDE_LIBRARIES]?.jsonPrimitive?.boolean ?: false
+        val languageFilter = arguments[ParamNames.LANGUAGE]?.jsonPrimitive?.content
+        val matchMode = arguments[ParamNames.MATCH_MODE]?.jsonPrimitive?.content ?: "substring"
         val limit = (arguments[ParamNames.LIMIT]?.jsonPrimitive?.int ?: DEFAULT_LIMIT)
             .coerceIn(1, MAX_LIMIT)
 
@@ -104,11 +127,13 @@ class FindClassTool : AbstractMcpTool() {
                 GlobalSearchScope.projectScope(project)
             }
 
-            val matcher = createMatcher(query)
-            val classes = searchClasses(project, query, scope, limit, matcher)
+            val matcher = createMatcher(query, matchMode)
+            val nameFilter = createNameFilter(query, matchMode, matcher)
+            val classes = searchClasses(project, query, scope, limit, nameFilter, matcher, languageFilter)
 
             val sortedClasses = classes
                 .distinctBy { "${it.file}:${it.line}:${it.column}:${it.name}" }
+                .filterNot { isBuildOutputPath(it.file) }
                 .sortedByDescending { matcher.matchingDegree(it.name) }
                 .take(limit)
 
@@ -128,7 +153,9 @@ class FindClassTool : AbstractMcpTool() {
         pattern: String,
         scope: GlobalSearchScope,
         limit: Int,
-        matcher: MinusculeMatcher
+        nameFilter: (String) -> Boolean,
+        matcher: MinusculeMatcher,
+        languageFilter: String? = null
     ): List<SymbolMatch> {
         val results = mutableListOf<SymbolMatch>()
         val seen = mutableSetOf<String>()
@@ -140,7 +167,7 @@ class FindClassTool : AbstractMcpTool() {
             if (results.size >= limit) break
 
             try {
-                processContributor(contributor, project, pattern, scope, limit, matcher, results, seen)
+                processContributor(contributor, project, pattern, scope, limit, nameFilter, matcher, results, seen, languageFilter)
             } catch (e: Exception) {
                 LOG.debug("Contributor ${contributor.javaClass.simpleName} failed for pattern '$pattern'", e)
             }
@@ -155,9 +182,11 @@ class FindClassTool : AbstractMcpTool() {
         pattern: String,
         scope: GlobalSearchScope,
         limit: Int,
+        nameFilter: (String) -> Boolean,
         matcher: MinusculeMatcher,
         results: MutableList<SymbolMatch>,
-        seen: MutableSet<String>
+        seen: MutableSet<String>,
+        languageFilter: String? = null
     ) {
         if (contributor is ChooseByNameContributorEx) {
             // Modern API with Processor pattern
@@ -165,10 +194,10 @@ class FindClassTool : AbstractMcpTool() {
 
             contributor.processNames(
                 { name ->
-                    if (matcher.matches(name)) {
+                    if (nameFilter(name)) {
                         matchingNames.add(name)
                     }
-                    matchingNames.size < limit * 3
+                    matchingNames.size < MAX_NAME_COLLECTION_LIMIT
                 },
                 scope,
                 null
@@ -184,7 +213,8 @@ class FindClassTool : AbstractMcpTool() {
                         if (results.size >= limit) return@processElementsWithName false
 
                         val symbolMatch = convertToSymbolMatch(item, project)
-                        if (symbolMatch != null) {
+                        if (symbolMatch != null &&
+                            (languageFilter == null || symbolMatch.language.equals(languageFilter, ignoreCase = true))) {
                             val key = "${symbolMatch.file}:${symbolMatch.line}:${symbolMatch.column}:${symbolMatch.name}"
                             if (key !in seen) {
                                 seen.add(key)
@@ -199,7 +229,7 @@ class FindClassTool : AbstractMcpTool() {
         } else {
             // Legacy API
             val names = contributor.getNames(project, true)
-            val matchingNames = names.filter { matcher.matches(it) }
+            val matchingNames = names.filter { nameFilter(it) }
 
             for (name in matchingNames) {
                 if (results.size >= limit) break
@@ -209,7 +239,8 @@ class FindClassTool : AbstractMcpTool() {
                     if (results.size >= limit) break
 
                     val symbolMatch = convertToSymbolMatch(item, project)
-                    if (symbolMatch != null) {
+                    if (symbolMatch != null &&
+                        (languageFilter == null || symbolMatch.language.equals(languageFilter, ignoreCase = true))) {
                         val key = "${symbolMatch.file}:${symbolMatch.line}:${symbolMatch.column}:${symbolMatch.name}"
                         if (key !in seen) {
                             seen.add(key)
@@ -313,7 +344,11 @@ class FindClassTool : AbstractMcpTool() {
         }
     }
 
-    private fun createMatcher(pattern: String): MinusculeMatcher {
-        return NameUtil.buildMatcher("*$pattern", NameUtil.MatchingCaseSensitivity.NONE)
-    }
+    // Provided by SearchMatchUtils — this local alias preserves call-site compatibility
+    private fun createMatcher(pattern: String, matchMode: String = "substring"): MinusculeMatcher =
+        com.github.hechtcarmel.jetbrainsindexmcpplugin.handlers.createMatcher(pattern, matchMode)
+
+    // Provided by SearchMatchUtils
+    private fun createNameFilter(pattern: String, matchMode: String, matcher: MinusculeMatcher): (String) -> Boolean =
+        com.github.hechtcarmel.jetbrainsindexmcpplugin.handlers.createNameFilter(pattern, matchMode, matcher)
 }
