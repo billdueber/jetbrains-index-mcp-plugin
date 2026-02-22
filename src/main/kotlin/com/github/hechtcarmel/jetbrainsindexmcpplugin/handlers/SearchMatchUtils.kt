@@ -10,12 +10,33 @@ import com.intellij.psi.codeStyle.NameUtil
  * tools (FindClassTool, FindFileTool) to avoid duplication.
  */
 
-/** Build output directories that duplicate source files and should be excluded from results. */
-internal val BUILD_OUTPUT_PREFIXES = listOf("bin/", "build/", "out/", ".gradle/")
+/**
+ * Path prefixes that are excluded only when they appear at the project root.
+ * These are common build output dirs or environment dirs that could legitimately appear
+ * as nested source dirs (e.g. `src/config/env/`, `docker/env/`).
+ */
+internal val ROOT_ONLY_EXCLUDED_PREFIXES = listOf(
+    "bin/", "build/", "out/", ".gradle/",
+    ".env/", "env/"  // Python venv aliases — root-only to avoid false positives at depth
+)
 
-/** Returns true if [path] is inside a build output directory. */
-internal fun isBuildOutputPath(path: String): Boolean =
-    BUILD_OUTPUT_PREFIXES.any { path.startsWith(it) }
+/**
+ * Path segments that are excluded at any depth in the project tree.
+ * Virtual environments and package manager directories should never contain source files
+ * regardless of where they appear in the project hierarchy.
+ */
+internal val DEEP_EXCLUDED_SEGMENTS = listOf(
+    ".venv/", "venv/",
+    "node_modules/",
+    ".worktrees/", ".claude/worktrees/"
+)
+
+/** Returns true if [path] matches any excluded directory rule. */
+internal fun isExcludedPath(path: String): Boolean {
+    if (ROOT_ONLY_EXCLUDED_PREFIXES.any { path.startsWith(it) }) return true
+    if (DEEP_EXCLUDED_SEGMENTS.any { seg -> path.startsWith(seg) || path.contains("/$seg") }) return true
+    return false
+}
 
 /**
  * Build a [MinusculeMatcher] for the given [pattern] and [matchMode].
@@ -35,7 +56,7 @@ internal fun createMatcher(pattern: String, matchMode: String = "substring"): Mi
 /**
  * Return a predicate that decides whether a candidate [name] matches [pattern] under [matchMode].
  *
- * - `"exact"` — case-insensitive full-string equality
+ * - `"exact"` — case-sensitive full-string equality
  * - Everything else — delegate to the pre-built [matcher]
  */
 internal fun createNameFilter(
@@ -43,6 +64,6 @@ internal fun createNameFilter(
     matchMode: String,
     matcher: MinusculeMatcher
 ): (String) -> Boolean = when (matchMode) {
-    "exact" -> { name -> name.equals(pattern, ignoreCase = true) }
+    "exact" -> { name -> name == pattern }
     else -> { name -> matcher.matches(name) }
 }

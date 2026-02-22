@@ -2,7 +2,7 @@ package com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.navigation
 
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.handlers.createMatcher
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.handlers.createNameFilter
-import com.github.hechtcarmel.jetbrainsindexmcpplugin.handlers.isBuildOutputPath
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.handlers.createFilteredScope
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.constants.ParamNames
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.constants.SchemaConstants
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.constants.ToolNames
@@ -121,11 +121,9 @@ class FindClassTool : AbstractMcpTool() {
         requireSmartMode(project)
 
         return suspendingReadAction {
-            val scope = if (includeLibraries) {
-                GlobalSearchScope.allScope(project)
-            } else {
-                GlobalSearchScope.projectScope(project)
-            }
+            // Scope-based exclusion: venv, node_modules, and worktree files are filtered out
+            // at the IntelliJ search-infrastructure level, so they never consume buffer slots.
+            val scope = createFilteredScope(project, includeLibraries)
 
             val matcher = createMatcher(query, matchMode)
             val nameFilter = createNameFilter(query, matchMode, matcher)
@@ -133,7 +131,6 @@ class FindClassTool : AbstractMcpTool() {
 
             val sortedClasses = classes
                 .distinctBy { "${it.file}:${it.line}:${it.column}:${it.name}" }
-                .filterNot { isBuildOutputPath(it.file) }
                 .sortedByDescending { matcher.matchingDegree(it.name) }
                 .take(limit)
 

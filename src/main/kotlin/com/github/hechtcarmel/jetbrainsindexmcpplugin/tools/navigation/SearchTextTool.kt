@@ -3,6 +3,7 @@ package com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.navigation
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.constants.ParamNames
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.constants.SchemaConstants
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.constants.ToolNames
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.handlers.createFilteredScope
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.server.models.ToolCallResult
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.AbstractMcpTool
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.models.SearchTextResult
@@ -113,7 +114,7 @@ class SearchTextTool : AbstractMcpTool() {
         requireSmartMode(project)
 
         return suspendingReadAction {
-            val scope = GlobalSearchScope.projectScope(project)
+            val scope = createFilteredScope(project)
             val matches = searchText(project, query, scope, searchContext, caseSensitive, limit)
 
             createJsonResult(

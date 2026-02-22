@@ -113,8 +113,7 @@ class FindSymbolTool : AbstractMcpTool() {
             }
 
             val allMatches = mutableListOf<SymbolMatch>()
-            // When language filtering, collect more from each handler to ensure enough results
-            val handlerLimit = if (languageFilter != null) limit * 3 else limit
+            val handlerLimit = limit
 
             for (handler in handlers) {
                 val handlerResults = handler.searchSymbols(project, query, includeLibraries, handlerLimit, matchMode)

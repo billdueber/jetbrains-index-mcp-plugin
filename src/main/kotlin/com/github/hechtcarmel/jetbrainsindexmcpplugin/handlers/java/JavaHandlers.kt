@@ -192,6 +192,11 @@ abstract class BaseJavaHandler<T> : LanguageHandler<T> {
      * Resolves a Kotlin function to its light method (PsiMethod).
      * Walks up the parent chain to find a KtNamedFunction, KtPropertyAccessor, or KtProperty
      * and converts via toLightMethods().
+     *
+     * Important: local `val`/`var` declarations are also KtProperty nodes, but toLightMethods()
+     * returns empty for them (no JVM method). In that case we continue walking up the parent chain
+     * instead of returning null, so that we can find the enclosing KtNamedFunction (e.g. a test
+     * method containing `val result = service.publishSchedule(...)`).
      */
     protected fun resolveKotlinMethod(element: PsiElement): PsiMethod? {
         val lightClassExtensions = lightClassExtensionsClass ?: return null
@@ -206,14 +211,19 @@ abstract class BaseJavaHandler<T> : LanguageHandler<T> {
                 (ktPropertyClass?.isInstance(current) == true)
 
             if (isKotlinDeclaration) {
-                // Convert to light method via toLightMethods() extension function
-                return try {
+                // Convert to light method via toLightMethods() extension function.
+                // For local val/var (KtProperty without a backing JVM method), toLightMethods()
+                // returns empty. In that case we continue walking up to find the enclosing function
+                // rather than returning null and losing the reference.
+                try {
                     val toLightMethodsMethod = lightClassExtensions.getMethod("toLightMethods", PsiElement::class.java)
                     val lightMethods = toLightMethodsMethod.invoke(null, current) as? List<*>
-                    lightMethods?.firstOrNull() as? PsiMethod
+                    val lightMethod = lightMethods?.firstOrNull() as? PsiMethod
+                    if (lightMethod != null) return lightMethod
+                    // Empty result (e.g. local val/var) — continue walking up the parent chain
                 } catch (e: ReflectiveOperationException) {
                     LOG.debug("Failed to get light method for Kotlin element: ${e.javaClass.simpleName}: ${e.message}")
-                    null
+                    // Continue walking up on reflection failure
                 }
             }
             current = current.parent
@@ -639,22 +649,29 @@ class JavaCallHierarchyHandler : BaseJavaHandler<CallHierarchyData>(), CallHiera
                     })
             }
 
-            // Fallback: use broader ReferencesSearch for Kotlin methods where MethodReferencesSearch may miss references
-            if (allReferences.isEmpty()) {
-                val scope = GlobalSearchScope.projectScope(project)
-                for (methodToSearch in methodsToSearch) {
-                    if (allReferences.size >= MAX_RESULTS_PER_LEVEL * 2) break
-                    // Search the navigation element (Kotlin PSI) for broader coverage
-                    val searchTarget = methodToSearch.navigationElement ?: methodToSearch
-                    ReferencesSearch.search(searchTarget, scope, false)
-                        .forEach(Processor { reference ->
-                            val file = reference.element.containingFile?.virtualFile?.path ?: ""
-                            if (seenKeys.add("$file:${reference.element.textOffset}")) {
-                                allReferences.add(reference.element)
-                            }
-                            allReferences.size < MAX_RESULTS_PER_LEVEL * 2
-                        })
-                }
+            // For Kotlin methods, always supplement with ReferencesSearch on the KtNamedFunction.
+            // MethodReferencesSearch operates on the JVM-desugared PsiMethod, which for `suspend fun`
+            // has a compiler-added `Continuation` parameter that never appears in Kotlin source call
+            // sites. This causes MethodReferencesSearch to miss all callers of suspend funs in
+            // concrete classes. ReferencesSearch on the KtNamedFunction resolves this — it is the
+            // same approach used by ide_find_references (FindUsagesTool), which always works.
+            // Deduplication via seenKeys prevents double-counting when both searches find the same ref.
+            // Note: do NOT guard this with `if (allReferences.isEmpty())`. That original guard caused
+            // the fix to be silently skipped whenever MethodReferencesSearch returned any result
+            // (even declaration-site or annotation references that later get filtered out).
+            for (methodToSearch in methodsToSearch) {
+                if (allReferences.size >= MAX_RESULTS_PER_LEVEL * 2) break
+                val navElement = methodToSearch.navigationElement ?: continue
+                if (navElement.language.id != "kotlin") continue
+                // Use element.useScope (no explicit scope arg) — matches FindUsagesTool behaviour
+                ReferencesSearch.search(navElement)
+                    .forEach(Processor { reference ->
+                        val file = reference.element.containingFile?.virtualFile?.path ?: ""
+                        if (seenKeys.add("$file:${reference.element.textOffset}")) {
+                            allReferences.add(reference.element)
+                        }
+                        allReferences.size < MAX_RESULTS_PER_LEVEL * 2
+                    })
             }
 
             allReferences
@@ -862,11 +879,7 @@ class JavaSymbolSearchHandler : BaseJavaHandler<List<SymbolData>>(), SymbolSearc
         limit: Int,
         matchMode: String
     ): List<SymbolData> {
-        val scope = if (includeLibraries) {
-            GlobalSearchScope.allScope(project)
-        } else {
-            GlobalSearchScope.projectScope(project)
-        }
+        val scope = createFilteredScope(project, includeLibraries)
 
         // Use the optimized platform-based search with language filter for Java/Kotlin
         return OptimizedSymbolSearch.search(
@@ -1029,9 +1042,11 @@ class JavaStructureHandler : BaseJavaHandler<List<StructureNode>>(), StructureHa
             children.add(extractMethodStructure(constructor, project))
         }
 
-        // Methods
+        // Methods (excluding constructors, which are already listed above via psiClass.constructors)
         for (method in psiClass.methods) {
-            children.add(extractMethodStructure(method, project))
+            if (!method.isConstructor) {
+                children.add(extractMethodStructure(method, project))
+            }
         }
 
         // Inner classes
