@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+## [4.0.2] - 2026-03-13
+### Changed
+- **Refactored path resolution in `PsiUtils`** — Extracted `resolveLocalFile`, `resolveAbsolutePath`, `resolveAbsolutePathString`, `expandHome`, and `toPathOrNull` as reusable helpers, eliminating duplicated path normalization logic
+
+### Fixed
+- **Integration test used real filesystem** — `ToolExecutionIntegrationTest` now uses `myFixture.addFileToProject()` so test files are properly indexed by the in-memory VFS
+- **Path comparison failed on Windows** — `PsiUtilsTest` now normalizes path separators and casing before comparing, fixing test failures on Windows
+
 ## [4.0.1] - 2026-03-12
 
 ### Fixed
