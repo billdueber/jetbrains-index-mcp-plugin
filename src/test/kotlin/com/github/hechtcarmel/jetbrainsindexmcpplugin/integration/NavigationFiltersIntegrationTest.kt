@@ -3,11 +3,17 @@ package com.github.hechtcarmel.jetbrainsindexmcpplugin.integration
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.handlers.LanguageHandlerRegistry
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.server.models.ContentBlock
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.models.CallHierarchyResult
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.models.FindClassResult
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.models.FindFileResult
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.models.FindSymbolResult
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.models.FindUsagesResult
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.models.ImplementationResult
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.models.TypeHierarchyResult
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.navigation.CallHierarchyTool
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.navigation.FindClassTool
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.navigation.FindFileTool
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.navigation.FindImplementationsTool
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.navigation.FindSymbolTool
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.navigation.FindUsagesTool
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.navigation.TypeHierarchyTool
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.util.ProjectUtils
@@ -48,14 +54,13 @@ class NavigationFiltersIntegrationTest : BasePlatformTestCase() {
         }
     }
 
-    fun testTypeHierarchyCanExcludeLibrariesAndTests() = runBlocking {
+    fun testTypeHierarchyRespectsProjectProductionFilesScope() = runBlocking {
         val fixture = createLibraryInterfaceFixture()
         val tool = TypeHierarchyTool()
 
         val result = tool.execute(project, buildJsonObject {
             put("className", fixture.interfaceFqn)
-            put("includeLibraries", false)
-            put("includeTests", false)
+            put("scope", "project_production_files")
         })
 
         assertFalse("Type hierarchy should succeed: ${result.content}", result.isError)
@@ -65,11 +70,11 @@ class NavigationFiltersIntegrationTest : BasePlatformTestCase() {
         val subtypeNames = hierarchy.subtypes.map { it.name }
 
         assertTrue("Production implementation should remain visible", subtypeNames.any { it.contains("ProdRepositoryImpl") })
-        assertFalse("Test implementation should be filtered out", subtypeNames.any { it.contains("TestRepositoryImpl") })
-        assertFalse("Library implementation should be filtered out", subtypeNames.any { it.contains("LibraryRepositoryImpl") })
+        assertFalse("Test implementation should be filtered out by project_production_files", subtypeNames.any { it.contains("TestRepositoryImpl") })
+        assertFalse("Library implementation should be filtered out by project_production_files", subtypeNames.any { it.contains("LibraryRepositoryImpl") })
     }
 
-    fun testFindImplementationsCanExcludeLibrariesAndTests() = runBlocking {
+    fun testFindImplementationsRespectsProjectTestFilesScope() = runBlocking {
         val fixture = createLibraryInterfaceFixture()
         val (line, column) = findPosition(fixture.interfaceSource, "ExternalRepository")
         val tool = FindImplementationsTool()
@@ -78,8 +83,7 @@ class NavigationFiltersIntegrationTest : BasePlatformTestCase() {
             put("file", fixture.interfaceFile.toString().replace('\\', '/'))
             put("line", line)
             put("column", column)
-            put("includeLibraries", false)
-            put("includeTests", false)
+            put("scope", "project_test_files")
         })
 
         assertFalse("Find implementations should succeed: ${result.content}", result.isError)
@@ -88,12 +92,114 @@ class NavigationFiltersIntegrationTest : BasePlatformTestCase() {
         val implementations = json.decodeFromString<ImplementationResult>(content.text)
         val implementationNames = implementations.implementations.map { it.name }
 
-        assertTrue("Production implementation should remain visible", implementationNames.any { it.contains("ProdRepositoryImpl") })
-        assertFalse("Test implementation should be filtered out", implementationNames.any { it.contains("TestRepositoryImpl") })
-        assertFalse("Library implementation should be filtered out", implementationNames.any { it.contains("LibraryRepositoryImpl") })
+        assertFalse("Production implementation should be filtered out by project_test_files", implementationNames.any { it.contains("ProdRepositoryImpl") })
+        assertTrue("Test implementation should remain visible", implementationNames.any { it.contains("TestRepositoryImpl") })
+        assertFalse("Library implementation should be filtered out by project_test_files", implementationNames.any { it.contains("LibraryRepositoryImpl") })
     }
 
-    fun testCallHierarchyCanExcludeTestCallers() = runBlocking {
+    fun testFindClassRespectsProjectTestFilesScope() = runBlocking {
+        createLibraryInterfaceFixture()
+        val tool = FindClassTool()
+
+        val result = tool.execute(project, buildJsonObject {
+            put("query", "RepositoryImpl")
+            put("scope", "project_test_files")
+        })
+
+        assertFalse("Find class should succeed: ${result.content}", result.isError)
+
+        val content = result.content.first() as ContentBlock.Text
+        val classes = json.decodeFromString<FindClassResult>(content.text)
+        val classNames = classes.classes.map { it.name }
+
+        assertTrue("Primary test implementation should remain visible", classNames.any { it == "TestRepositoryImpl" })
+        assertTrue("Secondary test implementation should remain visible", classNames.any { it == "MoreTestRepositoryImpl" })
+        assertFalse("Production implementation should be filtered out by project_test_files", classNames.any { it == "ProdRepositoryImpl" })
+        assertFalse("Library implementation should be filtered out by project_test_files", classNames.any { it == "LibraryRepositoryImpl" })
+    }
+
+    fun testFindSymbolRespectsProjectTestFilesScopeAcrossPagination() = runBlocking {
+        createLibraryInterfaceFixture()
+        val tool = FindSymbolTool()
+
+        val firstPage = tool.execute(project, buildJsonObject {
+            put("query", "fetch")
+            put("scope", "project_test_files")
+            put("pageSize", 1)
+        })
+
+        assertFalse("Find symbol first page should succeed: ${firstPage.content}", firstPage.isError)
+
+        val firstContent = firstPage.content.first() as ContentBlock.Text
+        val firstResult = json.decodeFromString<FindSymbolResult>(firstContent.text)
+        val aggregatedFiles = firstResult.symbols.map { it.file }.toMutableList()
+        var nextCursor = firstResult.nextCursor
+
+        while (nextCursor != null) {
+            val nextPage = tool.execute(project, buildJsonObject {
+                put("cursor", nextCursor)
+                put("pageSize", 1)
+            })
+            assertFalse("Find symbol page for cursor $nextCursor should succeed: ${nextPage.content}", nextPage.isError)
+            val nextContent = nextPage.content.first() as ContentBlock.Text
+            val nextResult = json.decodeFromString<FindSymbolResult>(nextContent.text)
+            aggregatedFiles += nextResult.symbols.map { it.file }
+            nextCursor = nextResult.nextCursor
+        }
+
+        assertTrue("Expected test-symbol results to be returned", aggregatedFiles.isNotEmpty())
+        assertTrue("Primary test implementation method should be visible", aggregatedFiles.any { it.endsWith("TestRepositoryImpl.java") })
+        assertTrue("Secondary test implementation method should be visible", aggregatedFiles.any { it.endsWith("MoreTestRepositoryImpl.java") })
+        assertFalse("Production methods should be filtered out by project_test_files", aggregatedFiles.any { it.endsWith("ProdRepositoryImpl.java") })
+        assertFalse("Library methods should be filtered out by project_test_files", aggregatedFiles.any { it.endsWith("LibraryRepositoryImpl.java") })
+    }
+
+    fun testFindSymbolDoesNotApplyLegacyExcludedPathFilteringWithinScope() = runBlocking {
+        val fixture = createExcludedPathScopeProbeFixture()
+        val classTool = FindClassTool()
+        val fileTool = FindFileTool()
+        val symbolTool = FindSymbolTool()
+
+        val classResult = classTool.execute(project, buildJsonObject {
+            put("query", fixture.className)
+            put("matchMode", "exact")
+            put("scope", "project_production_files")
+        })
+        assertFalse("Find class should succeed: ${classResult.content}", classResult.isError)
+        val classContent = classResult.content.first() as ContentBlock.Text
+        val classes = json.decodeFromString<FindClassResult>(classContent.text)
+        assertTrue(
+            "Class search should include the probe inside project_production_files",
+            classes.classes.any { it.name == fixture.className && it.file.endsWith(fixture.relativePath) }
+        )
+
+        val fileResult = fileTool.execute(project, buildJsonObject {
+            put("query", fixture.fileName)
+            put("scope", "project_production_files")
+        })
+        assertFalse("Find file should succeed: ${fileResult.content}", fileResult.isError)
+        val fileContent = fileResult.content.first() as ContentBlock.Text
+        val files = json.decodeFromString<FindFileResult>(fileContent.text)
+        assertTrue(
+            "File search should include the probe inside project_production_files",
+            files.files.any { it.name == fixture.fileName && it.path.endsWith(fixture.relativePath) }
+        )
+
+        val symbolResult = symbolTool.execute(project, buildJsonObject {
+            put("query", fixture.className)
+            put("matchMode", "exact")
+            put("scope", "project_production_files")
+        })
+        assertFalse("Find symbol should succeed: ${symbolResult.content}", symbolResult.isError)
+        val symbolContent = symbolResult.content.first() as ContentBlock.Text
+        val symbols = json.decodeFromString<FindSymbolResult>(symbolContent.text)
+        assertTrue(
+            "Symbol search should include files accepted by the selected built-in scope even under a venv path",
+            symbols.symbols.any { it.name == fixture.className && it.file.endsWith(fixture.relativePath) }
+        )
+    }
+
+    fun testCallHierarchyRespectsProjectProductionFilesScope() = runBlocking {
         val fixture = createProjectMethodFixture()
         val tool = CallHierarchyTool()
 
@@ -102,7 +208,7 @@ class NavigationFiltersIntegrationTest : BasePlatformTestCase() {
             put("line", fixture.targetLine)
             put("column", fixture.targetColumn)
             put("direction", "callers")
-            put("includeTests", false)
+            put("scope", "project_production_files")
         })
 
         assertFalse("Call hierarchy should succeed: ${result.content}", result.isError)
@@ -112,10 +218,10 @@ class NavigationFiltersIntegrationTest : BasePlatformTestCase() {
         val callerNames = hierarchy.calls.map { it.name }
 
         assertTrue("Production caller should remain visible", callerNames.any { it.contains("ProdCaller.call") })
-        assertFalse("Test caller should be filtered out", callerNames.any { it.contains("TargetServiceTest.exercise") })
+        assertFalse("Test caller should be filtered out by project_production_files", callerNames.any { it.contains("TargetServiceTest.exercise") })
     }
 
-    fun testCallHierarchyCanIncludeLibraryCallersWhenRequested() = runBlocking {
+    fun testCallHierarchyRespectsProjectAndLibrariesScope() = runBlocking {
         val fixture = createLibraryMethodFixture()
         val tool = CallHierarchyTool()
 
@@ -124,8 +230,7 @@ class NavigationFiltersIntegrationTest : BasePlatformTestCase() {
             put("line", fixture.targetLine)
             put("column", fixture.targetColumn)
             put("direction", "callers")
-            put("includeLibraries", true)
-            put("includeTests", false)
+            put("scope", "project_and_libraries")
         })
 
         assertFalse("Call hierarchy should succeed: ${result.content}", result.isError)
@@ -135,18 +240,18 @@ class NavigationFiltersIntegrationTest : BasePlatformTestCase() {
         val callerNames = hierarchy.calls.map { it.name }
 
         assertTrue("Project caller should be visible", callerNames.any { it.contains("ProjectCaller.call") })
-        assertTrue("Library caller should be visible when includeLibraries=true", callerNames.any { it.contains("LibraryCaller.call") })
+        assertTrue("Library caller should be visible when scope includes libraries", callerNames.any { it.contains("LibraryCaller.call") })
     }
 
-    fun testFindReferencesCanExcludeTestUsages() = runBlocking {
-        val fixture = createProjectMethodFixture()
+    fun testFindReferencesRespectsProjectAndLibrariesScope() = runBlocking {
+        val fixture = createLibraryMethodFixture()
         val tool = FindUsagesTool()
 
         val result = tool.execute(project, buildJsonObject {
-            put("file", fixture.targetFilePath)
+            put("file", fixture.targetFile.toString().replace('\\', '/'))
             put("line", fixture.targetLine)
             put("column", fixture.targetColumn)
-            put("includeTests", false)
+            put("scope", "project_and_libraries")
         })
 
         assertFalse("Find references should succeed: ${result.content}", result.isError)
@@ -155,8 +260,8 @@ class NavigationFiltersIntegrationTest : BasePlatformTestCase() {
         val usages = json.decodeFromString<FindUsagesResult>(content.text)
         val usageFiles = usages.usages.map { it.file }
 
-        assertTrue("Production usage should remain visible", usageFiles.any { it.endsWith("ProdCaller.java") })
-        assertFalse("Test usage should be filtered out", usageFiles.any { it.endsWith("TargetServiceTest.java") })
+        assertTrue("Project usage should remain visible", usageFiles.any { it.endsWith("ProjectCaller.java") })
+        assertTrue("Library usage should remain visible when scope includes libraries", usageFiles.any { it.contains("LibraryCaller.java") })
     }
 
     private data class LibraryInterfaceFixture(
@@ -175,6 +280,12 @@ class NavigationFiltersIntegrationTest : BasePlatformTestCase() {
         val targetFile: Path,
         val targetLine: Int,
         val targetColumn: Int
+    )
+
+    private data class ExcludedPathScopeProbeFixture(
+        val className: String,
+        val fileName: String,
+        val relativePath: String
     )
 
     private fun createLibraryInterfaceFixture(): LibraryInterfaceFixture {
@@ -252,9 +363,26 @@ class NavigationFiltersIntegrationTest : BasePlatformTestCase() {
                 }
             """.trimIndent()
         )
+        val secondTestImplFile = writePathFile(
+            testRootPath,
+            "app/MoreTestRepositoryImpl.java",
+            """
+                package app;
+
+                import libpkg.ExternalRepository;
+
+                public class MoreTestRepositoryImpl implements ExternalRepository {
+                    @Override
+                    public String fetch() {
+                        return "test-more";
+                    }
+                }
+            """.trimIndent()
+        )
 
         refreshVfsFile(prodImplFile)
         refreshVfsFile(testImplFile)
+        refreshVfsFile(secondTestImplFile)
         IndexingTestUtil.waitUntilIndexesAreReady(project)
         return LibraryInterfaceFixture(
             interfaceFqn = "libpkg.ExternalRepository",
@@ -398,6 +526,35 @@ class NavigationFiltersIntegrationTest : BasePlatformTestCase() {
             targetFile = targetFile,
             targetLine = line,
             targetColumn = column
+        )
+    }
+
+    private fun createExcludedPathScopeProbeFixture(): ExcludedPathScopeProbeFixture {
+        val prodRootPath = createProjectDirectory("excluded-path-src")
+        val prodRoot = refreshVfsDirectory(prodRootPath)
+        PsiTestUtil.addSourceRoot(module, prodRoot, false)
+
+        val className = "VenvScopeProbe"
+        val relativePath = "excluded-path-src/venv/excludedpath/$className.java"
+        val source = """
+            package excludedpath;
+
+            public class $className {
+                public String marker() {
+                    return "scope-probe";
+                }
+            }
+        """.trimIndent()
+
+        val probeFile = writePathFile(prodRootPath, "venv/excludedpath/$className.java", source)
+        refreshVfsFile(probeFile)
+        PsiDocumentManager.getInstance(project).commitAllDocuments()
+        IndexingTestUtil.waitUntilIndexesAreReady(project)
+
+        return ExcludedPathScopeProbeFixture(
+            className = className,
+            fileName = "$className.java",
+            relativePath = relativePath
         )
     }
 
