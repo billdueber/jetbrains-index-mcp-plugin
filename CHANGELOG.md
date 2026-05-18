@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+## [4.17.0] - 2026-05-17
+### Added
+- Added PHP support to `ide_file_structure` using the IDE Structure View API. Works in PhpStorm and IntelliJ IDEA Ultimate with the PHP plugin enabled.
+- PHP structure output includes namespace containers, constructor-promoted property modifiers, enum cases, constants, and includes while filtering implicit PHP runtime details from enums.
+
 ## [4.16.3] - 2026-05-06
 ### Fixed
 - **`ide_refactor_rename` no longer fails while committing documents from MCP requests** — Document commits now switch to a write-safe non-modal EDT context instead of using deprecated synchronous transaction submission from the request coroutine's write-unsafe modality. Fixes [#172](https://github.com/hechtcarmel/jetbrains-index-mcp-plugin/issues/172).
