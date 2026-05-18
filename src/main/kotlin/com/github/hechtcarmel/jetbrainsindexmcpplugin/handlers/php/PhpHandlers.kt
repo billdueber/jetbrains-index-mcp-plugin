@@ -573,7 +573,8 @@ class PhpStructureHandler : BasePhpHandler<List<StructureNode>>(), StructureHand
             getName(element)
         )
             .mapNotNull { it?.trim()?.trim('\\') }
-            .firstOrNull { it.isNotBlank() }
+            .firstOrNull()
+            ?.ifBlank { "<global>" }
     }
 
     private fun describeClass(
@@ -599,17 +600,22 @@ class PhpStructureHandler : BasePhpHandler<List<StructureNode>>(), StructureHand
         val interfaces = getImplementedInterfaces(element)
             ?.filterIsInstance<PsiElement>()
             ?.mapNotNull { getName(it) ?: getFQN(it) }
+            ?.map { it.trim() }
             ?.filter { it.isNotBlank() }
             ?.filterNot { kind == StructureKind.ENUM && isImplicitEnumInterface(it) }
+            ?.distinct()
             .orEmpty()
         if (interfaces.isNotEmpty()) {
-            signatureParts += "implements ${interfaces.joinToString(", ")}"
+            val relation = if (kind == StructureKind.INTERFACE) "extends" else "implements"
+            signatureParts += "$relation ${interfaces.joinToString(", ")}"
         }
 
         val traits = getTraits(element)
             ?.filterIsInstance<PsiElement>()
             ?.mapNotNull { getName(it) ?: getFQN(it) }
+            ?.map { it.trim() }
             ?.filter { it.isNotBlank() }
+            ?.distinct()
             .orEmpty()
         if (traits.isNotEmpty()) {
             signatureParts += "uses ${traits.joinToString(", ")}"
@@ -645,7 +651,7 @@ class PhpStructureHandler : BasePhpHandler<List<StructureNode>>(), StructureHand
             ?: return null
 
         return IdeStructureViewExtractor.StructureElementInfo(
-            name = name.trim('\\'),
+            name = name.trim('\\').ifBlank { "<global>" },
             kind = StructureKind.NAMESPACE
         )
     }
@@ -716,7 +722,10 @@ class PhpStructureHandler : BasePhpHandler<List<StructureNode>>(), StructureHand
 
     private fun memberModifiersFor(element: PsiElement, kind: StructureKind): List<String> {
         return modifiersFor(element, includeVisibility = true).filterNot { modifier ->
-            kind == StructureKind.CONSTANT && modifier == "static"
+            kind == StructureKind.CONSTANT && modifier == "static" ||
+                modifier == "final" &&
+                (kind == StructureKind.PROPERTY || kind == StructureKind.CONSTANT) &&
+                !hasExplicitModifierKeyword(element, "final")
         }
     }
 
@@ -792,6 +801,36 @@ class PhpStructureHandler : BasePhpHandler<List<StructureNode>>(), StructureHand
 
     private fun hasModifierFlag(element: PsiElement, methodName: String): Boolean {
         return invokeBoolean(element, methodName) || invokeModifier(element)?.let { invokeBoolean(it, methodName) } == true
+    }
+
+    private fun hasExplicitModifierKeyword(element: PsiElement, keyword: String): Boolean {
+        val modifierText = (invokeModifier(element) as? PsiElement)?.text
+        if (modifierText != null && containsWord(modifierText, keyword)) {
+            return true
+        }
+
+        val lineText = elementLineText(element)
+        if (lineText != null && containsWord(lineText, keyword)) {
+            return true
+        }
+
+        return element.text.lineSequence().firstOrNull()?.let { containsWord(it, keyword) } == true
+    }
+
+    private fun elementLineText(element: PsiElement): String? {
+        val psiFile = element.containingFile ?: return null
+        val document = PsiDocumentManager.getInstance(element.project).getDocument(psiFile) ?: return null
+        val line = document.getLineNumber(element.textOffset)
+        return document.getText(
+            com.intellij.openapi.util.TextRange(
+                document.getLineStartOffset(line),
+                document.getLineEndOffset(line)
+            )
+        )
+    }
+
+    private fun containsWord(text: String, word: String): Boolean {
+        return Regex("""(?i)(^|\W)${Regex.escape(word)}($|\W)""").containsMatchIn(text)
     }
 
     private fun invokeModifier(element: PsiElement): Any? {
