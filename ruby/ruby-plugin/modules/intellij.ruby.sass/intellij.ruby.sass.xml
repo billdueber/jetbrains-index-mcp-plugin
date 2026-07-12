@@ -1,0 +1,15 @@
+<idea-plugin>
+  <dependencies>
+    <module name="intellij.sass.backend"/>
+    <module name="intellij.ruby.backend"/>
+    <module name="intellij.css.backend"/>
+  </dependencies>
+  <extensions defaultExtensionNs="com.intellij">
+    <psi.referenceContributor implementation="org.jetbrains.plugins.ruby.sass.RubySassReferenceContributor"/>
+    <applicationService serviceInterface="org.jetbrains.plugins.sass.extensions.SassRubyIntegrationHelper"
+                        serviceImplementation="org.jetbrains.plugins.ruby.sass.SassRubyIntegrationHelperRM"/>
+    
+    <sass.extension implementation="org.jetbrains.plugins.ruby.sass.SprocketsExtension"/>
+    <sass.extension implementation="org.jetbrains.plugins.ruby.sass.SassRailsExtension"/>
+  </extensions>
+</idea-plugin>

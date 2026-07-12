@@ -1,0 +1,2 @@
+class TransitiveChild < TransitiveParent
+end

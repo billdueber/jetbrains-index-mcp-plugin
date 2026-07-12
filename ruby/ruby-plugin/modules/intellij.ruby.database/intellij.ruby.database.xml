@@ -1,0 +1,24 @@
+<idea-plugin>
+  <!-- region Generated dependencies - run `Generate Product Layouts` to regenerate -->
+  <dependencies>
+    <plugin id="com.intellij.modules.database"/>
+    <module name="intellij.database"/>
+    <module name="intellij.database.impl"/>
+    <module name="intellij.ruby.backend"/>
+  </dependencies>
+  <!-- endregion -->
+
+  <extensions defaultExtensionNs="com.intellij">
+    <database.dataSourceDetector implementation="org.jetbrains.plugins.ruby.rails.database.impl.RailsDataSourceDetector"/>
+    <database.selectInProvider implementation="org.jetbrains.plugins.ruby.rails.database.impl.RailsSelectInDatabaseViewProvider"/>
+
+    <fileBasedIndex implementation="org.jetbrains.plugins.ruby.rails.database.impl.RailsSqlSchemaVersionIndex"/>
+
+    <gotoRelatedProvider implementation="org.jetbrains.plugins.ruby.rails.database.impl.RailsRelatedDatabaseTablesProvider"/>
+  </extensions>
+  <extensions defaultExtensionNs="org.jetbrains.plugins.ruby">
+    <railsNavigateFrom implementation="org.jetbrains.plugins.ruby.rails.database.impl.NavigateFromStructureProvider"/>
+
+    <railsSchemaParser implementation="org.jetbrains.plugins.ruby.rails.database.impl.RailsSqlSchemaParser"/>
+  </extensions>
+</idea-plugin>

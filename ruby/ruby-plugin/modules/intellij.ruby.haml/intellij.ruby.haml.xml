@@ -1,0 +1,32 @@
+<idea-plugin>
+  <!-- region Generated dependencies - run `Generate Product Layouts` to regenerate -->
+  <dependencies>
+    <plugin id="org.jetbrains.plugins.haml"/>
+    <module name="intellij.platform.structureView.impl"/>
+    <module name="intellij.ruby.backend"/>
+    <module name="intellij.xml.structureView.impl"/>
+  </dependencies>
+  <!-- endregion -->
+
+  <extensions defaultExtensionNs="com.intellij">
+    <haml.injected.ast.factory implementation="org.jetbrains.plugins.haml.ruby.psi.HAMLRubyASTFactory"/>
+    <haml.attr.provider implementation="org.jetbrains.plugins.haml.ruby.psi.HAMLRubyAttributeProvider"/>
+    <lang.fileViewProviderFactory language="Haml" implementationClass="org.jetbrains.plugins.haml.ruby.psi.HAMLRubyFileViewProviderFactory"/>
+    <codeInsight.lineMarkerProvider language="Haml" implementationClass="org.jetbrains.plugins.ruby.rails.codeInsight.daemon.RailsViewActionLineMarkerProvider"/>
+    <lang.findUsagesProvider language="Haml" implementationClass="org.jetbrains.plugins.ruby.rails.langs.FakeRubyInjectionsFindUsagesProvider"/>
+    <lang.psiStructureViewFactory language="Haml" implementationClass="org.jetbrains.plugins.haml.ruby.structureView.HAMLStructureViewFactory"/>
+    <refactoring.extractIncludeHandler language="Haml" implementationClass="org.jetbrains.plugins.haml.ruby.refactoring.HAMLExtractPartialHandler"/>
+    <lang.quoteHandler language="Haml" implementationClass="org.jetbrains.plugins.ruby.ruby.actions.editor.handlers.RubyQuoteHandler"/>
+
+    <internalFileTemplate name="Haml File"/>
+  </extensions>
+
+  <extensions defaultExtensionNs="org.jetbrains.plugins.ruby">
+    <templates.integration implementation="org.jetbrains.plugins.haml.ruby.RubyHAMLIntegrationImpl"/>
+    <templates.elements.provider implementation="org.jetbrains.plugins.haml.ruby.RubyHAMLElementsProviderImpl"/>
+
+    <rails.viewFileTypesProvider implementation="org.jetbrains.plugins.haml.ruby.rails.HamlRailsViewFileTypesProvider"/>
+    <rails.viewFileTemplateProvider implementation="org.jetbrains.plugins.haml.ruby.rails.templates.HamlRailsViewFileTemplateProvider"/>
+    <rubyLocalVariablesProvider implementation="org.jetbrains.plugins.haml.ruby.codeInsight.HAMLStrictLocalVariablesProvider"/>
+  </extensions>
+</idea-plugin>

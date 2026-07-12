@@ -1,0 +1,10 @@
+<idea-plugin>
+  <dependencies>
+    <plugin id="com.intellij.css"/>
+    <module name="intellij.ruby.backend"/>
+    <module name="intellij.css.common.psi"/>
+  </dependencies>
+  <extensions defaultExtensionNs="com.intellij">
+    <css.inclusionContext implementation="org.jetbrains.plugins.ruby.css.RailsInclusionContext"/>
+  </extensions>
+</idea-plugin>

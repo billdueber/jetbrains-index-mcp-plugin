@@ -1,0 +1,10 @@
+<idea-plugin>
+  <dependencies>
+    <plugin id="training"/>
+    <module name="intellij.ruby.backend"/>
+  </dependencies>
+  <extensions defaultExtensionNs="training">
+    <ift.language.extension language="ruby" defaultProductName="RubyMine" implementationClass="org.jetbrains.ruby.ift.RubyLangSupport"/>
+    <ift.learning.course language="ruby" implementationClass="org.jetbrains.ruby.ift.RubyLearningCourse"/>
+  </extensions>
+</idea-plugin>

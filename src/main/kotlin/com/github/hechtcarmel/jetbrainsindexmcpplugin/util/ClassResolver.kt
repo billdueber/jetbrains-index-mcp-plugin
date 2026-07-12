@@ -11,6 +11,7 @@ import com.intellij.psi.PsiManager
  *
  * Supports:
  * - **PHP**: Uses `PhpIndex.getClassesByFQN()`, `getInterfacesByFQN()`, and `getTraitsByFQN()` via reflection
+ * - **Ruby**: Uses `RubyInheritanceIndex.getInstance().getElements()` with `FQN.of()` via reflection
  * - **Java/Kotlin**: Uses `JavaPsiFacade.findClass()` with fallback to filename-based search
  *
  * All language-specific classes are accessed via reflection to avoid compile-time dependencies
@@ -32,6 +33,12 @@ object ClassResolver {
         if (PluginDetectors.php.isAvailable) {
             val phpResult = findClassByNameWithPhpPlugin(project, qualifiedName)
             if (phpResult != null) return phpResult
+        }
+
+        // Try Ruby (if Ruby plugin is available)
+        if (PluginDetectors.ruby.isAvailable) {
+            val rubyResult = findClassByNameWithRubyPlugin(project, qualifiedName)
+            if (rubyResult != null) return rubyResult
         }
 
         // Try Java/Kotlin (if Java plugin is available)
@@ -116,6 +123,45 @@ object ClassResolver {
             null
         } catch (e: ClassNotFoundException) {
             // PHP plugin classes not available
+            null
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /**
+     * Finds a Ruby class or module by its fully qualified name using RubyInheritanceIndex.
+     *
+     * Accepts `::` -separated Ruby FQNs (e.g., `"Admin::User"`, `"Mammal::Animal::Dog"`).
+     * Delegates to `RubyInheritanceIndex.getInstance().getElements(project, allScope, FQN.of(qualifiedName))`
+     * via reflection to avoid a compile-time dependency on the closed-source Ruby plugin.
+     *
+     * @param project The project context
+     * @param qualifiedName Ruby FQN using `::` separators (e.g., `"Admin::User"`)
+     * @return The RClass or RModule PsiElement, or null if not found
+     */
+    fun findClassByNameWithRubyPlugin(project: Project, qualifiedName: String): PsiElement? {
+        return try {
+            val rubyIndexClass = Class.forName(
+                "org.jetbrains.plugins.ruby.ruby.lang.psi.indexes.RubyInheritanceIndex"
+            )
+            val fqnClass = Class.forName(
+                "org.jetbrains.plugins.ruby.ruby.codeInsight.symbols.fqn.FQN"
+            )
+            val searchScopeClass = Class.forName("com.intellij.psi.search.SearchScope")
+            val globalSearchScopeClass = Class.forName("com.intellij.psi.search.GlobalSearchScope")
+
+            val instance = rubyIndexClass.getMethod("getInstance").invoke(null)
+            val fqnObj = fqnClass.getMethod("of", String::class.java).invoke(null, qualifiedName)
+                ?: return null
+            val allScope = globalSearchScopeClass.getMethod("allScope", Project::class.java)
+                .invoke(null, project)
+
+            val results = instance.javaClass
+                .getMethod("getElements", Project::class.java, searchScopeClass, fqnClass)
+                .invoke(instance, project, allScope, fqnObj) as? Collection<*>
+            results?.firstOrNull() as? PsiElement
+        } catch (e: ClassNotFoundException) {
             null
         } catch (e: Exception) {
             null

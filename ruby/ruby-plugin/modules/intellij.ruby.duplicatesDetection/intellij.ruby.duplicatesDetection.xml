@@ -1,0 +1,10 @@
+<idea-plugin>
+  <dependencies>
+    <module name="intellij.platform.duplicatesDetector"/>
+    <module name="intellij.ruby.backend"/>
+  </dependencies>
+
+  <extensions defaultExtensionNs="com.intellij">
+    <duplicateScope language="ruby" implementationClass="com.jetbrains.clones.languagescope.RubyDuplicateScope"/>
+  </extensions>
+</idea-plugin>

@@ -1,0 +1,1034 @@
+package com.github.hechtcarmel.jetbrainsindexmcpplugin.handlers.ruby
+
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.handlers.*
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.models.StructureNode
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.util.PluginDetectors
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.util.ProjectUtils
+import com.intellij.openapi.diagnostic.logger
+import com.intellij.openapi.project.Project
+import com.intellij.psi.PsiDocumentManager
+import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiFile
+import com.intellij.psi.PsiNamedElement
+import com.intellij.psi.search.GlobalSearchScope
+import com.intellij.psi.search.SearchScope
+import com.intellij.util.Processor
+
+/**
+ * Registration entry point for Ruby language handlers.
+ *
+ * This class is loaded via reflection when the Ruby plugin is available.
+ * It registers all Ruby-specific handlers with the [LanguageHandlerRegistry].
+ *
+ * ## Ruby PSI Classes Used (via reflection)
+ *
+ * - `org.jetbrains.plugins.ruby.ruby.lang.psi.controlStructures.classes.RClass` — Ruby class declarations
+ * - `org.jetbrains.plugins.ruby.ruby.lang.psi.controlStructures.modules.RModule` — Ruby module declarations
+ * - `org.jetbrains.plugins.ruby.ruby.lang.psi.controlStructures.methods.RMethod` — Ruby method declarations
+ * - `org.jetbrains.plugins.ruby.ruby.lang.psi.callExpressions.RCallExpression` — Method call expressions
+ */
+object RubyHandlers {
+
+    private val LOG = logger<RubyHandlers>()
+
+    /**
+     * Registers all Ruby handlers with the registry.
+     *
+     * Called via reflection from [LanguageHandlerRegistry].
+     */
+    @JvmStatic
+    fun register(registry: LanguageHandlerRegistry) {
+        if (!PluginDetectors.ruby.isAvailable) {
+            LOG.info("Ruby plugin not available, skipping Ruby handler registration")
+            return
+        }
+
+        try {
+            // Verify Ruby PSI classes are accessible before registering
+            Class.forName("org.jetbrains.plugins.ruby.ruby.lang.psi.controlStructures.classes.RClass")
+            Class.forName("org.jetbrains.plugins.ruby.ruby.lang.psi.controlStructures.methods.RMethod")
+
+            registry.registerTypeHierarchyHandler(RubyTypeHierarchyHandler())
+            registry.registerImplementationsHandler(RubyImplementationsHandler())
+            registry.registerCallHierarchyHandler(RubyCallHierarchyHandler())
+            registry.registerSuperMethodsHandler(RubySuperMethodsHandler())
+            registry.registerStructureHandler(RubyStructureHandler())
+            registry.registerSymbolReferenceHandler(RubySymbolReferenceHandler())
+
+            LOG.info("Registered Ruby handlers")
+        } catch (e: ClassNotFoundException) {
+            LOG.warn("Ruby PSI classes not found, skipping registration: ${e.message}")
+        } catch (e: Exception) {
+            LOG.warn("Failed to register Ruby handlers: ${e.message}")
+        }
+    }
+}
+
+/**
+ * Base class for Ruby handlers with common utilities.
+ *
+ * Uses reflection to access Ruby PSI classes to avoid compile-time dependencies.
+ */
+abstract class BaseRubyHandler<T> : LanguageHandler<T> {
+
+    protected fun isRubyLanguage(element: PsiElement): Boolean {
+        return element.language.id.equals("ruby", ignoreCase = true)
+    }
+
+    protected val rClassClass: Class<*>? by lazy {
+        try {
+            Class.forName("org.jetbrains.plugins.ruby.ruby.lang.psi.controlStructures.classes.RClass")
+        } catch (e: ClassNotFoundException) {
+            null
+        }
+    }
+
+    protected val rModuleClass: Class<*>? by lazy {
+        try {
+            Class.forName("org.jetbrains.plugins.ruby.ruby.lang.psi.controlStructures.modules.RModule")
+        } catch (e: ClassNotFoundException) {
+            null
+        }
+    }
+
+    protected val rMethodClass: Class<*>? by lazy {
+        try {
+            Class.forName("org.jetbrains.plugins.ruby.ruby.lang.psi.controlStructures.methods.RMethod")
+        } catch (e: ClassNotFoundException) {
+            null
+        }
+    }
+
+    protected val rCallExpressionClass: Class<*>? by lazy {
+        try {
+            Class.forName("org.jetbrains.plugins.ruby.ruby.lang.psi.callExpressions.RCallExpression")
+        } catch (e: ClassNotFoundException) {
+            try {
+                Class.forName("org.jetbrains.plugins.ruby.ruby.lang.psi.controlStructures.RCallExpression")
+            } catch (e2: ClassNotFoundException) {
+                try {
+                    Class.forName("org.jetbrains.plugins.ruby.ruby.lang.psi.RCallExpression")
+                } catch (e3: ClassNotFoundException) {
+                    null
+                }
+            }
+        }
+    }
+
+    protected fun getRelativePath(project: Project, file: com.intellij.openapi.vfs.VirtualFile): String {
+        return ProjectUtils.getToolFilePath(project, file)
+    }
+
+    protected fun getLineNumber(project: Project, element: PsiElement): Int? {
+        val psiFile = element.containingFile ?: return null
+        val document = PsiDocumentManager.getInstance(project).getDocument(psiFile) ?: return null
+        return document.getLineNumber(element.textOffset) + 1
+    }
+
+    protected fun getColumnNumber(project: Project, element: PsiElement): Int? {
+        val psiFile = element.containingFile ?: return null
+        val document = PsiDocumentManager.getInstance(project).getDocument(psiFile) ?: return null
+        val lineNumber = document.getLineNumber(element.textOffset)
+        return element.textOffset - document.getLineStartOffset(lineNumber) + 1
+    }
+
+    protected fun isRClass(element: PsiElement): Boolean {
+        return rClassClass?.isInstance(element) == true
+    }
+
+    protected fun isRModule(element: PsiElement): Boolean {
+        return rModuleClass?.isInstance(element) == true
+    }
+
+    protected fun isRMethod(element: PsiElement): Boolean {
+        return rMethodClass?.isInstance(element) == true
+    }
+
+    protected fun findContainingRClassOrRModule(element: PsiElement): PsiElement? {
+        if (isRClass(element) || isRModule(element)) return element
+        val rClass = rClassClass ?: return null
+        val rModule = rModuleClass ?: return null
+
+        @Suppress("UNCHECKED_CAST")
+        val classResult = com.intellij.psi.util.PsiTreeUtil.getParentOfType(
+            element, rClass as Class<out PsiElement>
+        )
+        if (classResult != null) return classResult
+
+        @Suppress("UNCHECKED_CAST")
+        return com.intellij.psi.util.PsiTreeUtil.getParentOfType(
+            element, rModule as Class<out PsiElement>
+        )
+    }
+
+    protected fun findContainingRMethod(element: PsiElement): PsiElement? {
+        if (isRMethod(element)) return element
+        val rMethod = rMethodClass ?: return null
+        @Suppress("UNCHECKED_CAST")
+        return com.intellij.psi.util.PsiTreeUtil.getParentOfType(
+            element, rMethod as Class<out PsiElement>
+        )
+    }
+
+    protected fun getName(element: PsiElement): String? {
+        return try {
+            val method = element.javaClass.getMethod("getName")
+            method.invoke(element) as? String
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    protected fun getQualifiedName(element: PsiElement): String? {
+        return try {
+            val method = element.javaClass.getMethod("getFullyQualifiedName")
+            method.invoke(element) as? String
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    // ── Ruby-specific FQN and reflection utilities ───────────────────────────────
+
+    protected val fqnClass: Class<*>? by lazy {
+        try {
+            Class.forName("org.jetbrains.plugins.ruby.ruby.codeInsight.symbols.fqn.FQN")
+        } catch (e: ClassNotFoundException) {
+            null
+        }
+    }
+
+    protected val rubyInheritanceIndexClass: Class<*>? by lazy {
+        try {
+            Class.forName("org.jetbrains.plugins.ruby.ruby.lang.psi.indexes.RubyInheritanceIndex")
+        } catch (e: ClassNotFoundException) {
+            null
+        }
+    }
+
+    protected val rubyClassModuleNameIndexClass: Class<*>? by lazy {
+        try {
+            Class.forName("org.jetbrains.plugins.ruby.ruby.lang.psi.indexes.RubyClassModuleNameIndex")
+        } catch (e: ClassNotFoundException) {
+            null
+        }
+    }
+
+    protected val rubyIncludedExtendedFQNIndexClass: Class<*>? by lazy {
+        try {
+            Class.forName("org.jetbrains.plugins.ruby.ruby.lang.psi.indexes.RubyIncludedExtendedFQNIndex")
+        } catch (e: ClassNotFoundException) {
+            null
+        }
+    }
+
+    protected val rubyInheritanceResolutionIndexClass: Class<*>? by lazy {
+        try {
+            Class.forName("org.jetbrains.plugins.ruby.ruby.lang.psi.indexes.RubyInheritanceResolutionIndex")
+        } catch (e: ClassNotFoundException) {
+            null
+        }
+    }
+
+    protected val rubyIncludeExtendCallTypesClass: Class<*>? by lazy {
+        try {
+            Class.forName("org.jetbrains.plugins.ruby.ruby.lang.psi.methodCall.RubyIncludeExtendCallTypes")
+        } catch (e: ClassNotFoundException) {
+            null
+        }
+    }
+
+    /**
+     * Gets the Ruby qualified name for an RClass or RModule element.
+     *
+     * Tries multiple strategies:
+     * 1. `getFQN()` → `getFullPath()` (RClass via RElementWithFQN)
+     * 2. `getQualifiedName()` (RModule's direct method)
+     * 3. `getFullyQualifiedName()` (fallback)
+     * 4. `getName()` (last resort)
+     * 5. Reconstruct from containing modules (for nested classes)
+     */
+    protected fun getRubyQualifiedName(element: PsiElement): String? {
+        // Strategy 1: getFQN() -> getFullPath() (works for RClass via RElementWithFQN)
+        try {
+            val fqnObj = element.javaClass.getMethod("getFQN").invoke(element)
+            if (fqnObj != null) {
+                val fqn = fqnObj.javaClass.getMethod("getFullPath").invoke(fqnObj) as? String
+                if (fqn != null && fqn.contains("::")) return fqn
+                // If FQN has no namespace but we got a name, try to reconstruct
+                if (fqn != null) return fqn
+            }
+        } catch (_: Exception) {}
+
+        // Strategy 2: getQualifiedName() (works for RModule)
+        try {
+            val method = element.javaClass.getMethod("getQualifiedName")
+            val result = method.invoke(element) as? String
+            if (result != null && result.contains("::")) return result
+            if (result != null) return result
+        } catch (_: Exception) {}
+
+        // Strategy 3: getFullyQualifiedName() (generic fallback)
+        getQualifiedName(element)?.let { if (it.contains("::")) return it; else if (it.isNotEmpty()) return it }
+
+        // Strategy 4: getName() (last resort)
+        getName(element)?.let { if (it.isNotEmpty()) return it }
+
+        // Strategy 5: Reconstruct from containing modules (for nested classes)
+        // When Ruby plugin returns just the short name for nested classes, walk up the PSI tree
+        // to find containing modules and build the qualified name
+        val baseName = element.javaClass.getMethod("getName").invoke(element) as? String ?: return null
+        if (baseName.contains("::")) return baseName // Already qualified
+        
+        // Walk up to find containing modules
+        val parentModules = mutableListOf<String>()
+        var parent = element.parent
+        while (parent != null) {
+            // Check if parent is RModule (contains getName method and is a module)
+            try {
+                if (rModuleClass?.isInstance(parent) == true) {
+                    val parentName = parent.javaClass.getMethod("getName").invoke(parent) as? String
+                    if (parentName != null && parentName.isNotEmpty()) {
+                        parentModules.add(0, parentName)
+                    }
+                }
+            } catch (_: Exception) {}
+            parent = parent.parent
+        }
+        
+        if (parentModules.isNotEmpty()) {
+            return parentModules.joinToString("::") + "::" + baseName
+        }
+        
+        return baseName
+    }
+
+    /**
+     * Reconstructs a fully qualified name from a base name and ancestor module names.
+     *
+     * The ancestorNames list is in innermost-first order (PSI parent walk order).
+     * This matches the unit test expectations for [reconstructFqn].
+     *
+     * Examples:
+     * - `reconstructFqn("User", emptyList())` → "User"
+     * - `reconstructFqn("User", listOf("Admin"))` → "Admin::User"
+     * - `reconstructFqn("C", listOf("B", "A"))` → "A::B::C"
+     */
+    protected fun reconstructFqn(name: String, ancestorNames: List<String>): String {
+        if (name.isEmpty()) return ancestorNames.joinToString("::")
+        if (ancestorNames.isEmpty()) return name
+        val prefix = ancestorNames.reversed().joinToString("::")
+        return "$prefix::$name"
+    }
+
+    /**
+     * Gets the superclass FQN string from an RClass via getSuperClassFQN().
+     */
+    protected fun rClassGetSuperClassFQN(element: PsiElement): String? {
+        val fqnClass = fqnClass ?: return null
+        return try {
+            val method = element.javaClass.getMethod("getSuperClassFQN")
+            val fqnObj = method.invoke(element) ?: return null
+            // Check for INVALID sentinel: FQN.same(fqn, "")
+            val sameMethod = fqnClass.getMethod("same", fqnClass, String::class.java)
+            if (sameMethod.invoke(null, fqnObj, "") as? Boolean == true) return null
+            fqnClass.getMethod("getFullPath").invoke(fqnObj) as? String
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /**
+     * Resolves a Ruby element by its OWN FQN string.
+     *
+     * Strategy 1: RubyClassModuleNameIndex by short name, filtered by full FQN match.
+     *   - Always indexes every class/module by short name — reliable.
+     *   - Multiple candidates may share the same short name (namespaced classes), so filter.
+     *
+     * Strategy 2: RubyInheritanceResolutionIndex (own-FQN → element).
+     *   - Conditional indexing (shouldSinkTopLevel guard) — may miss some classes.
+     *
+     * NOTE: Do NOT use RubyInheritanceIndex here — that index maps superclass-short-name →
+     * subclass elements (getElements("Animal") returns Dog/Cat that INHERIT from Animal,
+     * not Animal itself).
+     */
+    protected fun resolveByFQN(
+        project: Project,
+        fqnStr: String,
+        searchScope: GlobalSearchScope
+    ): PsiElement? {
+        val shortName = fqnStr.substringAfterLast("::")
+
+        // Strategy 1: RubyClassModuleNameIndex — look up by short name, filter by full FQN
+        val nameIndexClass = rubyClassModuleNameIndexClass
+        if (nameIndexClass != null) {
+            try {
+                val findMethod = nameIndexClass.getMethod(
+                    "find",
+                    Project::class.java,
+                    String::class.java,
+                    GlobalSearchScope::class.java
+                )
+                val candidates = findMethod.invoke(null, project, shortName, searchScope) as? Collection<*>
+                // Prefer exact full-FQN match
+                val exactMatch = candidates?.filterIsInstance<PsiElement>()?.firstOrNull { candidate ->
+                    getRubyQualifiedName(candidate) == fqnStr
+                }
+                if (exactMatch != null) return exactMatch
+            } catch (_: Exception) {}
+        }
+
+        // Strategy 2: RubyInheritanceResolutionIndex (maps own-FQN → element)
+        val resolutionIndexClass = rubyInheritanceResolutionIndexClass
+        if (resolutionIndexClass != null) {
+            val fqnClass = fqnClass
+            if (fqnClass != null) {
+                try {
+                    val getInstance = resolutionIndexClass.getMethod("getInstance")
+                    val instance = getInstance.invoke(null)
+                    val of = fqnClass.getMethod("of", String::class.java)
+                    val fqnObj = of.invoke(null, fqnStr)
+                    val getElements = instance.javaClass.getMethod(
+                        "getElements",
+                        Project::class.java,
+                        SearchScope::class.java,
+                        fqnClass
+                    )
+                    val results = getElements.invoke(instance, project, searchScope, fqnObj) as? Collection<*>
+                    val match = results?.firstOrNull() as? PsiElement
+                    if (match != null) return match
+                } catch (_: Exception) {}
+            }
+        }
+
+        return null
+    }
+
+    /**
+     * Fallback variant of [resolveByFQN] using broader scope or findElement API.
+     * Delegates to [resolveByFQN] — kept for call-site backward compatibility.
+     */
+    protected fun resolveByFQNOnInheritanceIndex(
+        project: Project,
+        fqnStr: String,
+        searchScope: GlobalSearchScope
+    ): PsiElement? = resolveByFQN(project, fqnStr, searchScope)
+
+    /**
+     * Gets the FQNs of modules included via `include` in this class/module.
+     *
+     * Uses getIncludedModules() directly via reflection for simplicity and reliability.
+     * Falls back to processCallsOfType if getIncludedModules() is not available.
+     */
+    protected fun getIncludedModuleFQNs(project: Project, element: PsiElement): List<String> {
+        val fqnClass = fqnClass ?: return emptyList()
+        return try {
+            // Try getIncludedModules() method (available on RClass and RModule)
+            val getIncludedModulesMethod = element.javaClass.getMethod("getIncludedModules")
+            val modules = getIncludedModulesMethod.invoke(element) as? Collection<*>
+            modules?.mapNotNull { mod ->
+                try {
+                    // Try getFQN() first (for RClass), then getQualifiedName() (for RModule)
+                    val fqnStr = mod?.javaClass?.getMethod("getFQN")?.let { method ->
+                        val fqnObj = method.invoke(mod)
+                        if (fqnObj != null) {
+                            val getFullPathMethod = fqnClass.getMethod("getFullPath")
+                            getFullPathMethod.invoke(fqnObj) as? String
+                        } else null
+                    } ?: run {
+                        // Fallback to getQualifiedName() for RModule
+                        mod?.javaClass?.getMethod("getQualifiedName")?.let { method ->
+                            method.invoke(mod) as? String
+                        }
+                    }
+                    fqnStr
+                } catch (_: Exception) {
+                    null
+                }
+            } ?: emptyList()
+        } catch (e: NoSuchMethodException) {
+            // Fallback: try processCallsOfType if getIncludedModules not available
+            getIncludedModuleFQNsViaProcessCalls(element)
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+    
+    private fun getIncludedModuleFQNsViaProcessCalls(element: PsiElement): List<String> {
+        val callTypesClass = rubyIncludeExtendCallTypesClass ?: return emptyList()
+        val fqnClass = fqnClass ?: return emptyList()
+        return try {
+            val includeCallField = callTypesClass.getField("INCLUDE_CALL")
+            val includeCallType = includeCallField.get(null)
+
+            val results = mutableListOf<String>()
+
+            val processMethod = element.javaClass.getMethod(
+                "processCallsOfType",
+                includeCallType.javaClass,
+                com.intellij.util.Consumer::class.java
+            )
+
+            processMethod.invoke(element, includeCallType,
+                com.intellij.util.Consumer<Any> { call ->
+                    try {
+                        val getCallDataMethod = includeCallType.javaClass.getMethod(
+                            "getCallData",
+                            call.javaClass
+                        )
+                        val fqns = getCallDataMethod.invoke(includeCallType, call) as? Collection<*>
+                        fqns?.forEach { fqnObj ->
+                            if (fqnObj != null) {
+                                val path = fqnClass.getMethod("getFullPath").invoke(fqnObj) as? String
+                                if (path != null) results.add(path)
+                            }
+                        }
+                    } catch (_: Exception) {}
+                }
+            )
+
+            results
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    /**
+     * Gets the FQNs of modules extended via `extend` in this class/module.
+     */
+    protected fun getExtendedModuleFQNs(project: Project, element: PsiElement): List<String> {
+        val callTypesClass = rubyIncludeExtendCallTypesClass ?: return emptyList()
+        return try {
+            val extendCallField = callTypesClass.getField("EXTEND_CALL")
+            val extendCallType = extendCallField.get(null)
+
+            val results = mutableListOf<String>()
+            val fqnClass = fqnClass ?: return emptyList()
+
+            val processMethod = try {
+                element.javaClass.getMethod(
+                    "processCallsOfType",
+                    extendCallType.javaClass,
+                    com.intellij.util.Consumer::class.java
+                )
+            } catch (_: NoSuchMethodException) {
+                return emptyList()
+            }
+
+            processMethod.invoke(element, extendCallType,
+                com.intellij.util.Consumer<Any> { call ->
+                    try {
+                        val getCallDataMethod = extendCallType.javaClass.getMethod(
+                            "getCallData",
+                            call.javaClass
+                        )
+                        val fqns = getCallDataMethod.invoke(extendCallType, call) as? Collection<*>
+                        fqns?.forEach { fqnObj ->
+                            if (fqnObj != null) {
+                                val path = fqnClass.getMethod("getFullPath").invoke(fqnObj) as? String
+                                if (path != null) results.add(path)
+                            }
+                        }
+                    } catch (_: Exception) {}
+                }
+            )
+
+            results
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    /**
+     * Finds all classes that inherit from the given FQN.
+     *
+     * Uses RubyInheritanceIndex which maps superclass-SHORT-NAME → subclass elements.
+     * Queries by short name (last segment of fqnStr) to get candidates, then filters
+     * by full FQN match on getSuperClassFQN() to handle namespaced superclasses correctly.
+     *
+     * Falls back to iterating RubyClassModuleNameIndex if RubyInheritanceIndex is unavailable.
+     */
+    protected fun findSubtypesForFQN(
+        project: Project,
+        fqnStr: String,
+        searchScope: GlobalSearchScope
+    ): List<PsiElement> {
+        val fqnClass = fqnClass ?: return emptyList()
+        val inheritanceIndexClass = rubyInheritanceIndexClass
+
+        // Fast path: use RubyInheritanceIndex (superclass-short-name → subclasses)
+        if (inheritanceIndexClass != null) {
+            return try {
+                val getInstanceMethod = inheritanceIndexClass.getMethod("getInstance")
+                val instance = getInstanceMethod.invoke(null)
+
+                // The index is keyed by the superclass SHORT name, not full path.
+                // Create FQN from the short name so getFullPath() == shortName.
+                val shortName = fqnStr.substringAfterLast("::")
+                val ofMethod = fqnClass.getMethod("of", String::class.java)
+                val fqnObj = ofMethod.invoke(null, shortName)
+
+                val getElementsMethod = instance.javaClass.getMethod(
+                    "getElements",
+                    Project::class.java,
+                    SearchScope::class.java,
+                    fqnClass
+                )
+                val candidates = getElementsMethod.invoke(instance, project, searchScope, fqnObj) as? Collection<*>
+
+                // Filter by full FQN to handle namespaced superclasses correctly.
+                candidates?.filterIsInstance<PsiElement>()?.filter { candidate ->
+                    rClassGetSuperClassFQN(candidate) == fqnStr
+                }?.take(100) ?: emptyList()
+            } catch (_: Exception) {
+                emptyList()
+            }
+        }
+
+        // Slow fallback: iterate all class/module names via RubyClassModuleNameIndex
+        val indexClass = rubyClassModuleNameIndexClass ?: return emptyList()
+        return try {
+            val stubIndex = com.intellij.psi.stubs.StubIndex.getInstance()
+            val keyField = indexClass.getField("KEY")
+            val key = keyField.get(null) as? com.intellij.psi.stubs.StubIndexKey<String, *> ?: return emptyList()
+
+            val results = mutableListOf<PsiElement>()
+            val allKeys = stubIndex.getAllKeys(key, project)
+
+            for (name in allKeys) {
+                if (results.size >= 100) break
+                try {
+                    val findMethod = indexClass.getMethod(
+                        "find",
+                        Project::class.java,
+                        String::class.java,
+                        GlobalSearchScope::class.java
+                    )
+                    val candidates = findMethod.invoke(null, project, name, searchScope) as? Collection<*>
+                    candidates?.forEach { candidate ->
+                        if (results.size >= 100) return@forEach
+                        if (candidate is PsiElement) {
+                            val superFqn = rClassGetSuperClassFQN(candidate)
+                            if (superFqn == fqnStr) {
+                                results.add(candidate)
+                            }
+                        }
+                    }
+                } catch (_: Exception) {}
+            }
+
+            results
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    /**
+     * Finds all classes/modules that include a module with the given FQN.
+     *
+     * Uses RubyIncludedExtendedFQNIndex.getOnIncludedElements().
+     */
+    protected fun findIncludingClasses(
+        project: Project,
+        fqnStr: String,
+        searchScope: GlobalSearchScope
+    ): List<PsiElement> {
+        val indexClass = rubyIncludedExtendedFQNIndexClass ?: return emptyList()
+        val fqnClass = fqnClass ?: return emptyList()
+        return try {
+            val getInstanceMethod = indexClass.getMethod("getInstance")
+            val instance = getInstanceMethod.invoke(null)
+
+            val ofMethod = fqnClass.getMethod("of", String::class.java)
+            val fqnObj = ofMethod.invoke(null, fqnStr)
+
+            val getOnIncludedMethod = instance.javaClass.getMethod(
+                "getOnIncludedElements",
+                Project::class.java,
+                SearchScope::class.java,
+                fqnClass
+            )
+            val results = getOnIncludedMethod.invoke(instance, project, searchScope, fqnObj) as? Collection<*>
+            results?.filterIsInstance<PsiElement>()?.take(100) ?: emptyList()
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    /**
+     * Finds all classes/modules that extend a module with the given FQN.
+     *
+     * Uses RubyIncludedExtendedFQNIndex.getOnExtendedElements().
+     */
+    protected fun findExtendingClasses(
+        project: Project,
+        fqnStr: String,
+        searchScope: GlobalSearchScope
+    ): List<PsiElement> {
+        val indexClass = rubyIncludedExtendedFQNIndexClass ?: return emptyList()
+        val fqnClass = fqnClass ?: return emptyList()
+        return try {
+            val getInstanceMethod = indexClass.getMethod("getInstance")
+            val instance = getInstanceMethod.invoke(null)
+
+            val ofMethod = fqnClass.getMethod("of", String::class.java)
+            val fqnObj = ofMethod.invoke(null, fqnStr)
+
+            val getOnExtendedMethod = instance.javaClass.getMethod(
+                "getOnExtendedElements",
+                Project::class.java,
+                SearchScope::class.java,
+                fqnClass
+            )
+            val results = getOnExtendedMethod.invoke(instance, project, searchScope, fqnObj) as? Collection<*>
+            results?.filterIsInstance<PsiElement>()?.take(100) ?: emptyList()
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+}
+
+/**
+ * Ruby implementation of [TypeHierarchyHandler].
+ *
+ * Produces type hierarchy trees for Ruby classes and modules. Supports:
+ * - Single inheritance: `class Child < Parent`
+ * - Module mixins: `include`, `extend`
+ * - Both RClass and RModule as hierarchy roots
+ * - Recursive supertype traversal with cycle detection and max depth guard
+ * - Subtype discovery via index enumeration and mixin reverse lookup
+ *
+ * See [ruby/research/RubyTypeHierarchyHandler.md] for full API analysis.
+ */
+class RubyTypeHierarchyHandler : BaseRubyHandler<TypeHierarchyData>(), TypeHierarchyHandler {
+
+    companion object {
+        private const val MAX_HIERARCHY_DEPTH = 50
+        private const val MAX_SUBTYPES = 100
+    }
+
+    override val languageId = "Ruby"
+
+    override fun canHandle(element: PsiElement): Boolean {
+        return isAvailable() && isRubyLanguage(element)
+    }
+
+    override fun isAvailable(): Boolean = PluginDetectors.ruby.isAvailable && rClassClass != null
+
+    override fun getTypeHierarchy(
+        element: PsiElement,
+        project: Project,
+        scope: BuiltInSearchScope,
+        excludeGenerated: Boolean
+    ): TypeHierarchyData? {
+        val rContainer = findContainingRClassOrRModule(element) ?: return null
+        val searchScope = createNavigationSearchScope(project, scope, excludeGenerated)
+
+        val fqnStr = getRubyQualifiedName(rContainer)
+        val nameStr = getName(rContainer) ?: "unknown"
+
+        val supertypes = getSupertypes(project, rContainer, searchScope)
+        val subtypes = getSubtypes(project, rContainer, fqnStr, searchScope)
+
+        return TypeHierarchyData(
+            element = TypeElementData(
+                name = fqnStr ?: nameStr,
+                qualifiedName = fqnStr,
+                file = rContainer.containingFile?.virtualFile?.let { getRelativePath(project, it) },
+                line = getLineNumber(project, rContainer),
+                kind = if (isRClass(rContainer)) "CLASS" else "MODULE",
+                language = "Ruby"
+            ),
+            supertypes = supertypes,
+            subtypes = subtypes
+        )
+    }
+
+    // ── Supertypes ───────────────────────────────────────────────────────────────
+
+    private fun getSupertypes(
+        project: Project,
+        element: PsiElement,
+        searchScope: GlobalSearchScope,
+        visited: MutableSet<String> = mutableSetOf(),
+        depth: Int = 0
+    ): List<TypeElementData> {
+        if (depth > MAX_HIERARCHY_DEPTH) return emptyList()
+
+        val fqnStr = getRubyQualifiedName(element)
+        val nameStr = getName(element) ?: return emptyList()
+        val key = fqnStr ?: nameStr
+        if (!visited.add(key)) return emptyList()
+
+        val supertypes = mutableListOf<TypeElementData>()
+
+        // ── Superclass (RClass only) ─────────────────────────────────
+        if (isRClass(element)) {
+            val superFqn = rClassGetSuperClassFQN(element)
+            if (superFqn != null && superFqn !in visited) {
+                // Try with navigation scope first, then fall back to broader scopes
+                var superClass = resolveByFQN(project, superFqn, searchScope)
+                if (superClass == null) {
+                    superClass = resolveByFQNOnInheritanceIndex(project, superFqn, searchScope)
+                }
+                if (superClass == null) {
+                    val projectScope = GlobalSearchScope.projectScope(project)
+                    superClass = resolveByFQN(project, superFqn, projectScope)
+                }
+                if (superClass == null) {
+                    val projectScope = GlobalSearchScope.projectScope(project)
+                    superClass = resolveByFQNOnInheritanceIndex(project, superFqn, projectScope)
+                }
+                if (superClass != null && shouldIncludeNavigationElement(searchScope, superClass)) {
+                    val superSupertypes = getSupertypes(project, superClass, searchScope, visited, depth + 1)
+                    supertypes.add(TypeElementData(
+                        name = getRubyQualifiedName(superClass) ?: getName(superClass) ?: superFqn,
+                        qualifiedName = getRubyQualifiedName(superClass),
+                        file = superClass.containingFile?.virtualFile?.let { getRelativePath(project, it) },
+                        line = getLineNumber(project, superClass),
+                        kind = "CLASS",
+                        language = "Ruby",
+                        supertypes = superSupertypes.takeIf { it.isNotEmpty() }
+                    ))
+                }
+            }
+        }
+
+        // ── Included modules (both RClass and RModule) ───────────────
+        val includedFqns = getIncludedModuleFQNs(project, element)
+        for (modFqn in includedFqns) {
+            if (modFqn in visited) continue
+            var modElement = resolveByFQN(project, modFqn, searchScope)
+            if (modElement == null) {
+                modElement = resolveByFQNOnInheritanceIndex(project, modFqn, searchScope)
+            }
+            if (modElement == null) {
+                val projectScope = GlobalSearchScope.projectScope(project)
+                modElement = resolveByFQN(project, modFqn, projectScope)
+            }
+            if (modElement != null && shouldIncludeNavigationElement(searchScope, modElement)) {
+                supertypes.add(TypeElementData(
+                    name = getRubyQualifiedName(modElement) ?: modFqn,
+                    qualifiedName = getRubyQualifiedName(modElement),
+                    file = modElement.containingFile?.virtualFile?.let { getRelativePath(project, it) },
+                    line = getLineNumber(project, modElement),
+                    kind = "MODULE",
+                    language = "Ruby"
+                ))
+            }
+        }
+
+        return supertypes
+    }
+
+    // ── Subtypes ─────────────────────────────────────────────────────────────────
+
+    private fun getSubtypes(
+        project: Project,
+        element: PsiElement,
+        fqnStr: String?,
+        searchScope: GlobalSearchScope
+    ): List<TypeElementData> {
+        val targetFqn = fqnStr ?: return emptyList()
+        val results = mutableListOf<TypeElementData>()
+
+        // Strategy 1: Class inheritance — find classes whose superclass FQN matches
+        val classSubtypes = findSubtypesForFQN(project, targetFqn, searchScope)
+        for (subtype in classSubtypes) {
+            if (results.size >= MAX_SUBTYPES) break
+            val subName = getRubyQualifiedName(subtype) ?: getName(subtype) ?: continue
+            results.add(TypeElementData(
+                name = subName,
+                qualifiedName = getRubyQualifiedName(subtype),
+                file = subtype.containingFile?.virtualFile?.let { getRelativePath(project, it) },
+                line = getLineNumber(project, subtype),
+                kind = if (isRClass(subtype)) "CLASS" else "MODULE",
+                language = "Ruby"
+            ))
+        }
+
+        // Strategy 2: Module mixins — classes/modules that include this element
+        val includingClasses = findIncludingClasses(project, targetFqn, searchScope)
+        for (includer in includingClasses) {
+            if (results.size >= MAX_SUBTYPES) break
+            // Avoid adding the element itself
+            if (includer == element) continue
+            val incName = getRubyQualifiedName(includer) ?: getName(includer) ?: continue
+            if (results.any { it.qualifiedName == getRubyQualifiedName(includer) }) continue
+            results.add(TypeElementData(
+                name = incName,
+                qualifiedName = getRubyQualifiedName(includer),
+                file = includer.containingFile?.virtualFile?.let { getRelativePath(project, it) },
+                line = getLineNumber(project, includer),
+                kind = if (isRClass(includer)) "CLASS" else "MODULE",
+                language = "Ruby"
+            ))
+        }
+
+        return results.take(MAX_SUBTYPES)
+    }
+}
+
+/**
+ * Ruby implementation of [ImplementationsHandler].
+ *
+ * Stub — returns null. Will be implemented with reflection-based PSI access.
+ */
+class RubyImplementationsHandler : BaseRubyHandler<List<ImplementationData>>(), ImplementationsHandler {
+
+    override val languageId = "Ruby"
+
+    override fun canHandle(element: PsiElement): Boolean {
+        return isAvailable() && isRubyLanguage(element)
+    }
+
+    override fun isAvailable(): Boolean = PluginDetectors.ruby.isAvailable && rClassClass != null
+
+    override fun findImplementations(
+        element: PsiElement,
+        project: Project,
+        scope: BuiltInSearchScope,
+        excludeGenerated: Boolean
+    ): List<ImplementationData>? {
+        // Stub: will be implemented with reflection-based Ruby PSI access
+        return null
+    }
+}
+
+/**
+ * Ruby implementation of [CallHierarchyHandler].
+ *
+ * Stub — returns null. Will be implemented with reflection-based PSI access.
+ */
+class RubyCallHierarchyHandler : BaseRubyHandler<CallHierarchyData>(), CallHierarchyHandler {
+
+    override val languageId = "Ruby"
+
+    override fun canHandle(element: PsiElement): Boolean {
+        return isAvailable() && isRubyLanguage(element)
+    }
+
+    override fun isAvailable(): Boolean = PluginDetectors.ruby.isAvailable && rMethodClass != null
+
+    override fun getCallHierarchy(
+        element: PsiElement,
+        project: Project,
+        direction: String,
+        depth: Int,
+        scope: BuiltInSearchScope,
+        excludeGenerated: Boolean
+    ): CallHierarchyData? {
+        // Stub: will be implemented with reflection-based Ruby PSI access
+        return null
+    }
+}
+
+/**
+ * Ruby implementation of [SuperMethodsHandler].
+ *
+ * Stub — returns null. Will be implemented with reflection-based PSI access.
+ */
+class RubySuperMethodsHandler : BaseRubyHandler<SuperMethodsData>(), SuperMethodsHandler {
+
+    override val languageId = "Ruby"
+
+    override fun canHandle(element: PsiElement): Boolean {
+        return isAvailable() && isRubyLanguage(element)
+    }
+
+    override fun isAvailable(): Boolean = PluginDetectors.ruby.isAvailable && rMethodClass != null
+
+    override fun findSuperMethods(element: PsiElement, project: Project): SuperMethodsData? {
+        // Stub: will be implemented with reflection-based Ruby PSI access
+        return null
+    }
+}
+
+/**
+ * Ruby implementation of [StructureHandler].
+ *
+ * Stub — returns empty list. Will be implemented with reflection-based Ruby PSI access.
+ */
+class RubyStructureHandler : BaseRubyHandler<List<StructureNode>>(), StructureHandler {
+
+    override val languageId = "Ruby"
+
+    override fun canHandle(element: PsiElement): Boolean {
+        return isAvailable() && isRubyLanguage(element)
+    }
+
+    override fun isAvailable(): Boolean = PluginDetectors.ruby.isAvailable && rClassClass != null
+
+    override fun getFileStructure(file: PsiFile, project: Project): List<StructureNode> {
+        // Stub: will be implemented with reflection-based Ruby PSI access
+        return emptyList()
+    }
+}
+
+/**
+ * Ruby implementation of [SymbolReferenceHandler].
+ *
+ * Resolves fully-qualified Ruby symbol references to PSI elements.
+ * Supported forms:
+ * - `SomeClass`                       — bare class/module name (top-level)
+ * - `Module::SomeClass`               — namespaced class/module
+ * - `Module::SomeClass#method_name`   — instance method
+ * - `Module::SomeClass.method_name`   — class method (dot notation)
+ * - `Module::SomeClass#method_name!`  — bang method
+ * - `Module::SomeClass#method_name?`  - predicate method
+ *
+ * Stub: validates symbol format only. Full resolution will be implemented
+ * with reflection-based Ruby PSI access.
+ */
+class RubySymbolReferenceHandler : BaseRubyHandler<PsiNamedElement>(), SymbolReferenceHandler {
+
+    companion object {
+        private val LOG = logger<RubySymbolReferenceHandler>()
+
+        // Ruby identifier: allows letters, digits, underscores, and ?/! suffixes
+        private const val RUBY_IDENTIFIER = """[A-Za-z_][A-Za-z0-9_?!]*"""
+
+        // Module/class path segment (no ?/! since these are type names, not method names)
+        private const val PATH_SEGMENT = """[A-Za-z_][A-Za-z0-9_]*"""
+
+        // Full qualified path using :: as namespace separator
+        private const val QUALIFIED_PATH = """$PATH_SEGMENT(::$PATH_SEGMENT)*"""
+
+        // Symbol pattern: optional qualified path, optionally followed by #method or .class_method
+        internal val RUBY_SYMBOL_PATTERN = """^$QUALIFIED_PATH(?:[#.]$RUBY_IDENTIFIER)?$""".toRegex()
+
+        private val SYMBOL_EXAMPLES = listOf(
+            "'User'",
+            "'Admin::User'",
+            "'Admin::User#admin?'",
+            "'Admin::User.find_by_email'"
+        )
+    }
+
+    override val languageId = "Ruby"
+    override val languageName = "Ruby"
+
+    override fun canHandle(element: PsiElement): Boolean {
+        return isAvailable() && isRubyLanguage(element)
+    }
+
+    override fun isAvailable(): Boolean = PluginDetectors.ruby.isAvailable && rClassClass != null
+
+    override fun resolveSymbol(project: Project, symbol: String): Result<PsiNamedElement> {
+        val trimmed = symbol.trim()
+
+        if (trimmed.isEmpty() || !RUBY_SYMBOL_PATTERN.matches(trimmed)) {
+            return Result.failure(IllegalArgumentException(
+                "Symbol '$symbol' does not match expected Ruby symbol format. " +
+                    "Expected: ${SYMBOL_EXAMPLES.joinToString(" or ")}"
+            ))
+        }
+
+        // Stub: format validation passes, but resolution is not yet implemented.
+        // Will use RubyGotoClassContributor and Ruby PSI reflection for real resolution.
+        return Result.failure(IllegalStateException(
+            "Ruby symbol resolution is not yet implemented. " +
+                "Symbol '$trimmed' passed format validation but cannot be resolved."
+        ))
+    }
+}

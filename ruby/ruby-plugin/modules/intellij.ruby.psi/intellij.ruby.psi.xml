@@ -1,0 +1,57 @@
+<idea-plugin visibility="public">
+  <resource-bundle>messages.RBundle</resource-bundle>
+  <dependencies>
+    <module name="intellij.ruby"/>
+  </dependencies>
+  <extensionPoints>
+    <extensionPoint qualifiedName="org.jetbrains.plugins.ruby.rTypeSubtypeContributor"
+                    interface="org.jetbrains.plugins.ruby.ruby.codeInsight.types.RTypeSubTypeContributor" dynamic="true"/>
+    <extensionPoint qualifiedName="org.jetbrains.plugins.ruby.inflectionsProvider"
+                    interface="org.jetbrains.plugins.ruby.utils.RubyInflectionsProvider" dynamic="true"/>
+    <extensionPoint qualifiedName="org.jetbrains.plugins.ruby.templates.integration"
+                    interface="org.jetbrains.plugins.ruby.templates.TemplateIntegration"
+                    dynamic="true"/>
+    <extensionPoint qualifiedName="org.jetbrains.plugins.ruby.serializableTypeResolver"
+                    beanClass="com.intellij.openapi.util.ClassExtensionPoint"
+                    dynamic="true">
+      <with attribute="implementationClass"
+            implements="org.jetbrains.plugins.ruby.ruby.codeInsight.types.serializable.RubySerializableTypeResolver"/>
+    </extensionPoint>
+    <extensionPoint qualifiedName="org.jetbrains.plugins.ruby.callTypeOperator" beanClass="com.intellij.openapi.util.ClassExtensionPoint"
+                    dynamic="true">
+      <with attribute="implementationClass"
+            implements="org.jetbrains.plugins.ruby.ruby.lang.psi.methodCall.RubyCallTypeBase$StorageOperator"/>
+    </extensionPoint>
+    <extensionPoint qualifiedName="org.jetbrains.plugins.ruby.callTypeIndexer" beanClass="com.intellij.openapi.util.ClassExtensionPoint"
+                    dynamic="true">
+      <with attribute="implementationClass"
+            implements="org.jetbrains.plugins.ruby.ruby.lang.psi.methodCall.RubyCallTypeIndexer"/>
+    </extensionPoint>
+    <extensionPoint qualifiedName="org.jetbrains.plugins.ruby.psi.ownDeclarationProvider" dynamic="true"
+                    beanClass="com.intellij.openapi.util.ClassExtensionPoint">
+      <with attribute="forClass" implements="com.intellij.psi.PsiElement"/>
+      <with attribute="implementationClass" implements="org.jetbrains.plugins.ruby.model.psi.declaration.PsiOwnSymbolDeclarationProvider"/>
+    </extensionPoint>
+    <extensionPoint qualifiedName="org.jetbrains.plugins.ruby.psi.ownReferenceProvider" dynamic="true"
+                    beanClass="com.intellij.openapi.util.ClassExtensionPoint">
+      <with attribute="forClass" implements="com.intellij.psi.PsiElement"/>
+      <with attribute="implementationClass" implements="org.jetbrains.plugins.ruby.model.psi.reference.PsiOwnSymbolReferenceProvider"/>
+    </extensionPoint>
+    <extensionPoint qualifiedName="org.jetbrains.plugins.ruby.callTypeReferenceContributorsProvider"
+                    interface="org.jetbrains.plugins.ruby.ruby.lang.psi.methodCall.RubyCallTypeReferenceContributor$Provider"
+                    dynamic="true"/>
+    <extensionPoint qualifiedName="org.jetbrains.plugins.ruby.attributeProvider"
+                    interface="org.jetbrains.plugins.ruby.ruby.codeInsight.symbolicExecution.symbolicExpression.attribute.AttributeProvider"
+                    dynamic="true"/>
+    <extensionPoint qualifiedName="org.jetbrains.plugins.ruby.attributeSerializerProvider"
+                    interface="org.jetbrains.plugins.ruby.ruby.codeInsight.symbolicExecution.symbolicExpression.attribute.AttributeSerializerProvider"
+                    dynamic="true"/>
+    <extensionPoint qualifiedName="org.jetbrains.plugins.ruby.rubyTypeProvider"
+                    interface="org.jetbrains.plugins.ruby.ruby.codeInsight.types.RubyTypeProvider"
+                    dynamic="true"/>
+  </extensionPoints>
+  <extensions defaultExtensionNs="org.jetbrains.plugins.ruby">
+    <callTypeOperator forClass="org.jetbrains.plugins.ruby.ruby.lang.psi.methodCall.UnknownRubyCallType"
+                      implementationClass="org.jetbrains.plugins.ruby.ruby.lang.psi.methodCall.EmptyStorageOperator"/>
+  </extensions>
+</idea-plugin>

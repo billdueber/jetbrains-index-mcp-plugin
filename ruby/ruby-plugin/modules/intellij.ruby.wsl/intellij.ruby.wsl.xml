@@ -1,0 +1,14 @@
+<idea-plugin>
+  <dependencies>
+    <plugin id="org.jetbrains.plugins.wsl.remoteSdk"/>
+    <module name="intellij.ruby.remoteInterpreter"/>
+    <module name="intellij.ruby.backend"/>
+  </dependencies>
+
+  <extensions defaultExtensionNs="com.intellij">
+    <remote.credentialsLanguageContribution implementation="com.intellij.wsl.remote.ruby.RubyWSLCredentialsContribution"/>
+  </extensions>
+  <extensions defaultExtensionNs="org.jetbrains.plugins.ruby">
+    <rubySdkConfigurator implementation="com.intellij.wsl.remote.ruby.RubyWslRemoteSdkConfigurator"/>
+  </extensions>
+</idea-plugin>

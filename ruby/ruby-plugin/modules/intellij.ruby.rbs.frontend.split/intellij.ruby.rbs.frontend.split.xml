@@ -1,0 +1,14 @@
+<idea-plugin>
+  <!-- region Generated dependencies - run `Generate Product Layouts` to regenerate -->
+  <dependencies>
+    <module name="intellij.platform.frontend.split"/>
+    <module name="intellij.rd.client"/>
+    <module name="intellij.ruby.rbs.common"/>
+  </dependencies>
+  <!-- endregion -->
+
+  <extensions defaultExtensionNs="com.intellij">
+    <rdclient.editorActionHandlerStrategyCustomizer implementation="com.intellij.ruby.rbs.frontend.actions.RbsEditorActionHandlerStrategyCustomizer"/>
+    <rdclient.highlighterSuppressionHandler implementation="com.intellij.ruby.rbs.frontend.RbsFrontendHighlighterSuppressionHandler"/>
+  </extensions>
+</idea-plugin>

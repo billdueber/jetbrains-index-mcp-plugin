@@ -1,0 +1,79 @@
+<idea-plugin visibility="public">
+  <!-- region Generated dependencies - run `Generate Product Layouts` to regenerate -->
+  <dependencies>
+    <module name="intellij.ruby.rbs.common"/>
+    <module name="intellij.regexp"/>
+    <module name="intellij.xml.ui.common"/>
+    <module name="intellij.xml.emmet"/>
+    <module name="intellij.ruby.psi.impl"/>
+  </dependencies>
+  <!-- endregion -->
+  <extensions defaultExtensionNs="com.intellij">
+    <lang.elementManipulator forClass="org.jetbrains.plugins.ruby.ruby.lang.psi.ruby19.RAssocKey"
+                             implementationClass="org.jetbrains.plugins.ruby.ruby.lang.psi.RAssocKeyManipulator"/>
+    <lang.elementManipulator forClass="org.jetbrains.plugins.ruby.ruby.lang.psi.basicTypes.RSymbol"
+                             implementationClass="org.jetbrains.plugins.ruby.ruby.lang.psi.RSymbolManipulator"/>
+    <lang.elementManipulator forClass="org.jetbrains.plugins.ruby.ruby.lang.psi.basicTypes.stringLiterals.RBaseString"
+                             implementationClass="org.jetbrains.plugins.ruby.ruby.lang.psi.RStringLiteralManipulator"/>
+    <lang.elementManipulator forClass="org.jetbrains.plugins.ruby.ruby.lang.psi.impl.basicTypes.stringLiterals.xString.RDXStringLiteralImpl"
+                             implementationClass="org.jetbrains.plugins.ruby.ruby.lang.psi.RStringLiteralManipulator"/>
+    <lang.elementManipulator forClass="org.jetbrains.plugins.ruby.ruby.lang.psi.impl.basicTypes.stringLiterals.words.RAbstractWords"
+                             implementationClass="org.jetbrains.plugins.ruby.ruby.lang.psi.RStringLiteralManipulator"/>
+    <lang.elementManipulator forClass="org.jetbrains.plugins.ruby.ruby.lang.psi.impl.basicTypes.stringLiterals.heredocs.RHeredocValueImpl"
+                             implementationClass="org.jetbrains.plugins.ruby.ruby.lang.psi.RHeredocManipulator"/>
+    <lang.elementManipulator forClass="org.jetbrains.plugins.ruby.ruby.lang.psi.impl.controlStructures.blocks.RCompoundStatementImpl"
+                             implementationClass="org.jetbrains.plugins.ruby.ruby.lang.psi.RCompoundStatementManipulator"/>
+    <lang.elementManipulator forClass="org.jetbrains.plugins.ruby.ruby.lang.psi.methodCall.RCall"
+                             implementationClass="org.jetbrains.plugins.ruby.ruby.lang.psi.RCallManipulator"/>
+    <lang.syntaxHighlighter language="rbenv-gemsets"
+                            implementationClass="org.jetbrains.plugins.ruby.version.management.rbenv.gemsets.RbenvGemsetsSyntaxHightlighter"/>
+    <statementUpDownMover implementation="org.jetbrains.plugins.ruby.ruby.refactoring.move.RubyStatementUpDownMover" id="ruby"
+                          order="before line, after statement"/>
+    <enterBetweenBracesDelegate language="ruby"
+                                implementationClass="com.intellij.codeInsight.editorActions.enter.EnterBetweenBracesAndBracketsDelegate"/>
+    <enterHandlerDelegate implementation="org.jetbrains.plugins.ruby.ruby.actions.editor.handlers.RubyBraceBlockEnterHandler"
+                          order="before RubyEnterHandler"/>
+    <codeStyleSettingsProvider implementation="org.jetbrains.plugins.ruby.settings.RubyGenerationSettingsProvider"/>
+
+    <!-- ERB -->
+    <basicWordSelectionFilter implementation="org.jetbrains.plugins.ruby.erb.ErbWordSelectionerFilter"/>
+    <extendWordSelectionHandler implementation="org.jetbrains.plugins.ruby.erb.codeInsight.ErbWordSelectionHandler"/>
+    <enterHandlerDelegate implementation="org.jetbrains.plugins.ruby.erb.ErbEnterHandler"/>
+    <colorSettingsPage implementation="org.jetbrains.plugins.ruby.erb.highlighting.ErbColorsPage"/>
+    <lang.braceMatcher language="ERB" implementationClass="org.jetbrains.plugins.ruby.erb.ErbPairedBraceMatcher"/>
+    <lang.commenter language="ERB" implementationClass="org.jetbrains.plugins.ruby.erb.ErbCommenter"/>
+    <lang.syntaxHighlighter language="ERB"
+                            implementationClass="org.jetbrains.plugins.ruby.erb.highlighting.ErbFileHighlighterImpl"/>
+    <editorHighlighterProvider filetype="ERB" implementationClass="org.jetbrains.plugins.ruby.erb.ErbEditorHighlighterProvider"/>
+    <langCodeStyleSettingsProvider implementation="org.jetbrains.plugins.ruby.erb.formatter.settings.ErbLanguageCodeStyleSettingsProvider"/>
+    <typedHandler implementation="org.jetbrains.plugins.ruby.erb.ErbTypedHandler"/>
+    <codeStyleSettingsProvider implementation="org.jetbrains.plugins.ruby.erb.formatter.settings.ErbCodeStyleSettingsProvider"/>
+    <lang.formatter language="ERB" implementationClass="org.jetbrains.plugins.ruby.erb.formatter.ErbFormattingModelBuilder"/>
+
+    <xml.zenCodingGenerator implementation="org.jetbrains.plugins.ruby.erb.surround.ErbZenCodingGenerator"/>
+    <!-- EOF ERB -->
+
+    <!-- Regular expressions -->
+    <lang.parserDefinition language="Ruby19RegExp"
+                           implementationClass="org.jetbrains.plugins.ruby.ruby.lang.psi.impl.basicTypes.stringLiterals.regexp.Ruby19RegexpParserDefinition"/>
+    <lang.parserDefinition language="RubyVerboseRegExp"
+                           implementationClass="org.jetbrains.plugins.ruby.ruby.lang.psi.impl.basicTypes.stringLiterals.regexp.RubyVerboseRegexpParserDefinition"/>
+    <regExpMatcherProvider language="Ruby19RegExp" implementationClass="org.jetbrains.plugins.ruby.ruby.regexp.RubyRegExpMatcherProvider"/>
+    <lang.syntaxHighlighterFactory
+      language="Ruby19RegExp"
+      implementationClass="org.jetbrains.plugins.ruby.ruby.lang.psi.impl.basicTypes.stringLiterals.regexp.Ruby19RegExpSyntaxHighlighterFactory"/>
+    <lang.elementManipulator forClass="org.jetbrains.plugins.ruby.ruby.lang.psi.basicTypes.stringLiterals.RRegexpLiteral"
+                             implementationClass="org.jetbrains.plugins.ruby.ruby.regexp.RRegexpLiteralManipulator"/>
+    <regExpLanguageHost forClass="org.jetbrains.plugins.ruby.ruby.lang.psi.basicTypes.stringLiterals.RRegexpLiteral"
+                        implementationClass="org.jetbrains.plugins.ruby.ruby.lang.psi.impl.basicTypes.stringLiterals.regexp.RubyRegExpLanguageHost"/>
+    <!-- EOF Regular expressions -->
+
+  </extensions>
+
+  <extensions defaultExtensionNs="org.jetbrains.plugins.ruby">
+    <!-- ERB -->
+    <templates.elements.provider implementation="org.jetbrains.plugins.ruby.erb.RubyErbElementsProviderImpl"/>
+    <templates.integration implementation="org.jetbrains.plugins.ruby.erb.RubyErbIntegrationImpl"/>
+    <!-- EOF ERB -->
+  </extensions>
+</idea-plugin>

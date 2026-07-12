@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templateSet group="Rails">
+  <template name="reda" value="redirect_to action: :$ACTION$$END$" toReformat="true" toShortenFQNames="true"
+            key="live.templates.group.rails.controller.reda.description" resource-bundle="messages.RBundle">
+    <variable name="ACTION" expression="complete()" defaultValue="" alwaysStopAt="true"/>
+    <context>
+      <option name="RAILS_CONTROLLER" value="true"/>
+    </context>
+  </template>
+  <template name="redb" value="redirect_to :back" toReformat="true" toShortenFQNames="true"
+            key="live.templates.group.rails.controller.redb.description" resource-bundle="messages.RBundle">
+    <context>
+      <option name="RAILS_CONTROLLER" value="true"/>
+    </context>
+  </template>
+  <template name="redca" value="redirect_to controller: :$CONTROLLER$, action: :$ACTION$$END$" toReformat="true" toShortenFQNames="true"
+            key="live.templates.group.rails.controller.redca.description" resource-bundle="messages.RBundle">
+    <variable name="CONTROLLER" expression="complete()" defaultValue="" alwaysStopAt="true"/>
+    <variable name="ACTION" expression="complete()" defaultValue="" alwaysStopAt="true"/>
+    <context>
+      <option name="RAILS_CONTROLLER" value="true"/>
+    </context>
+  </template>
+  <template name="redu" value="redirect_to $URL$$END$" toReformat="true" toShortenFQNames="true"
+            key="live.templates.group.rails.controller.redu.description" resource-bundle="messages.RBundle">
+    <variable name="URL" expression="" defaultValue="&#34;root_url&#34;" alwaysStopAt="true"/>
+    <context>
+      <option name="RAILS_CONTROLLER" value="true"/>
+    </context>
+  </template>
+  <template name="rena" value="render :$ACTION$$END$" toReformat="true" toShortenFQNames="true"
+            key="live.templates.group.rails.controller.rena.description" resource-bundle="messages.RBundle">
+    <variable name="ACTION" expression="complete()" defaultValue="" alwaysStopAt="true"/>
+    <context>
+      <option name="RAILS_CONTROLLER" value="true" />
+    </context>
+  </template>
+  <template name="renb" value="render body: '$TEXT$'$END$" toReformat="true" toShortenFQNames="true"
+            key="live.templates.group.rails.controller.renb.description" resource-bundle="messages.RBundle">
+    <variable name="TEXT" expression="" defaultValue="" alwaysStopAt="true" />
+    <context>
+      <option name="RAILS_CONTROLLER" value="true" />
+    </context>
+  </template>
+  <template name="renf" value="render file: '$FILEPATH$'$END$" toReformat="true" toShortenFQNames="true"
+            key="live.templates.group.rails.controller.renf.description" resource-bundle="messages.RBundle">
+    <variable name="FILEPATH" expression="" defaultValue="" alwaysStopAt="true" />
+    <context>
+      <option name="RAILS_CONTROLLER" value="true" />
+    </context>
+  </template>
+  <template name="renh" value="render html: '$HTML$'.html_safe$END$" toReformat="true" toShortenFQNames="true"
+            key="live.templates.group.rails.controller.renh.description" resource-bundle="messages.RBundle">
+    <variable name="HTML" expression="" defaultValue="" alwaysStopAt="true" />
+    <context>
+      <option name="RAILS_CONTROLLER" value="true" />
+    </context>
+  </template>
+  <template name="renj" value="render json: $OBJECT$$END$" toReformat="true" toShortenFQNames="true"
+            key="live.templates.group.rails.controller.renj.description" resource-bundle="messages.RBundle">
+    <variable name="OBJECT" expression="" defaultValue="" alwaysStopAt="true" />
+    <context>
+      <option name="RAILS_CONTROLLER" value="true" />
+    </context>
+  </template>
+  <template name="renp" value="render partial: '$PARTIAL$'$END$" toReformat="true" toShortenFQNames="true"
+            key="live.templates.group.rails.controller.renp.description" resource-bundle="messages.RBundle">
+    <variable name="PARTIAL" expression="complete()" defaultValue="" alwaysStopAt="true" />
+    <context>
+      <option name="RAILS_CONTROLLER" value="true" />
+    </context>
+  </template>
+  <template name="renr" value="render plain: '$TEXT$'$END$" toReformat="true" toShortenFQNames="true"
+            key="live.templates.group.rails.controller.renr.description" resource-bundle="messages.RBundle">
+    <variable name="TEXT" expression="" defaultValue="" alwaysStopAt="true" />
+    <context>
+      <option name="RAILS_CONTROLLER" value="true" />
+    </context>
+  </template>
+  <template name="renx" value="render xml: $OBJECT$$END$" toReformat="true" toShortenFQNames="true"
+            key="live.templates.group.rails.controller.renx.description" resource-bundle="messages.RBundle">
+    <variable name="OBJECT" expression="" defaultValue="" alwaysStopAt="true" />
+    <context>
+      <option name="RAILS_CONTROLLER" value="true" />
+    </context>
+  </template>
+</templateSet>

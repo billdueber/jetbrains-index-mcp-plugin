@@ -1,0 +1,9 @@
+<idea-plugin>
+  <dependencies>
+    <plugin id="com.intellij.copyright"/>
+    <module name="intellij.ruby.rbs.backend"/>
+  </dependencies>
+  <extensions defaultExtensionNs="com.intellij.copyright">
+    <updater filetype="RBS" implementationClass="com.intellij.lang.ruby.rbs.copyright.RbsUpdateCopyrightsProvider"/>
+  </extensions>
+</idea-plugin>

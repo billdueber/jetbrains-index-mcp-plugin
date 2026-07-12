@@ -49,6 +49,12 @@ object PluginDetectors {
         fallbackClass = "org.jetbrains.kotlin.psi.KtFile"
     )
 
+    val ruby = PluginDetector(
+        name = "Ruby",
+        pluginIds = listOf("org.jetbrains.plugins.ruby"),
+        fallbackClass = "org.jetbrains.plugins.ruby.ruby.lang.psi.controlStructures.classes.RClass"
+    )
+
     val maven = PluginDetector(
         name = "Maven",
         pluginIds = listOf("org.jetbrains.idea.maven"),

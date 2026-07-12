@@ -114,18 +114,21 @@ object TreeFormatter {
             StructureKind.METHOD -> when {
                 normalizedLanguage == "java" -> "method"
                 normalizedLanguage == "python" -> "method"
+                normalizedLanguage == "ruby" -> "method"
                 normalizedLanguage == "kotlin" -> "fun"
                 else -> "method"
             }
             StructureKind.FUNCTION -> when {
                 normalizedLanguage == "java" -> "method"
                 normalizedLanguage == "python" -> "def"
+                normalizedLanguage == "ruby" -> "def"
                 normalizedLanguage == "kotlin" -> "fun"
                 else -> "function"
             }
             StructureKind.FIELD -> when {
                 normalizedLanguage == "java" -> "field"
                 normalizedLanguage == "python" -> "variable"
+                normalizedLanguage == "ruby" -> "variable"
                 normalizedLanguage == "kotlin" -> "val"
                 else -> "field"
             }

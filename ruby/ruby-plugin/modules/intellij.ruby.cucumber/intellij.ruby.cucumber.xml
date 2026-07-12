@@ -1,0 +1,88 @@
+<idea-plugin>
+  <dependencies>
+    <plugin id="gherkin"/>
+    <module name="intellij.ruby.backend"/>
+  </dependencies>
+
+  <extensions defaultExtensionNs="com.intellij">
+    <iconProvider implementation="org.jetbrains.plugins.ruby.cucumber.CucumberIconProvider"/>
+    <elementDescriptionProvider implementation="org.jetbrains.plugins.ruby.cucumber.CucumberElementDescriptionProvider" order="first"/>
+    <configurationType implementation="org.jetbrains.plugins.ruby.cucumber.run.CucumberRunConfigurationType"/>
+
+    <runConfigurationProducer implementation="org.jetbrains.plugins.ruby.cucumber.run.CucumberRunConfigurationProducer"/>
+
+    <localInspection language="ruby" shortName="CucumberDuplicatedStep" bundle="messages.CucumberBundle"
+                     key="inspection.duplicate.step.definition.name" groupKey="cucumber.inspection.group.name" groupPath="Ruby"
+                     enabledByDefault="true" level="ERROR"
+                     implementationClass="org.jetbrains.plugins.ruby.cucumber.inspections.CucumberStepDuplicatedInspection"/>
+    <localInspection language="ruby" shortName="CucumberStepDefinitionParameter" bundle="messages.CucumberBundle"
+                     key="inspection.step.definition.parameter.count.name" groupKey="cucumber.inspection.group.name" groupPath="Ruby"
+                     enabledByDefault="true" level="WARNING"
+                     implementationClass="org.jetbrains.plugins.ruby.cucumber.inspections.CucumberStepDefinitionParameterInspection"/>
+
+    <codeInsight.lineMarkerProvider language="Gherkin"
+                                    implementationClass="org.jetbrains.plugins.ruby.cucumber.codeinsight.CucumberLineMarkerProvider"/>
+    <codeInsight.lineMarkerProvider language="ruby"
+                                    implementationClass="org.jetbrains.plugins.ruby.cucumber.codeinsight.CucumberLineMarkerProvider"/>
+    <runConfigurationProducer implementation="org.jetbrains.plugins.ruby.cucumber.run.AllFeaturesInFolderRunConfigurationProducer"/>
+    <applicationService serviceImplementation="org.jetbrains.plugins.ruby.cucumber.inspections.StepDefinitionsSnippetsFactory"/>
+    <psi.referenceContributor language="ruby" implementation="org.jetbrains.plugins.ruby.cucumber.ruby.steps.CucumberRubyReferenceContributor"/>
+
+    <referencesSearch implementation="org.jetbrains.plugins.ruby.cucumber.search.CucumberStepDefinitionSearch"/>
+
+    <stubIndex implementation="org.jetbrains.plugins.ruby.cucumber.ruby.RubyCucumberCallIndex" />
+    <stubIndex implementation="org.jetbrains.plugins.ruby.cucumber.ruby.RubyCucumberParameterTypeIndex" />
+
+    <lang.documentationProvider language="ruby" implementationClass="org.jetbrains.plugins.ruby.cucumber.docs.RubyCucumberDocumentationProvider" order="first"/>
+
+    <lang.findUsagesProvider language="ruby" implementationClass="org.jetbrains.plugins.ruby.cucumber.search.CucumberRubyFindUsagesProvider"
+                             order="before ruby"/>
+    <lang.findUsagesProvider language="Ruby19RegExp" implementationClass="org.jetbrains.plugins.ruby.cucumber.search.CucumberRubyFindUsagesProvider"/>
+
+    <psi.referenceContributor language="ruby"
+                              implementation="org.jetbrains.plugins.ruby.cucumber.codeinsight.CucumberRubyStringReferenceProvider"/>
+
+    <applicationService serviceInterface="org.jetbrains.plugins.ruby.cucumberApi.CucumberInfoProvider"
+                        serviceImplementation="org.jetbrains.plugins.ruby.cucumber.CucumberInfoProviderImpl"/>
+  </extensions>
+
+  <extensions defaultExtensionNs="org.jetbrains.plugins.ruby">
+    <rake.rakeRunCommandLineModifierProvider implementation="org.jetbrains.plugins.ruby.cucumber.CucumberRakeCommandLineModifierProvider"/>
+    <rubyElementNameAndDescriptionProvider
+        implementation="org.jetbrains.plugins.ruby.cucumber.CucumberRubyElementNameAndDescriptionProvider"/>
+    <runnableScriptFilter implementation="org.jetbrains.plugins.ruby.cucumber.run.CucumberRunnableScriptFilter"/>
+    <generatorConfigurator implementation="org.jetbrains.plugins.ruby.cucumber.actions.generators.CucumberGeneratorActionConfigurator"/>
+
+    <callTypeProvider implementation="org.jetbrains.plugins.ruby.cucumber.ruby.RubyCucumberCallTypeProvider"/>
+    <callTypeIndexer forClass="org.jetbrains.plugins.ruby.cucumber.ruby.CucumberParameterTypeCallType"
+                     implementationClass="org.jetbrains.plugins.ruby.cucumber.ruby.CucumberParameterTypeCallTypeIndexer"/>
+    <callTypeOperator forClass="org.jetbrains.plugins.ruby.cucumber.ruby.CucumberParameterTypeCallType"
+                      implementationClass="org.jetbrains.plugins.ruby.cucumber.ruby.CucumberParameterTypeCallTypeStorageOperator"/>
+    <callTypeIndexer forClass="org.jetbrains.plugins.ruby.cucumber.ruby.RubyCucumberCallType"
+                     implementationClass="org.jetbrains.plugins.ruby.cucumber.ruby.RubyCucumberCallTypeIndexer"/>
+    <callTypeOperator forClass="org.jetbrains.plugins.ruby.cucumber.ruby.RubyCucumberCallType"
+                      implementationClass="org.jetbrains.plugins.ruby.cucumber.ruby.RubyCucumberCallTypeStorageOperator"/>
+
+    <rerunFailedTestsActionProvider implementation="org.jetbrains.plugins.ruby.cucumber.run.CucumberRerunFailedTestsProvider"/>
+  </extensions>
+
+  <extensions defaultExtensionNs="org.jetbrains.plugins.cucumber.steps">
+    <cucumberJvmExtensionPoint implementation="org.jetbrains.plugins.ruby.cucumber.ruby.steps.RubyCucumberExtension"/>
+  </extensions>
+
+  <actions>
+    <group id="ruby.cucumber.actions">
+      <action id="rails:generator:cucumber"
+              class="org.jetbrains.plugins.ruby.cucumber.actions.generators.ConfigureCucumberSupportAction"/>
+      <action id="rails:generator:feature"
+              class="org.jetbrains.plugins.ruby.cucumber.actions.generators.GenerateFeatureAction"/>
+      <action id="rails:generator:cucumber:install"
+              class="org.jetbrains.plugins.ruby.cucumber.actions.generators.ConfigureCucumberSupportAction$Install"/>
+      <action id="rails:generator:cucumber:feature"
+              class="org.jetbrains.plugins.ruby.cucumber.actions.generators.GenerateFeatureAction$Cucumber"/>
+      <action id="rails:generator:cucumber:skeleton"
+              class="org.jetbrains.plugins.ruby.cucumber.actions.generators.ConfigureCucumberSupportAction$Skeleton"/>
+
+    </group>
+  </actions>
+</idea-plugin>

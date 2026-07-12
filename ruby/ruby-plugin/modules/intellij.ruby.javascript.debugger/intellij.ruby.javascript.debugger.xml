@@ -1,0 +1,35 @@
+<idea-plugin>
+  <!-- region Generated dependencies - run `Generate Product Layouts` to regenerate -->
+  <dependencies>
+    <module name="intellij.javascript.analysis.impl"/>
+    <module name="intellij.javascript.backend"/>
+    <module name="intellij.javascript.debugger.backend"/>
+    <module name="intellij.javascript.parser"/>
+    <module name="intellij.javascript.psi.impl"/>
+    <module name="intellij.ruby.backend"/>
+  </dependencies>
+  <!-- endregion -->
+  <extensions defaultExtensionNs="com.jetbrains">
+    <templateLanguageHandler implementation="com.intellij.javascript.debugger.rails.RailsJavaScriptTemplateLanguageHandler" />
+  </extensions>
+
+  <extensions defaultExtensionNs="org.jetbrains">
+    <javaScriptDebuggerStarter implementation="com.intellij.javascript.debugger.rails.RailsJavaScriptDebuggerStarter"/>
+    <plugins.ruby.rubyRenameProcessor
+        implementation="com.intellij.javascript.debugger.rails.actionCable.RenameByRailsChannelClassProcessor"/>
+  </extensions>
+
+  <extensions defaultExtensionNs="com.intellij">
+    <psi.referenceContributor language="JavaScript" implementation="com.intellij.javascript.debugger.rails.RailsReferenceContributor"/>
+    <gotoRelatedProvider implementation="com.intellij.javascript.debugger.rails.actionCable.ActionCableGotoRelatedProvider"/>
+
+    <localInspection language="JavaScript" shortName="ActionCableChannelNotFound" bundle="messages.RBundle"
+                     key="rails.action.cable.undefined.channel.inspection.name"
+                     groupKey="inspection.group.ruby.rails.name" groupPath="Ruby" enabledByDefault="true" level="WARNING"
+                     implementationClass="com.intellij.javascript.debugger.rails.actionCable.ActionCableChannelNotFoundInspection"/>
+    <codeInsight.lineMarkerProvider language="JavaScript"
+                                    implementationClass="com.intellij.javascript.debugger.rails.actionCable.ActionCableClientLineMarkerProvider"/>
+    <codeInsight.lineMarkerProvider language="ruby"
+                                    implementationClass="com.intellij.javascript.debugger.rails.actionCable.ActionCableLineMarkerProvider"/>
+  </extensions>
+</idea-plugin>

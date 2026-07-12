@@ -1,0 +1,1 @@
+module Auditable; end

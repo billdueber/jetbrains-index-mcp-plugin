@@ -1,0 +1,9 @@
+<idea-plugin>
+  <dependencies>
+    <plugin id="com.intellij.plugins.watcher"/>
+    <module name="intellij.ruby.backend"/>
+  </dependencies>
+  <extensions defaultExtensionNs="com.intellij.plugins.watcher">
+    <suppressor implementation="org.jetbrains.plugins.ruby.watcher.RailsBackgroundTaskSuppressor"/>
+  </extensions>
+</idea-plugin>

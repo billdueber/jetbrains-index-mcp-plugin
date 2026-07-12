@@ -1,0 +1,17 @@
+<idea-plugin>
+  <dependencies>
+    <plugin id="com.intellij.diagram"/>
+    <module name="intellij.ruby.backend"/>
+  </dependencies>
+
+  <extensions defaultExtensionNs="com.intellij">
+    <diagram.changesProvider implementation="com.intellij.diagram.ruby.RubyChangeProvider"/>
+    <diagram.Provider implementation="com.intellij.diagram.ruby.RubyDiagramProvider"/>
+    <diagram.Provider implementation="com.intellij.diagram.ruby.rails.RailsUmlDiagramProvider"/>
+    <diagram.Provider implementation="com.intellij.diagram.ruby.gem.dependency.GemDependencyDiagramProvider"/>
+    <moduleService serviceInterface="com.intellij.diagram.ruby.rails.associations.AssociationManager"
+                   serviceImplementation="com.intellij.diagram.ruby.rails.associations.AssociationManagerImpl"/>
+  </extensions>
+  <actions>
+  </actions>
+</idea-plugin>

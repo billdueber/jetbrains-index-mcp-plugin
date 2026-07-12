@@ -1,0 +1,12 @@
+<idea-plugin>
+  <dependencies>
+    <plugin id="org.jetbrains.plugins.terminal"/>
+    <module name="intellij.ruby.backend"/>
+  </dependencies>
+
+  <extensions defaultExtensionNs="org.jetbrains.plugins.terminal">
+    <shellExecOptionsCustomizer implementation="org.jetbrains.plugins.ruby.terminal.RubyLocalTerminalCustomizer"/>
+    <commandSpecsProvider implementation="org.jetbrains.plugins.ruby.terminal.RubyShellCommandSpecsProvider"/>
+    <commandSpecsProvider implementation="org.jetbrains.plugins.ruby.terminal.rails.RailsShellCommandSpecsProvider"/>
+  </extensions>
+</idea-plugin>

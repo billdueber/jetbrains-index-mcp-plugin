@@ -1,0 +1,2 @@
+module Authenticatable
+end

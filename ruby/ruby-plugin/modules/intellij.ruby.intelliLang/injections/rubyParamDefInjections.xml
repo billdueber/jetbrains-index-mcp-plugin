@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component name="LanguageInjectionConfiguration">
+  <injection language="ruby" injector-id="ruby" paramdef="true" enabled="true">
+    <display-name>Call arguments</display-name>
+  </injection>
+
+  <injection language="SQL" injector-id="ruby" paramdef="true" enabled="true">
+    <display-name>Call arguments</display-name>
+  </injection>
+</component>

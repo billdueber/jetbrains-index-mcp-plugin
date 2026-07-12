@@ -1,0 +1,11 @@
+<idea-plugin>
+  <dependencies>
+    <module name="intellij.ruby.java"/>
+    <module name="intellij.ruby.puppet.shared"/>
+    <module name="intellij.ruby.backend"/>
+  </dependencies>
+
+  <extensions defaultExtensionNs="com.intellij">
+    <moduleBuilder builderClass="com.intellij.lang.puppet.ruby.java.ide.project.idea.PuppetModuleBuilder"/>
+  </extensions>
+</idea-plugin>

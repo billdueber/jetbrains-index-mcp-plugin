@@ -1,0 +1,712 @@
+<idea-plugin visibility="internal">
+    <dependencies>
+      <module name="intellij.platform.backend"/>
+      <module name="intellij.ruby.backend"/>
+      <!-- region Generated dependencies - run `Generate Product Layouts` to regenerate -->
+      <module name="intellij.platform.structureView.impl"/>
+      <module name="intellij.ruby.rbs.common"/>
+      <module name="intellij.spellchecker"/>
+      <!-- endregion -->
+    </dependencies>
+
+  <extensionPoints>
+    <extensionPoint qualifiedName="com.intellij.lang.ruby.rbs.containerHierarchyMapper"
+                    interface="com.intellij.lang.ruby.rbs.model.hierarchy.RbsContainerHierarchyMapper"
+                    dynamic="true"/>
+
+    <extensionPoint qualifiedName="com.intellij.lang.ruby.rbs.psi.typeSignatureSerializer" dynamic="true"
+                    beanClass="com.intellij.openapi.util.ClassExtensionPoint">
+      <with attribute="forClass" implements="com.intellij.ruby.rbs.common.psi.data.RbsTypeSignature"/>
+      <with attribute="implementationClass" implements="com.intellij.ruby.rbs.common.psi.data.RbsTypeSignatureSerializer"/>
+    </extensionPoint>
+  </extensionPoints>
+
+  <extensions defaultExtensionNs="com.intellij">
+    <registryKey key="rbs.symbols.cache.size" defaultValue="10000" restartRequired="true"
+                 description="The base size of caches that store symbols for code insight (e.g., a single class or module)."/>
+
+    <notificationGroup id="rbs.fileGeneration" displayType="BALLOON" bundle="messages.RbsBundle" key="rbs.notificationGroup.fileGeneration"/>
+    <notificationGroup id="rbs.collection" displayType="NONE" bundle="messages.RbsBundle" key="rbs.collection.notificationGroup"/>
+
+    <languageStubDefinition language="ruby.rbs" implementationClass="com.intellij.lang.ruby.rbs.psi.tree.RbsStubDefinition"/>
+    <stubElementRegistryExtension implementation="com.intellij.lang.ruby.rbs.psi.tree.RbsStubRegistryExtension"/>
+
+    <lang.foldingBuilder language="ruby.rbs" implementationClass="com.intellij.lang.ruby.rbs.folding.RbsFoldingBuilder"/>
+    <codeInsight.parameterInfo language="ruby" order="before ruby"
+                               implementationClass="com.intellij.lang.ruby.rbs.ruby.lang.parameterInfo.RbsRubyParameterInfoHandler"/>
+
+    <codeInsight.inlayActionHandler implementationClass="com.intellij.lang.ruby.rbs.ruby.codeInsight.hints.types.RbsRubyNavigationInlayActionHandler"
+                                    handlerId="rbs.ruby.navigation.handler"/>
+
+    <codeInsight.declarativeInlayProvider language="ruby"
+                                          implementationClass="com.intellij.lang.ruby.rbs.ruby.codeInsight.hints.types.RbsRubyAttributeTypeHintsProvider"
+                                          providerId="rbs.ruby.attribute.type.hints" group="TYPES_GROUP" isEnabledByDefault="true"
+                                          bundle="messages.RbsBundle" nameKey="rbs.inlay.hints.ruby.attribute.type.name"
+                                          descriptionKey="rbs.inlay.hints.ruby.attribute.type.description"/>
+    <codeInsight.declarativeInlayProvider language="ruby"
+                                          implementationClass="com.intellij.lang.ruby.rbs.ruby.codeInsight.hints.types.RbsRubyBlockParameterTypeHintsProvider"
+                                          providerId="rbs.ruby.block.parameter.type.hints" group="TYPES_GROUP" isEnabledByDefault="true"
+                                          bundle="messages.RbsBundle" nameKey="rbs.inlay.hints.ruby.block.parameter.type.name"
+                                          descriptionKey="rbs.inlay.hints.ruby.block.parameter.type.description"/>
+    <codeInsight.declarativeInlayProvider language="ruby"
+                                          implementationClass="com.intellij.lang.ruby.rbs.ruby.codeInsight.hints.types.RbsRubyBlockSelfTypeHintsProvider"
+                                          providerId="rbs.ruby.block.self.type.hints" group="TYPES_GROUP" isEnabledByDefault="true"
+                                          bundle="messages.RbsBundle" nameKey="rbs.inlay.hints.ruby.block.self.type.name"
+                                          descriptionKey="rbs.inlay.hints.ruby.block.self.type.description"/>
+    <codeInsight.declarativeInlayProvider language="ruby"
+                                          implementationClass="com.intellij.lang.ruby.rbs.ruby.codeInsight.hints.types.RbsRubyConstantTypeHintsProvider"
+                                          providerId="rbs.ruby.constant.type.hints" group="TYPES_GROUP" isEnabledByDefault="true"
+                                          bundle="messages.RbsBundle" nameKey="rbs.inlay.hints.ruby.constant.type.name"
+                                          descriptionKey="rbs.inlay.hints.ruby.constant.type.description"/>
+    <codeInsight.declarativeInlayProvider language="ruby" id="containerTypeHints"
+                                          implementationClass="com.intellij.lang.ruby.rbs.ruby.codeInsight.hints.types.RbsRubyContainerTypeHintsProvider"
+                                          providerId="rbs.ruby.container.type.hints" group="TYPES_GROUP" isEnabledByDefault="true"
+                                          bundle="messages.RbsBundle" nameKey="rbs.inlay.hints.ruby.container.type.name"
+                                          descriptionKey="rbs.inlay.hints.ruby.container.type.description"/>
+    <codeInsight.declarativeInlayProvider language="ruby"
+                                          implementationClass="com.intellij.lang.ruby.rbs.ruby.codeInsight.hints.types.RbsRubyGlobalVariableTypeHintsProvider"
+                                          providerId="rbs.ruby.global.variable.type.hints" group="TYPES_GROUP" isEnabledByDefault="true"
+                                          bundle="messages.RbsBundle" nameKey="rbs.inlay.hints.ruby.global.variable.type.name"
+                                          descriptionKey="rbs.inlay.hints.ruby.global.variable.type.description"/>
+    <codeInsight.declarativeInlayProvider language="ruby"
+                                          implementationClass="com.intellij.lang.ruby.rbs.ruby.codeInsight.hints.types.RbsRubyMethodParameterTypeHintsProvider"
+                                          providerId="rbs.ruby.method.parameter.type.hints" group="TYPES_GROUP" isEnabledByDefault="true"
+                                          bundle="messages.RbsBundle" nameKey="rbs.inlay.hints.ruby.method.parameter.type.name"
+                                          descriptionKey="rbs.inlay.hints.ruby.method.parameter.type.description"/>
+    <codeInsight.declarativeInlayProvider language="ruby"
+                                          implementationClass="com.intellij.lang.ruby.rbs.ruby.codeInsight.hints.types.RbsRubyMethodReturnTypeHintsProvider"
+                                          providerId="rbs.ruby.method.return.type.hints" group="TYPES_GROUP" isEnabledByDefault="true"
+                                          bundle="messages.RbsBundle" nameKey="rbs.inlay.hints.ruby.method.return.type.name"
+                                          descriptionKey="rbs.inlay.hints.ruby.method.return.type.description"/>
+    <codeInsight.declarativeInlayProvider language="ruby" order="after containerTypeHints"
+                                          implementationClass="com.intellij.lang.ruby.rbs.ruby.codeInsight.hints.types.RbsRubyModuleSelfTypeHintsProvider"
+                                          providerId="rbs.ruby.module.self.type.hints" group="TYPES_GROUP" isEnabledByDefault="true"
+                                          bundle="messages.RbsBundle" nameKey="rbs.inlay.hints.ruby.module.self.type.name"
+                                          descriptionKey="rbs.inlay.hints.ruby.module.self.type.description"/>
+
+    <annotator language="ruby.rbs" implementationClass="com.intellij.lang.ruby.rbs.lang.annotator.RbsAnnotator"/>
+    <annotator language="ruby.rbs" implementationClass="com.intellij.lang.ruby.rbs.lang.annotator.RbsHighlightingAnnotator" order="first"/>
+
+    <fileBasedIndex implementation="com.intellij.lang.ruby.rbs.psi.index.RbsDeclarationFqnIndex"/>
+    <fileBasedIndex implementation="com.intellij.lang.ruby.rbs.psi.index.RbsDeclarationByParentFqnIndex"/>
+    <fileBasedIndex implementation="com.intellij.lang.ruby.rbs.psi.index.RbsGlobalVariableNameIndex"/>
+    <fileBasedIndex implementation="com.intellij.lang.ruby.rbs.psi.index.RbsMethodNamePropertiesIndex"/>
+
+    <stubIndex implementation="com.intellij.lang.ruby.rbs.psi.index.RbsAttributeDeclarationNameIndex"/>
+    <stubIndex implementation="com.intellij.lang.ruby.rbs.psi.index.RbsClassDeclarationFqnIndex"/>
+    <stubIndex implementation="com.intellij.lang.ruby.rbs.psi.index.RbsClassVariableDeclarationNameIndex"/>
+    <stubIndex implementation="com.intellij.lang.ruby.rbs.psi.index.RbsConstantDeclarationFqnIndex"/>
+    <stubIndex implementation="com.intellij.lang.ruby.rbs.psi.index.RbsContainerStatementParentFqnIndex"/>
+    <stubIndex implementation="com.intellij.lang.ruby.rbs.psi.index.RbsGlobalVariableDeclarationNameIndex"/>
+    <stubIndex implementation="com.intellij.lang.ruby.rbs.psi.index.RbsInstanceVariableDeclarationNameIndex"/>
+    <stubIndex implementation="com.intellij.lang.ruby.rbs.psi.index.RbsInterfaceDeclarationFqnIndex"/>
+    <stubIndex implementation="com.intellij.lang.ruby.rbs.psi.index.RbsMethodDeclarationNameIndex"/>
+    <stubIndex implementation="com.intellij.lang.ruby.rbs.psi.index.RbsModuleDeclarationFqnIndex"/>
+    <stubIndex implementation="com.intellij.lang.ruby.rbs.psi.index.RbsSingletonStatementParentFqnIndex"/>
+    <stubIndex implementation="com.intellij.lang.ruby.rbs.psi.index.RbsTypeDeclarationFqnIndex"/>
+    <stubIndex implementation="com.intellij.lang.ruby.rbs.psi.index.RbsIncludedContainerNameIndex"/>
+    <stubIndex implementation="com.intellij.lang.ruby.rbs.psi.index.RbsExtendedContainerNameIndex"/>
+
+    <todoIndexer filetype="RBS" implementationClass="com.intellij.lang.ruby.rbs.todo.RbsTodoIndexer" />
+    <indexPatternSearch implementation="com.intellij.lang.ruby.rbs.todo.RbsTodoSearcher"/>
+    <indexPatternProvider implementation="com.intellij.lang.ruby.rbs.todo.RbsTodoIndexPatternProvider"/>
+
+    <lang.psiStructureViewFactory language="ruby.rbs"
+                                  implementationClass="com.intellij.lang.ruby.rbs.structureView.RbsStructureViewFactory"/>
+    <symbolDeclarationPresentationProvider forClass="com.intellij.lang.ruby.rbs.model.psi.declaration.RbsPsiSymbolDeclaration"
+                                           implementationClass="com.intellij.lang.ruby.rbs.structureView.RbsSymbolDeclarationPresentationProvider"/>
+    <navbar implementation="com.intellij.lang.ruby.rbs.structureView.RbsNavBarStructureViewModel"/>
+
+    <searcher forClass="com.intellij.find.usages.api.UsageSearchParameters"
+              implementationClass="com.intellij.lang.ruby.rbs.model.usages.RbsUsageSearcher"/>
+
+    <lang.symbolSearchTarget forClass="com.intellij.lang.ruby.rbs.model.api.RbsSymbol"
+                             implementationClass="com.intellij.lang.ruby.rbs.model.usages.RbsSymbolSearchTargetFactory"/>
+
+    <platform.backend.documentation.symbolTargetProvider implementation="com.intellij.lang.ruby.rbs.model.documentation.RbsSymbolDocumentationTargetProvider"/>
+
+    <completion.contributor language="ruby.rbs"
+                            implementationClass="com.intellij.lang.ruby.rbs.completion.RbsCompletionContributor"/>
+    <completion.contributor language="ruby.rbs" order="last"
+                            implementationClass="com.intellij.lang.ruby.rbs.completion.RbsSlowCompletionContributor"/>
+
+    <weigher key="completion"
+             implementationClass="com.intellij.lang.ruby.rbs.model.completion.RbsNestingDepthWeigher"
+             id="ruby.rbs.nesting"
+             order="before prefix"
+    />
+    <weigher key="completion"
+             implementationClass="com.intellij.lang.ruby.rbs.completion.RbsTypeAliasWeigher"
+             id="ruby.rbs.alias"
+             order="after ruby.rbs.nesting, before prefix"
+    />
+    <weigher key="completion"
+             implementationClass="com.intellij.lang.ruby.rbs.completion.RbsCompletionScopeWeigher"
+             id="ruby.rbs.scope"
+             order="after explicitProximity, before proximity"
+    />
+    <lookup.charFilter implementation="com.intellij.lang.ruby.rbs.completion.RbsLookupCharFilter"/>
+
+    <psi.implicitReferenceProvider implementation="com.intellij.lang.ruby.rbs.model.psi.reference.RbsImplicitReferenceProvider"/>
+
+    <searcher forClass="com.intellij.refactoring.rename.api.RenameUsageSearchParameters"
+              implementationClass="com.intellij.lang.ruby.rbs.model.rename.RbsRenameUsageSearcher"/>
+
+    <rename.symbolRenameTargetFactory implementation="com.intellij.lang.ruby.rbs.model.rename.RbsSymbolRenameTargetFactory"/>
+
+    <resolveScopeProvider implementation="com.intellij.lang.ruby.rbs.model.psi.RbsResolveScopeProvider"/>
+    <resolveScopeProvider implementation="com.intellij.lang.ruby.rbs.ruby.model.psi.RbsRubyResolveScopeProvider" order="before ruby"/>
+
+    <localInspection implementationClass="com.intellij.lang.ruby.rbs.inspections.codeStyle.RbsLiteralClassReferencedInspection"
+                     language="ruby.rbs"
+                     bundle="messages.RbsBundle"
+                     key="rbs.inspection.literal.class.referenced.name"
+                     groupKey="rbs.inspection.group.rbs.code.style.name"
+                     groupPathKey="rbs.inspection.group.rbs"
+                     level="WEAK WARNING"
+                     enabledByDefault="true"
+    />
+
+    <localInspection implementationClass="com.intellij.lang.ruby.rbs.inspections.codeStyle.RbsSimplifiableBooleanUnionInspection"
+                     language="ruby.rbs"
+                     bundle="messages.RbsBundle"
+                     key="rbs.inspection.simplifiable.boolean.union.name"
+                     groupKey="rbs.inspection.group.rbs.code.style.name"
+                     groupPathKey="rbs.inspection.group.rbs"
+                     level="WEAK WARNING"
+                     enabledByDefault="true"
+    />
+
+    <localInspection implementationClass="com.intellij.lang.ruby.rbs.inspections.codeStyle.RbsUnnecessaryParenthesesInspection"
+                     language="ruby.rbs"
+                     bundle="messages.RbsBundle"
+                     key="rbs.inspection.unnecessary.parentheses.name"
+                     groupKey="rbs.inspection.group.rbs.code.style.name"
+                     groupPathKey="rbs.inspection.group.rbs"
+                     level="INFORMATION"
+                     enabledByDefault="true"
+    />
+
+    <localInspection implementationClass="com.intellij.lang.ruby.rbs.inspections.codeStyle.RbsUnnecessaryQualifierInspection"
+                     language="ruby.rbs"
+                     bundle="messages.RbsBundle"
+                     key="rbs.inspection.unnecessary.qualifier.name"
+                     groupKey="rbs.inspection.group.rbs.code.style.name"
+                     groupPathKey="rbs.inspection.group.rbs"
+                     level="WEAK WARNING"
+                     enabledByDefault="true"
+    />
+
+    <localInspection implementationClass="com.intellij.lang.ruby.rbs.inspections.dataFlow.RbsUnusedInterfaceInspection"
+                     language="ruby.rbs"
+                     bundle="messages.RbsBundle"
+                     key="rbs.inspection.unused.interface.name"
+                     groupKey="rbs.inspection.group.rbs.data.flow.name"
+                     groupPathKey="rbs.inspection.group.rbs"
+                     level="WARNING"
+                     enabledByDefault="true"
+    />
+
+    <localInspection implementationClass="com.intellij.lang.ruby.rbs.inspections.dataFlow.RbsUnusedTypeAliasInspection"
+                     language="ruby.rbs"
+                     bundle="messages.RbsBundle"
+                     key="rbs.inspection.unused.type.alias.name"
+                     groupKey="rbs.inspection.group.rbs.data.flow.name"
+                     groupPathKey="rbs.inspection.group.rbs"
+                     level="WARNING"
+                     enabledByDefault="true"
+    />
+
+    <localInspection implementationClass="com.intellij.lang.ruby.rbs.inspections.dataFlow.RbsUnusedTypeVariableInspection"
+                     language="ruby.rbs"
+                     bundle="messages.RbsBundle"
+                     key="rbs.inspection.unused.type.variable.name"
+                     groupKey="rbs.inspection.group.rbs.data.flow.name"
+                     groupPathKey="rbs.inspection.group.rbs"
+                     level="WARNING"
+                     enabledByDefault="true"
+    />
+
+    <localInspection implementationClass="com.intellij.lang.ruby.rbs.inspections.dataFlow.RbsUnusedUseClauseInspection"
+                     language="ruby.rbs"
+                     bundle="messages.RbsBundle"
+                     key="rbs.inspection.unused.use.clause.name"
+                     groupKey="rbs.inspection.group.rbs.data.flow.name"
+                     groupPathKey="rbs.inspection.group.rbs"
+                     level="WARNING"
+                     enabledByDefault="true"
+    />
+
+    <localInspection implementationClass="com.intellij.lang.ruby.rbs.ruby.inspections.dataFlow.RbsMissingTypeSignatureInspection"
+                     language="ruby"
+                     bundle="messages.RbsBundle"
+                     key="rbs.inspection.missing.type.signature.declaration"
+                     groupKey="rbs.inspection.group.ruby.rbs.name"
+                     groupPathKey="rbs.inspection.group.ruby"
+                     level="WEAK WARNING"
+                     enabledByDefault="true"
+    />
+
+    <localInspection implementationClass="com.intellij.lang.ruby.rbs.inspections.inheritance.RbsModuleUsedAsSuperclassInspection"
+                     language="ruby.rbs"
+                     bundle="messages.RbsBundle"
+                     key="rbs.inspection.module.used.as.superclass.name"
+                     groupKey="rbs.inspection.group.rbs.inheritance.name"
+                     groupPathKey="rbs.inspection.group.rbs"
+                     level="ERROR"
+                     enabledByDefault="true"
+    />
+
+    <localInspection implementationClass="com.intellij.lang.ruby.rbs.inspections.probableBugs.RbsBadTypeArgumentTypeInspection"
+                     language="ruby.rbs"
+                     bundle="messages.RbsBundle"
+                     key="rbs.inspection.bad.type.argument.type.name"
+                     groupKey="rbs.inspection.group.rbs.probable.bugs.name"
+                     groupPathKey="rbs.inspection.group.rbs"
+                     level="ERROR"
+                     enabledByDefault="true"
+    />
+
+    <localInspection implementationClass="com.intellij.lang.ruby.rbs.inspections.probableBugs.RbsBadTypeVariableDefaultTypeInspection"
+                     language="ruby.rbs"
+                     bundle="messages.RbsBundle"
+                     key="rbs.inspection.bad.type.variable.default.type.name"
+                     groupKey="rbs.inspection.group.rbs.probable.bugs.name"
+                     groupPathKey="rbs.inspection.group.rbs"
+                     level="ERROR"
+                     enabledByDefault="true"
+    />
+
+    <localInspection implementationClass="com.intellij.lang.ruby.rbs.inspections.namingConventions.RbsUnconventionalInterfaceNameInspection"
+                     language="ruby.rbs"
+                     bundle="messages.RbsBundle"
+                     key="rbs.inspection.unconventional.interface.name.name"
+                     groupKey="rbs.inspection.group.rbs.naming.conventions.name"
+                     groupPathKey="rbs.inspection.group.rbs"
+                     level="WEAK WARNING"
+                     enabledByDefault="true"
+    />
+
+    <localInspection implementationClass="com.intellij.lang.ruby.rbs.inspections.namingConventions.RbsUnconventionalTypeAliasNameInspection"
+                     language="ruby.rbs"
+                     bundle="messages.RbsBundle"
+                     key="rbs.inspection.unconventional.type.alias.name.name"
+                     groupKey="rbs.inspection.group.rbs.naming.conventions.name"
+                     groupPathKey="rbs.inspection.group.rbs"
+                     level="WEAK WARNING"
+                     enabledByDefault="true"
+    />
+
+    <localInspection implementationClass="com.intellij.lang.ruby.rbs.inspections.namingConventions.RbsUnconventionalTypeVariableNameInspection"
+                     language="ruby.rbs"
+                     bundle="messages.RbsBundle"
+                     key="rbs.inspection.unconventional.type.variable.name.name"
+                     groupKey="rbs.inspection.group.rbs.naming.conventions.name"
+                     groupPathKey="rbs.inspection.group.rbs"
+                     level="WEAK WARNING"
+                     enabledByDefault="true"
+    />
+
+    <localInspection implementationClass="com.intellij.lang.ruby.rbs.inspections.namingConventions.RbsUnconventionalUseAliasNameInspection"
+                     language="ruby.rbs"
+                     bundle="messages.RbsBundle"
+                     key="rbs.inspection.unconventional.use.alias.name.name"
+                     groupKey="rbs.inspection.group.rbs.naming.conventions.name"
+                     groupPathKey="rbs.inspection.group.rbs"
+                     level="WEAK WARNING"
+                     enabledByDefault="true"
+    />
+
+    <localInspection implementationClass="com.intellij.lang.ruby.rbs.inspections.probableBugs.RbsConflictingTypeVariableVarianceInspection"
+                     language="ruby.rbs"
+                     bundle="messages.RbsBundle"
+                     key="rbs.inspection.conflicting.type.variable.variance.name"
+                     groupKey="rbs.inspection.group.rbs.probable.bugs.name"
+                     groupPathKey="rbs.inspection.group.rbs"
+                     level="ERROR"
+                     enabledByDefault="true"
+    />
+
+    <localInspection implementationClass="com.intellij.lang.ruby.rbs.inspections.probableBugs.RbsCyclicClassModuleAliasDeclarationInspection"
+                     language="ruby.rbs"
+                     bundle="messages.RbsBundle"
+                     key="rbs.inspection.cyclic.class.module.alias.name"
+                     groupKey="rbs.inspection.group.rbs.probable.bugs.name"
+                     groupPathKey="rbs.inspection.group.rbs"
+                     level="ERROR"
+                     enabledByDefault="true"
+    />
+
+    <localInspection implementationClass="com.intellij.lang.ruby.rbs.inspections.probableBugs.RbsDuplicateDeclarationsInspection"
+                     language="ruby.rbs"
+                     bundle="messages.RbsBundle"
+                     key="rbs.inspection.duplicate"
+                     groupKey="rbs.inspection.group.rbs.probable.bugs.name"
+                     groupPathKey="rbs.inspection.group.rbs"
+                     level="ERROR"
+                     enabledByDefault="true"
+    />
+
+    <localInspection implementationClass="com.intellij.lang.ruby.rbs.inspections.probableBugs.RbsDuplicateKeywordParameterInspection"
+                     language="ruby.rbs"
+                     bundle="messages.RbsBundle"
+                     key="rbs.inspection.duplicate.keyword.parameter"
+                     groupKey="rbs.inspection.group.rbs.probable.bugs.name"
+                     groupPathKey="rbs.inspection.group.rbs"
+                     level="WARNING"
+                     enabledByDefault="true"
+    />
+
+    <localInspection implementationClass="com.intellij.lang.ruby.rbs.inspections.probableBugs.RbsInconsistentClassModuleAliasInspection"
+                     language="ruby.rbs"
+                     bundle="messages.RbsBundle"
+                     key="rbs.inspection.inconsistent.class.module.alias.name"
+                     groupKey="rbs.inspection.group.rbs.probable.bugs.name"
+                     groupPathKey="rbs.inspection.group.rbs"
+                     level="ERROR"
+                     enabledByDefault="true"
+    />
+
+    <localInspection implementationClass="com.intellij.lang.ruby.rbs.inspections.probableBugs.RbsIncorrectTypeArgumentCountInspection"
+                     language="ruby.rbs"
+                     bundle="messages.RbsBundle"
+                     key="rbs.inspection.incorrect.type.argument.count.name"
+                     groupKey="rbs.inspection.group.rbs.probable.bugs.name"
+                     groupPathKey="rbs.inspection.group.rbs"
+                     level="ERROR"
+                     enabledByDefault="true"
+    />
+
+    <localInspection implementationClass="com.intellij.lang.ruby.rbs.inspections.probableBugs.RbsIncorrectTypeArgumentVarianceInspection"
+                     language="ruby.rbs"
+                     bundle="messages.RbsBundle"
+                     key="rbs.inspection.incorrect.type.argument.variance.name"
+                     groupKey="rbs.inspection.group.rbs.probable.bugs.name"
+                     groupPathKey="rbs.inspection.group.rbs"
+                     level="ERROR"
+                     enabledByDefault="true"
+    />
+
+    <localInspection implementationClass="com.intellij.lang.ruby.rbs.inspections.probableBugs.RbsInvalidMethodOverloadInspection"
+                     language="ruby.rbs"
+                     bundle="messages.RbsBundle"
+                     key="rbs.inspection.invalid.method.overload.name"
+                     groupKey="rbs.inspection.group.rbs.probable.bugs.name"
+                     groupPathKey="rbs.inspection.group.rbs"
+                     level="ERROR"
+                     enabledByDefault="true"
+    />
+
+    <localInspection implementationClass="com.intellij.lang.ruby.rbs.inspections.probableBugs.RbsInvalidTypeArgumentUsageInspection"
+                     language="ruby.rbs"
+                     bundle="messages.RbsBundle"
+                     key="rbs.inspection.invalid.type.argument.usage.name"
+                     groupKey="rbs.inspection.group.rbs.probable.bugs.name"
+                     groupPathKey="rbs.inspection.group.rbs"
+                     level="ERROR"
+                     enabledByDefault="true"
+    />
+
+    <localInspection implementationClass="com.intellij.lang.ruby.rbs.inspections.probableBugs.RbsUnresolvedReferenceInspection"
+                     language="ruby.rbs"
+                     bundle="messages.RbsBundle"
+                     key="rbs.inspection.unresolved.reference.name"
+                     groupKey="rbs.inspection.group.rbs.probable.bugs.name"
+                     groupPathKey="rbs.inspection.group.rbs"
+                     level="ERROR"
+                     enabledByDefault="true"
+    />
+
+    <localInspection implementationClass="com.intellij.lang.ruby.rbs.inspections.probableBugs.RbsConflictingTypeVariableCountInspection"
+                     language="ruby.rbs"
+                     bundle="messages.RbsBundle"
+                     key="rbs.inspection.conflicting.type.variable.count.name"
+                     groupKey="rbs.inspection.group.rbs.probable.bugs.name"
+                     groupPathKey="rbs.inspection.group.rbs"
+                     level="ERROR"
+                     enabledByDefault="true"
+    />
+
+    <localInspection implementationClass="com.intellij.lang.ruby.rbs.inspections.probableBugs.RbsIncorrectInclusionCallInspection"
+                     language="ruby.rbs"
+                     bundle="messages.RbsBundle"
+                     key="rbs.inspection.incorrect.inclusion.call"
+                     groupKey="rbs.inspection.group.rbs.probable.bugs.name"
+                     groupPathKey="rbs.inspection.group.rbs"
+                     level="ERROR"
+                     enabledByDefault="true"
+    />
+
+    <intentionAction>
+      <className>com.intellij.lang.ruby.rbs.ruby.codeInsight.intentions.rbs.RbsRubyEditTypeSignatureIntention</className>
+      <bundleName>messages.RbsBundle</bundleName>
+      <categoryKey>rbs.intention.ruby.category.rbs</categoryKey>
+      <language>ruby</language>
+    </intentionAction>
+
+    <internalFileTemplate name="RBS File"/>
+    <internalFileTemplate name="RBS Class"/>
+    <internalFileTemplate name="RBS Module"/>
+    <internalFileTemplate name="RBS Interface"/>
+    <liveTemplateContext contextId="RBS_CODE" implementation="com.intellij.lang.ruby.rbs.templates.RbsLiveTemplateContextType$RbsCode"/>
+    <defaultLiveTemplates file="liveTemplates/rbs"/>
+
+    <codeInsight.lineMarkerProvider language="ruby.rbs"
+                                    implementationClass="com.intellij.lang.ruby.rbs.codeInsight.daemon.RbsOverloadedDeclarationsLineMarkerProvider"/>
+    <codeInsight.lineMarkerProvider language="ruby.rbs"
+                                    implementationClass="com.intellij.lang.ruby.rbs.codeInsight.daemon.RbsPartialDeclarationsLineMarkerProvider"/>
+    <runAnything.executionProvider implementation="com.intellij.lang.ruby.rbs.actions.providers.RbsActionProvider"/>
+    <runAnything.executionProvider implementation="com.intellij.lang.ruby.rbs.actions.providers.SteepActionProvider"/>
+
+    <workspaceModel.fileIndexContributor
+      implementation="com.intellij.lang.ruby.rbs.ruby.workspace.fileIndex.RbsRubyLibraryExcludedFilesWorkspaceFileIndexContributor"/>
+    <workspaceModel.fileIndexContributor
+      implementation="com.intellij.lang.ruby.rbs.ruby.workspace.fileIndex.RbsRubysigsLibraryWorkspaceFileIndexContributor"/>
+    <postStartupActivity implementation="com.intellij.lang.ruby.rbs.ruby.workspace.sync.RbsRubysigsLibraryProjectActivity"/>
+    <postStartupActivity implementation="com.intellij.lang.ruby.rbs.ruby.workspace.sync.RbsRubysigsLibraryWorkspaceModelSubscriber"/>
+    <projectView.externalLibraries.workspaceModelNodesProvider
+      implementation="com.intellij.lang.ruby.rbs.ruby.project.RbsRubysigsLibraryWorkspaceModelNodesProvider"/>
+    <projectViewNodeDecorator implementation="com.intellij.lang.ruby.rbs.ruby.project.RbsRubysigsLibraryDecorator"/>
+    <editorNotificationProvider implementation="com.intellij.lang.ruby.rbs.ruby.project.RbsRubysigsLibraryEditorNotificationsProvider"/>
+
+    <projectConfigurable
+      groupId="language"
+      bundle="messages.RbsBundle"
+      key="rbs.language.configurable"
+      id="preferences.language.rbs"
+      instance="com.intellij.lang.ruby.rbs.settings.RbsLanguageConfigurable"/>
+
+    <workspaceModel.fileIndexContributor implementation="com.intellij.lang.ruby.rbs.tools.collection.workspace.fileIndex.RbsCollectionLibraryWorkspaceFileIndexContributor"/>
+    <postStartupActivity implementation="com.intellij.lang.ruby.rbs.tools.collection.workspace.sync.RbsCollectionLibraryProjectActivity"/>
+    <postStartupActivity implementation="com.intellij.lang.ruby.rbs.tools.collection.workspace.sync.RbsCollectionUpdateProjectActivity"/>
+    <postStartupActivity implementation="com.intellij.lang.ruby.rbs.tools.collection.workspace.sync.RbsCollectionLibraryWorkspaceModelSubscriber"/>
+    <postStartupActivity implementation="com.intellij.lang.ruby.rbs.tools.collection.workspace.sync.RbsCollectionUpdateSubscriber"/>
+    <vfs.asyncListener implementation="com.intellij.lang.ruby.rbs.tools.collection.workspace.sync.RbsCollectionLibraryAsyncFileListener" />
+    <projectView.externalLibraries.workspaceModelNodesProvider implementation="com.intellij.lang.ruby.rbs.tools.collection.project.RbsCollectionLibraryWorkspaceModelNodesProvider"/>
+    <projectViewNodeDecorator implementation="com.intellij.lang.ruby.rbs.tools.collection.project.RbsCollectionLibraryDecorator"/>
+    <editorNotificationProvider implementation="com.intellij.lang.ruby.rbs.tools.collection.project.RbsCollectionLibraryEditorNotificationsProvider"/>
+
+    <postStartupActivity implementation="com.intellij.lang.ruby.rbs.tools.collection.RbsCollectionNotificationProjectActivity"/>
+
+    <statistics.counterUsagesCollector implementationClass="com.intellij.lang.ruby.rbs.statistics.RbsCreateFileFromTemplateCollector"/>
+    <statistics.projectUsagesCollector implementation="com.intellij.lang.ruby.rbs.statistics.RbsLanguageSettingsCollector"/>
+
+    <lang.symbolTypeProvider implementation="com.intellij.lang.ruby.rbs.ruby.model.navigation.RbsRubySymbolTypeProvider"/>
+
+    <lang.importOptimizer language="ruby.rbs" implementationClass="com.intellij.lang.ruby.rbs.formatter.RbsImportOptimizer"/>
+
+    <resolveScopeEnlarger implementation="com.intellij.lang.ruby.rbs.model.psi.RbsResolveScopeEnlarger"/>
+    <resolveScopeEnlarger implementation="com.intellij.lang.ruby.rbs.ruby.model.psi.RbsRubyResolveScopeEnlarger"/>
+    <projectSettings service="com.intellij.lang.ruby.rbs.settings.RbsLanguageSettings"/>
+  </extensions>
+
+  <extensions defaultExtensionNs="com.intellij.spellchecker">
+    <support language="ruby.rbs" implementationClass="com.intellij.lang.ruby.rbs.spellchecker.RbsSpellcheckingStrategy"/>
+  </extensions>
+
+  <extensions defaultExtensionNs="com.intellij.lang.ruby">
+    <rbs.containerHierarchyMapper implementation="com.intellij.lang.ruby.rbs.model.hierarchy.RbsDefaultContainerChildMapper" order="first"/>
+    <rbs.containerHierarchyMapper implementation="com.intellij.lang.ruby.rbs.model.hierarchy.RbsContainerMethodAliasMapper" order="last"/>
+  </extensions>
+
+  <extensions defaultExtensionNs="com.intellij.lang.ruby.rbs">
+    <psi.typeSignatureSerializer forClass="com.intellij.ruby.rbs.common.psi.data.RbsBooleanLiteralSignature"
+                                 implementationClass="com.intellij.lang.ruby.rbs.psi.data.serializers.RbsBooleanLiteralSignatureSerializer"/>
+    <psi.typeSignatureSerializer forClass="com.intellij.ruby.rbs.common.psi.data.RbsIntegerLiteralSignature"
+                                 implementationClass="com.intellij.lang.ruby.rbs.psi.data.serializers.RbsIntegerLiteralSignatureSerializer"/>
+    <psi.typeSignatureSerializer forClass="com.intellij.ruby.rbs.common.psi.data.RbsIntersectionTypeSignature"
+                                 implementationClass="com.intellij.lang.ruby.rbs.psi.data.serializers.RbsIntersectionTypeSignatureSerializer"/>
+    <psi.typeSignatureSerializer forClass="com.intellij.ruby.rbs.common.psi.data.RbsKeywordTypeSignature"
+                                 implementationClass="com.intellij.lang.ruby.rbs.psi.data.serializers.RbsKeywordTypeSignatureSerializer"/>
+    <psi.typeSignatureSerializer forClass="com.intellij.ruby.rbs.common.psi.data.RbsMethodTypeSignature"
+                                 implementationClass="com.intellij.lang.ruby.rbs.psi.data.serializers.RbsMethodTypeSignatureSerializer"/>
+    <psi.typeSignatureSerializer forClass="com.intellij.ruby.rbs.common.psi.data.RbsNilLiteralSignature"
+                                 implementationClass="com.intellij.lang.ruby.rbs.psi.data.serializers.RbsNilLiteralSignatureSerializer"/>
+    <psi.typeSignatureSerializer forClass="com.intellij.ruby.rbs.common.psi.data.RbsOptionalTypeSignature"
+                                 implementationClass="com.intellij.lang.ruby.rbs.psi.data.serializers.RbsOptionalTypeSignatureSerializer"/>
+    <psi.typeSignatureSerializer forClass="com.intellij.ruby.rbs.common.psi.data.RbsProcTypeSignature"
+                                 implementationClass="com.intellij.lang.ruby.rbs.psi.data.serializers.RbsProcTypeSignatureSerializer"
+                                 order="last"/>
+    <psi.typeSignatureSerializer forClass="com.intellij.ruby.rbs.common.psi.data.RbsQualifiedNameReferenceSignature"
+                                 implementationClass="com.intellij.lang.ruby.rbs.psi.data.serializers.RbsQualifiedNameReferenceSignatureSerializer"/>
+    <psi.typeSignatureSerializer forClass="com.intellij.ruby.rbs.common.psi.data.RbsQualifiedNameTypeSignature"
+                                 implementationClass="com.intellij.lang.ruby.rbs.psi.data.serializers.RbsQualifiedNameTypeSignatureSerializer"/>
+    <psi.typeSignatureSerializer forClass="com.intellij.ruby.rbs.common.psi.data.RbsRecordTypeSignature"
+                                 implementationClass="com.intellij.lang.ruby.rbs.psi.data.serializers.RbsRecordTypeSignatureSerializer"/>
+    <psi.typeSignatureSerializer forClass="com.intellij.ruby.rbs.common.psi.data.RbsSingletonTypeSignature"
+                                 implementationClass="com.intellij.lang.ruby.rbs.psi.data.serializers.RbsSingletonTypeSignatureSerializer"/>
+    <psi.typeSignatureSerializer forClass="com.intellij.ruby.rbs.common.psi.data.RbsStringLiteralSignature"
+                                 implementationClass="com.intellij.lang.ruby.rbs.psi.data.serializers.RbsStringLiteralSignatureSerializer"/>
+    <psi.typeSignatureSerializer forClass="com.intellij.ruby.rbs.common.psi.data.RbsSymbolLiteralSignature"
+                                 implementationClass="com.intellij.lang.ruby.rbs.psi.data.serializers.RbsSymbolLiteralSignatureSerializer"/>
+    <psi.typeSignatureSerializer forClass="com.intellij.ruby.rbs.common.psi.data.RbsTupleTypeSignature"
+                                 implementationClass="com.intellij.lang.ruby.rbs.psi.data.serializers.RbsTupleTypeSignatureSerializer"/>
+    <psi.typeSignatureSerializer forClass="com.intellij.ruby.rbs.common.psi.data.RbsTypeVariableReferenceSignature"
+                                 implementationClass="com.intellij.lang.ruby.rbs.psi.data.serializers.RbsTypeVariableReferenceSignatureSerializer"/>
+    <psi.typeSignatureSerializer forClass="com.intellij.ruby.rbs.common.psi.data.RbsUnionTypeSignature"
+                                 implementationClass="com.intellij.lang.ruby.rbs.psi.data.serializers.RbsUnionTypeSignatureSerializer"/>
+  </extensions>
+
+  <extensions defaultExtensionNs="org.jetbrains.plugins.ruby">
+    <psi.ownDeclarationProvider forClass="com.intellij.ruby.rbs.common.psi.impl.RbsAliasMemberImpl"
+                                implementationClass="com.intellij.lang.ruby.rbs.model.psi.declaration.RbsAliasDeclarationOwnSymbolDeclarationProvider"/>
+    <psi.ownDeclarationProvider forClass="com.intellij.ruby.rbs.common.psi.impl.RbsAttributeMemberImpl"
+                                implementationClass="com.intellij.lang.ruby.rbs.model.psi.declaration.RbsAttributeDeclarationOwnSymbolDeclarationProvider"/>
+    <psi.ownDeclarationProvider forClass="com.intellij.ruby.rbs.common.psi.impl.RbsClassAliasImpl"
+                                implementationClass="com.intellij.lang.ruby.rbs.model.psi.declaration.RbsClassAliasOwnSymbolDeclarationProvider"/>
+    <psi.ownDeclarationProvider forClass="com.intellij.ruby.rbs.common.psi.impl.RbsClassDeclImpl"
+                                implementationClass="com.intellij.lang.ruby.rbs.model.psi.declaration.RbsClassDeclarationOwnSymbolDeclarationProvider"/>
+    <psi.ownDeclarationProvider forClass="com.intellij.ruby.rbs.common.psi.impl.RbsConstDeclImpl"
+                                implementationClass="com.intellij.lang.ruby.rbs.model.psi.declaration.RbsConstantDeclarationOwnSymbolDeclarationProvider"/>
+    <psi.ownDeclarationProvider forClass="com.intellij.ruby.rbs.common.psi.impl.RbsGlobalDeclImpl"
+                                implementationClass="com.intellij.lang.ruby.rbs.model.psi.declaration.RbsGlobalDeclarationOwnSymbolDeclarationProvider"/>
+    <psi.ownDeclarationProvider forClass="com.intellij.ruby.rbs.common.psi.impl.RbsInterfaceDeclImpl"
+                                implementationClass="com.intellij.lang.ruby.rbs.model.psi.declaration.RbsInterfaceDeclarationOwnSymbolDeclarationProvider"/>
+    <psi.ownDeclarationProvider forClass="com.intellij.ruby.rbs.common.psi.impl.RbsKeywordParamImpl"
+                                implementationClass="com.intellij.lang.ruby.rbs.model.psi.declaration.RbsKeywordParameterOwnSymbolDeclarationProvider"/>
+    <psi.ownDeclarationProvider forClass="com.intellij.ruby.rbs.common.psi.impl.RbsMethodMemberImpl"
+                                implementationClass="com.intellij.lang.ruby.rbs.model.psi.declaration.RbsMethodDeclarationOwnSymbolDeclarationProvider"/>
+    <psi.ownDeclarationProvider forClass="com.intellij.ruby.rbs.common.psi.impl.RbsModuleAliasImpl"
+                                implementationClass="com.intellij.lang.ruby.rbs.model.psi.declaration.RbsModuleAliasOwnSymbolDeclarationProvider"/>
+    <psi.ownDeclarationProvider forClass="com.intellij.ruby.rbs.common.psi.impl.RbsModuleDeclImpl"
+                                implementationClass="com.intellij.lang.ruby.rbs.model.psi.declaration.RbsModuleDeclarationOwnSymbolDeclarationProvider"/>
+    <psi.ownDeclarationProvider forClass="com.intellij.ruby.rbs.common.psi.impl.RbsParamImpl" order="last"
+                                implementationClass="com.intellij.lang.ruby.rbs.model.psi.declaration.RbsPositionalParameterOwnSymbolDeclarationProvider"/>
+    <psi.ownDeclarationProvider forClass="com.intellij.ruby.rbs.common.psi.impl.RbsTypeDeclImpl"
+                                implementationClass="com.intellij.lang.ruby.rbs.model.psi.declaration.RbsTypeDeclarationOwnSymbolDeclarationProvider"/>
+    <psi.ownDeclarationProvider forClass="com.intellij.ruby.rbs.common.psi.impl.RbsUseClsImpl"
+                                implementationClass="com.intellij.lang.ruby.rbs.model.psi.declaration.RbsUseClauseOwnSymbolDeclarationProvider"/>
+    <psi.ownDeclarationProvider forClass="com.intellij.ruby.rbs.common.psi.impl.RbsVarTypeMemberImpl"
+                                implementationClass="com.intellij.lang.ruby.rbs.model.psi.declaration.RbsVariableDeclarationOwnSymbolDeclarationProvider"/>
+
+    <psi.ownReferenceProvider forClass="com.intellij.ruby.rbs.common.psi.impl.RbsAliasMemberImpl"
+                              implementationClass="com.intellij.lang.ruby.rbs.model.psi.reference.RbsAliasDeclarationOwnReferenceProvider"/>
+    <psi.ownReferenceProvider forClass="com.intellij.ruby.rbs.common.psi.impl.RbsClassAliasImpl"
+                              implementationClass="com.intellij.lang.ruby.rbs.model.psi.reference.RbsClassAliasDeclarationOwnReferenceProvider"/>
+    <psi.ownReferenceProvider forClass="com.intellij.ruby.rbs.common.psi.impl.RbsClassDeclImpl"
+                              implementationClass="com.intellij.lang.ruby.rbs.model.psi.reference.RbsClassDeclarationOwnReferenceProvider"/>
+    <psi.ownReferenceProvider forClass="com.intellij.ruby.rbs.common.psi.impl.RbsConstDeclImpl"
+                              implementationClass="com.intellij.lang.ruby.rbs.model.psi.reference.RbsConstDeclarationOwnReferenceProvider"/>
+    <psi.ownReferenceProvider forClass="com.intellij.ruby.rbs.common.psi.impl.RbsExtendMemberImpl"
+                              implementationClass="com.intellij.lang.ruby.rbs.model.psi.reference.RbsExtendCallOwnReferenceProvider"/>
+    <psi.ownReferenceProvider forClass="com.intellij.ruby.rbs.common.psi.impl.RbsIncludeMemberImpl"
+                              implementationClass="com.intellij.lang.ruby.rbs.model.psi.reference.RbsIncludeCallOwnReferenceProvider"/>
+    <psi.ownReferenceProvider forClass="com.intellij.ruby.rbs.common.psi.impl.RbsInterfaceDeclImpl"
+                              implementationClass="com.intellij.lang.ruby.rbs.model.psi.reference.RbsInterfaceDeclarationOwnReferenceProvider"/>
+    <psi.ownReferenceProvider forClass="com.intellij.ruby.rbs.common.psi.impl.RbsModuleAliasImpl"
+                              implementationClass="com.intellij.lang.ruby.rbs.model.psi.reference.RbsModuleAliasDeclarationOwnReferenceProvider"/>
+    <psi.ownReferenceProvider forClass="com.intellij.ruby.rbs.common.psi.impl.RbsModuleDeclImpl"
+                              implementationClass="com.intellij.lang.ruby.rbs.model.psi.reference.RbsModuleDeclarationOwnReferenceProvider"/>
+    <psi.ownReferenceProvider forClass="com.intellij.ruby.rbs.common.psi.impl.RbsModuleSelfTypeImpl"
+                              implementationClass="com.intellij.lang.ruby.rbs.model.psi.reference.RbsModuleSelfTypeOwnReferenceProvider"/>
+    <psi.ownReferenceProvider forClass="com.intellij.ruby.rbs.common.psi.impl.RbsPrependMemberImpl"
+                              implementationClass="com.intellij.lang.ruby.rbs.model.psi.reference.RbsPrependCallDeclarationOwnReferenceProvider"/>
+    <psi.ownReferenceProvider forClass="com.intellij.ruby.rbs.common.psi.impl.RbsSimpleTypeImpl"
+                              implementationClass="com.intellij.lang.ruby.rbs.model.psi.reference.RbsSimpleTypeOwnReferenceProvider"/>
+    <psi.ownReferenceProvider forClass="com.intellij.ruby.rbs.common.psi.impl.RbsSuperClassImpl"
+                              implementationClass="com.intellij.lang.ruby.rbs.model.psi.reference.RbsSuperClassOwnReferenceProvider"/>
+    <psi.ownReferenceProvider forClass="com.intellij.ruby.rbs.common.psi.impl.RbsTypeDeclImpl"
+                              implementationClass="com.intellij.lang.ruby.rbs.model.psi.reference.RbsTypeDeclarationOwnReferenceProvider"/>
+    <psi.ownReferenceProvider forClass="com.intellij.ruby.rbs.common.psi.impl.RbsUseClsImpl"
+                              implementationClass="com.intellij.lang.ruby.rbs.model.psi.reference.RbsUseClauseOwnReferenceProvider"/>
+
+    <symbol.presentationProvider forClass="com.intellij.lang.ruby.rbs.model.impl.RbsClassSymbol"
+                                 implementationClass="com.intellij.lang.ruby.rbs.model.presentation.RbsExceptionClassSymbolPresentationProvider"/>
+
+    <symbolProvider implementation="com.intellij.lang.ruby.rbs.ruby.codeInsight.symbols.RbsRubyClassSymbolProvider"/>
+    <symbolProvider implementation="com.intellij.lang.ruby.rbs.ruby.codeInsight.symbols.RbsRubyConstantSymbolProvider"/>
+    <symbolProvider implementation="com.intellij.lang.ruby.rbs.ruby.codeInsight.symbols.RbsRubyModuleSymbolProvider"/>
+
+    <methodMissingProvider implementation="com.intellij.lang.ruby.rbs.ruby.codeInsight.symbols.RbsRubyMethodMissingProvider"/>
+
+    <ruby.classSymbolDataProvider implementation="com.intellij.lang.ruby.rbs.ruby.model.impl.extensions.RbsRubyClassSymbolDataProvider" mergeStrategy="override"/>
+    <ruby.constantSymbolDataProvider implementation="com.intellij.lang.ruby.rbs.ruby.model.impl.extensions.RbsRubyConstantSymbolDataProvider" mergeStrategy="override"/>
+    <ruby.containerSymbolDataProvider implementation="com.intellij.lang.ruby.rbs.ruby.model.impl.extensions.RbsRubyContainerSymbolDataProvider"/>
+
+    <ruby.topLevelSymbolProvider forClass="org.jetbrains.plugins.ruby.ruby.model.impl.RubyClassSymbol"
+                                 implementationClass="com.intellij.lang.ruby.rbs.ruby.model.impl.extensions.RbsRubyClassSymbolProvider"
+                                 order="first"/>
+    <ruby.topLevelSymbolProvider forClass="org.jetbrains.plugins.ruby.ruby.model.impl.RubyConstantSymbol"
+                                 implementationClass="com.intellij.lang.ruby.rbs.ruby.model.impl.extensions.RbsRubyConstantSymbolProvider"
+                                 order="first"/>
+    <ruby.topLevelSymbolProvider forClass="org.jetbrains.plugins.ruby.ruby.model.impl.RubyGlobalVariableSymbol"
+                                 implementationClass="com.intellij.lang.ruby.rbs.ruby.model.impl.extensions.RbsRubyGlobalVariableSymbolProvider"
+                                 order="first"/>
+    <ruby.topLevelSymbolProvider forClass="org.jetbrains.plugins.ruby.ruby.model.impl.RubyModuleSymbol"
+                                 implementationClass="com.intellij.lang.ruby.rbs.ruby.model.impl.extensions.RbsRubyModuleSymbolProvider"
+                                 order="first"/>
+
+    <symbol.compositeDocumentationDataProvider forClass="org.jetbrains.plugins.ruby.ruby.model.documentation.RubyClassDocumentationTarget"
+                                               implementationClass="com.intellij.lang.ruby.rbs.ruby.model.documentation.RbsRubyClassDocumentationDataProvider"/>
+    <symbol.compositeDocumentationDataProvider forClass="org.jetbrains.plugins.ruby.ruby.model.documentation.RubyConstantDocumentationTarget"
+                                               implementationClass="com.intellij.lang.ruby.rbs.ruby.model.documentation.RbsRubyConstantDocumentationDataProvider"/>
+    <symbol.compositeDocumentationDataProvider forClass="org.jetbrains.plugins.ruby.ruby.model.documentation.RubyGlobalVariableDocumentationTarget"
+                                               implementationClass="com.intellij.lang.ruby.rbs.ruby.model.documentation.RbsRubyGlobalVariableDocumentationDataProvider"/>
+    <symbol.compositeDocumentationDataProvider forClass="org.jetbrains.plugins.ruby.ruby.model.documentation.RubyModuleDocumentationTarget"
+                                               implementationClass="com.intellij.lang.ruby.rbs.ruby.model.documentation.RbsRubyModuleDocumentationDataProvider"/>
+
+    <ruby.completionScopeModifier implementation="com.intellij.lang.ruby.rbs.ruby.model.completion.RbsRubyCompletionScopeModifier"/>
+
+    <rubyTypeProvider implementation="com.intellij.lang.ruby.rbs.ruby.types.RbsRubyTypeProvider"/>
+
+    <symbolicTypeInferenceProvider implementation="com.intellij.lang.ruby.rbs.ruby.types.RbsRubySymbolicTypeInferenceProvider"
+                                   order="after tuple"/>
+    <symbolicTypeInferenceProvider implementation="com.intellij.lang.ruby.rbs.ruby.types.RbsRubyWeakSymbolicTypeInferenceProvider"
+                                   order="first"/>
+
+    <ruby.coercibleExpressionTypeProvider implementation="com.intellij.lang.ruby.rbs.ruby.inspections.probableBugs.RbsRubyCoercibleTypeProvider"/>
+    <ruby.expectedArgumentTypeProvider implementation="com.intellij.lang.ruby.rbs.ruby.inspections.probableBugs.RbsRubyExpectedArgumentTypeProvider"/>
+    <ruby.expectedConstantTypeProvider implementation="com.intellij.lang.ruby.rbs.ruby.inspections.probableBugs.RbsRubyExpectedConstantTypeProvider"/>
+    <ruby.expectedGlobalVariableTypeProvider implementation="com.intellij.lang.ruby.rbs.ruby.inspections.probableBugs.RbsRubyExpectedGlobalVariableTypeProvider"/>
+    <ruby.expectedParameterTypeProvider implementation="com.intellij.lang.ruby.rbs.ruby.inspections.probableBugs.RbsRubyExpectedParameterTypeProvider"/>
+    <ruby.expectedReturnTypeProvider implementation="com.intellij.lang.ruby.rbs.ruby.inspections.probableBugs.RbsRubyExpectedReturnTypeProvider"/>
+    <ruby.expectedVariableTypeProvider implementation="com.intellij.lang.ruby.rbs.ruby.inspections.probableBugs.RbsRubyExpectedVariableTypeProvider"/>
+
+    <ruby.expectedMethodSignatureProvider
+      implementation="com.intellij.lang.ruby.rbs.ruby.inspections.probableBugs.RbsRubyExpectedMethodSignatureProvider"/>
+
+    <ruby.typeSignatureProvider language="ruby" implementationClass="com.intellij.lang.ruby.rbs.ruby.navigation.RbsRubyTypeSignatureProvider"/>
+    <ruby.associatedDeclarationProvider language="ruby.rbs" implementationClass="com.intellij.lang.ruby.rbs.ruby.navigation.RbsRubyAssociatedDeclarationProvider"/>
+    <rubyMethodTypeDocPresentationProvider
+      implementation="com.intellij.lang.ruby.rbs.ruby.lang.documentation.RbsRubyMethodTypeDocPresentationProvider" order="first"/>
+
+    <fileLocationProvider implementation="com.intellij.lang.ruby.rbs.ruby.workspace.fileIndex.RbsRubysigsLibraryFileLocationProvider"/>
+    <fileLocationProvider implementation="com.intellij.lang.ruby.rbs.tools.collection.workspace.fileIndex.RbsCollectionLibraryFileLocationProvider"/>
+  </extensions>
+
+  <actions resource-bundle="messages.RbsBundle">
+    <action id="rbs.create.new.class.file" class="com.intellij.lang.ruby.rbs.actions.RbsCreateClassFileAction"
+            icon="com.intellij.ruby.rbs.common.RbsIcons.RBS_CLASS_ICON">
+      <add-to-group group-id="NewGroup" anchor="after" relative-to-action="FileTemplateSeparatorGroup"/>
+    </action>
+    <group id="rbs.cli.actions" searchable="false">
+      <action id="rbs.cli.validate" class="com.intellij.lang.ruby.rbs.actions.RbsCommandlineAction$Validate"/>
+      <action id="rbs.cli.prototype" class="com.intellij.lang.ruby.rbs.actions.RbsCommandlineAction$Prototype"/>
+      <action id="rbs.cli.ancestors" class="com.intellij.lang.ruby.rbs.actions.RbsCommandlineAction$Ancestors"/>
+      <action id="rbs.cli.ast" class="com.intellij.lang.ruby.rbs.actions.RbsCommandlineAction$Ast"/>
+      <action id="rbs.cli.constant" class="com.intellij.lang.ruby.rbs.actions.RbsCommandlineAction$Constant"/>
+      <action id="rbs.cli.list" class="com.intellij.lang.ruby.rbs.actions.RbsCommandlineAction$List"/>
+      <action id="rbs.cli.method" class="com.intellij.lang.ruby.rbs.actions.RbsCommandlineAction$Method"/>
+      <action id="rbs.cli.methods" class="com.intellij.lang.ruby.rbs.actions.RbsCommandlineAction$Methods"/>
+      <action id="rbs.cli.parse" class="com.intellij.lang.ruby.rbs.actions.RbsCommandlineAction$Parse"/>
+      <action id="rbs.cli.paths" class="com.intellij.lang.ruby.rbs.actions.RbsCommandlineAction$Paths"/>
+      <action id="rbs.cli.test" class="com.intellij.lang.ruby.rbs.actions.RbsCommandlineAction$Test"/>
+      <action id="rbs.cli.vendor" class="com.intellij.lang.ruby.rbs.actions.RbsCommandlineAction$Vendor"/>
+    </group>
+    <group id="steep.cli.actions" searchable="false">
+      <!--suppress PluginXmlCapitalization "Steepfile" is a name-->
+      <action id="steep.cli.init" class="com.intellij.lang.ruby.rbs.actions.SteepCommandlineAction$Init"/>
+      <action id="steep.cli.validate" class="com.intellij.lang.ruby.rbs.actions.SteepCommandlineAction$Validate"/>
+      <action id="steep.cli.check" class="com.intellij.lang.ruby.rbs.actions.SteepCommandlineAction$Check"/>
+      <action id="steep.cli.annotations" class="com.intellij.lang.ruby.rbs.actions.SteepCommandlineAction$Annotations"/>
+      <action id="steep.cli.project" class="com.intellij.lang.ruby.rbs.actions.SteepCommandlineAction$Project"/>
+      <action id="steep.cli.watch" class="com.intellij.lang.ruby.rbs.actions.SteepCommandlineAction$Watch"/>
+      <action id="steep.cli.langserver" class="com.intellij.lang.ruby.rbs.actions.SteepCommandlineAction$Langserver"/>
+      <action id="steep.cli.stats" class="com.intellij.lang.ruby.rbs.actions.SteepCommandlineAction$Stats"/>
+    </group>
+    <action id="rbs.generate.from.ruby" class="com.intellij.lang.ruby.rbs.actions.generate.RbsGenerateFromRubyAction">
+      <add-to-group group-id="GenerateGroup" anchor="before" relative-to-action="GenerateCopyright"/>
+      <override-text place="popup"/>
+    </action>
+  </actions>
+</idea-plugin>

@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component name="LanguageInjectionConfiguration">
+  <injection language="SQL" injector-id="ruby" enabled="true">
+    <display-name>Heredoc</display-name>
+    <place><![CDATA[heredocElement("SQL")]]></place>
+  </injection>
+
+  <injection language="JavaScript" injector-id="ruby" enabled="true">
+    <display-name>Heredoc</display-name>
+    <place><![CDATA[heredocElement("JS")]]></place>
+    <place><![CDATA[heredocElement("JAVASCRIPT")]]></place>
+  </injection>
+
+  <injection language="XML" injector-id="ruby" enabled="true">
+    <display-name>Heredoc</display-name>
+    <place><![CDATA[heredocElement("XML")]]></place>
+  </injection>
+
+  <injection language="HTML" injector-id="ruby" enabled="true">
+    <display-name>Heredoc</display-name>
+    <place><![CDATA[heredocElement("HTML")]]></place>
+  </injection>
+
+  <injection language="CSS" injector-id="ruby" enabled="true">
+    <display-name>Heredoc</display-name>
+    <place><![CDATA[heredocElement("CSS")]]></place>
+  </injection>
+
+  <injection language="JSON" injector-id="ruby" enabled="true">
+    <display-name>Heredoc</display-name>
+    <place><![CDATA[heredocElement("JSON")]]></place>
+  </injection>
+
+  <injection language="ruby" injector-id="ruby" enabled="true">
+    <display-name>Heredoc</display-name>
+    <place><![CDATA[heredocElement("RUBY")]]></place>
+    <place><![CDATA[heredocElement("RB")]]></place>
+  </injection>
+
+  <injection language="yaml" injector-id="ruby" enabled="true">
+    <display-name>Heredoc</display-name>
+    <place><![CDATA[heredocElement("YAML")]]></place>
+    <place><![CDATA[heredocElement("YML")]]></place>
+  </injection>
+
+  <injection language="Embedded Puppet" injector-id="ruby" enabled="true">
+    <display-name>Heredoc</display-name>
+    <place><![CDATA[heredocElement("EPP")]]></place>
+  </injection>
+
+  <injection language="Haml" injector-id="ruby" enabled="true">
+    <display-name>Heredoc</display-name>
+    <place><![CDATA[heredocElement("HAML")]]></place>
+  </injection>
+
+  <injection language="Slim" injector-id="ruby" enabled="true">
+    <display-name>Heredoc</display-name>
+    <place><![CDATA[heredocElement("SLIM")]]></place>
+  </injection>
+
+  <injection language="liquid" injector-id="ruby" enabled="true">
+    <display-name>Heredoc</display-name>
+    <place><![CDATA[heredocElement("LIQUID")]]></place>
+  </injection>
+
+  <injection language="ERB" injector-id="ruby" enabled="true">
+    <display-name>Heredoc</display-name>
+    <place><![CDATA[heredocElement("ERB")]]></place>
+  </injection>
+</component>
