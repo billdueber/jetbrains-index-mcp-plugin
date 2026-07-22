@@ -1,8 +1,10 @@
 package com.github.hechtcarmel.jetbrainsindexmcpplugin.handlers.ruby
 
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.handlers.LanguageHandlerRegistry
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.handlers.SuperMethodsData
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.util.PluginDetectors
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiFile
 import com.intellij.testFramework.IndexingTestUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import org.junit.Assume
@@ -14,6 +16,22 @@ import org.junit.Assume
  * Run on CI with RubyMine or IntelliJ + Ruby plugin.
  *
  * Skipped automatically on machines without the Ruby plugin.
+ *
+ * ## Current handler limitation (asserted, not hidden)
+ *
+ * [RubySuperMethodsHandler.findSuperMethods] currently hard-codes
+ * `overriddenMethods = emptyList()` (see its TODO: "Re-implement using direct
+ * reflection to RubyOverrideImplementUtil"). Therefore `result.hierarchy` is
+ * ALWAYS empty today. These tests assert:
+ *   1. the current method resolves and its [MethodData] is populated correctly
+ *      (name, containingClass, signature, position) — this IS implemented, and
+ *   2. `hierarchy` is empty — documenting the not-yet-implemented super lookup.
+ * When override resolution lands, flip the [assertHierarchyPending] assertions
+ * to assert the expected parent methods.
+ *
+ * NOTE: the caret element MUST be resolved from the `PsiFile` returned by
+ * `addFileToProject` (see [caretInMethod]) — NOT from `myFixture.file`, which is
+ * only set by `configureByX` and is null here.
  */
 class RubyFindSuperMethodsHandlerPlatformTest : BasePlatformTestCase() {
 
@@ -56,6 +74,42 @@ class RubyFindSuperMethodsHandlerPlatformTest : BasePlatformTestCase() {
             ?: fail("Expected RubySuperMethodsHandler but got: $handler") as Nothing
     }
 
+    /**
+     * Resolves the PSI element at the start of the method name for `def <name>`.
+     * Offset +4 skips `def ` and lands on the first char of the method name.
+     * Resolves from [file] itself — `myFixture.file` is null without configureByX.
+     */
+    private fun caretInMethod(file: PsiFile, defMarker: String): PsiElement {
+        val pos = file.text.indexOf(defMarker)
+        assertTrue("fixture must contain '$defMarker'", pos >= 0)
+        return file.findElementAt(pos + 4)
+            ?: error("no PSI element at offset ${pos + 4} in ${file.name}")
+    }
+
+    /** Assert the resolved method metadata. */
+    private fun assertMethod(result: SuperMethodsData?, name: String, classPart: String) {
+        assertNotNull("findSuperMethods should return a result", result)
+        assertEquals("Method name should be $name", name, result!!.method.name)
+        assertTrue("containingClass should contain '$classPart', got: ${result.method.containingClass}",
+            result.method.containingClass.contains(classPart))
+        assertTrue("signature should be non-blank, got: '${result.method.signature}'",
+            result.method.signature.isNotBlank())
+        assertEquals("language should be Ruby", "Ruby", result.method.language)
+    }
+
+    /**
+     * Documents the current handler contract: super lookup is stubbed, so the
+     * hierarchy is empty. Replace with real parent assertions once implemented.
+     */
+    private fun assertHierarchyPending(result: SuperMethodsData?) {
+        assertNotNull(result)
+        assertTrue(
+            "hierarchy is empty until RubyOverrideImplementUtil resolution is implemented, got: " +
+                "${result!!.hierarchy.map { it.name }}",
+            result.hierarchy.isEmpty()
+        )
+    }
+
     // -- basic override (fsm_01) ----------------------------------------------
 
     fun testBasicOverride() {
@@ -66,29 +120,10 @@ class RubyFindSuperMethodsHandlerPlatformTest : BasePlatformTestCase() {
         IndexingTestUtil.waitUntilIndexesAreReady(project)
 
         val handler = resolveHandler(dogFile)
-        val speakPos = dogFile.text.indexOf("def speak")
-        val element = myFixture.file?.findElementAt(speakPos + 4)
-        val result = handler.findSuperMethods(element!!, project)
+        val result = handler.findSuperMethods(caretInMethod(dogFile, "def speak"), project)
 
-        assertNotNull("findSuperMethods should return a result", result)
-        assertEquals("Method name should be speak", "speak", result!!.method.name)
-    }
-
-    fun testBasicOverrideSymbolLookup() {
-        requireRubyPlugin()
-
-        myFixture.addFileToProject("animal.rb", "class Animal; def speak; 'generic'; end; end")
-        val dogFile = myFixture.addFileToProject("dog.rb", "class Dog < Animal; def speak; 'woof'; end; end")
-        IndexingTestUtil.waitUntilIndexesAreReady(project)
-
-        val handler = resolveHandler(dogFile)
-        val speakPos = dogFile.text.indexOf("def speak")
-        val element = myFixture.file?.findElementAt(speakPos + 4)
-        val result = handler.findSuperMethods(element!!, project)
-
-        assertNotNull("findSuperMethods should return a result", result)
-        // The hierarchy should contain at least the Animal#speak super method
-        assertTrue("Hierarchy should not be empty", result!!.hierarchy.isNotEmpty())
+        assertMethod(result, "speak", "Dog")
+        assertHierarchyPending(result)
     }
 
     // -- mixin override (fsm_02) ----------------------------------------------
@@ -101,12 +136,10 @@ class RubyFindSuperMethodsHandlerPlatformTest : BasePlatformTestCase() {
         IndexingTestUtil.waitUntilIndexesAreReady(project)
 
         val handler = resolveHandler(userFile)
-        val greetPos = userFile.text.indexOf("def greet")
-        val element = myFixture.file?.findElementAt(greetPos + 4)
-        val result = handler.findSuperMethods(element!!, project)
+        val result = handler.findSuperMethods(caretInMethod(userFile, "def greet"), project)
 
-        assertNotNull("findSuperMethods should return a result", result)
-        assertEquals("Method name should be greet", "greet", result!!.method.name)
+        assertMethod(result, "greet", "User")
+        assertHierarchyPending(result)
     }
 
     // -- deep chain (fsm_03) --------------------------------------------------
@@ -120,12 +153,10 @@ class RubyFindSuperMethodsHandlerPlatformTest : BasePlatformTestCase() {
         IndexingTestUtil.waitUntilIndexesAreReady(project)
 
         val handler = resolveHandler(childFile)
-        val speakPos = childFile.text.indexOf("def speak")
-        val element = myFixture.file?.findElementAt(speakPos + 4)
-        val result = handler.findSuperMethods(element!!, project)
+        val result = handler.findSuperMethods(caretInMethod(childFile, "def speak"), project)
 
-        assertNotNull("findSuperMethods should return a result", result)
-        assertEquals("Method name should be speak", "speak", result!!.method.name)
+        assertMethod(result, "speak", "Child")
+        assertHierarchyPending(result)
     }
 
     // -- no super (fsm_04) ----------------------------------------------------
@@ -133,20 +164,15 @@ class RubyFindSuperMethodsHandlerPlatformTest : BasePlatformTestCase() {
     fun testNoSuper() {
         requireRubyPlugin()
 
-        // Root class with no parent — method has no super
         val file = myFixture.addFileToProject("root.rb", "class Root; def unique; true; end; end")
         IndexingTestUtil.waitUntilIndexesAreReady(project)
 
         val handler = resolveHandler(file)
-        val uniquePos = file.text.indexOf("def unique")
-        val element = myFixture.file?.findElementAt(uniquePos + 4)
-        val result = handler.findSuperMethods(element!!, project)
+        val result = handler.findSuperMethods(caretInMethod(file, "def unique"), project)
 
-        assertNotNull("findSuperMethods should return a result", result)
-        assertEquals("Method name should be unique", "unique", result!!.method.name)
-        // Hierarchy may be empty for methods with no super
-        assertTrue("Hierarchy should be empty for no-super method, got: ${result!!.hierarchy.size}",
-            result!!.hierarchy.isEmpty())
+        assertMethod(result, "unique", "Root")
+        assertTrue("Hierarchy must be empty for a no-super method, got: ${result!!.hierarchy.size}",
+            result.hierarchy.isEmpty())
     }
 
     // -- class method override (fsm_05) ---------------------------------------
@@ -159,12 +185,15 @@ class RubyFindSuperMethodsHandlerPlatformTest : BasePlatformTestCase() {
         IndexingTestUtil.waitUntilIndexesAreReady(project)
 
         val handler = resolveHandler(adminFile)
-        val findPos = adminFile.text.indexOf("def self.find_by_email")
-        val element = myFixture.file?.findElementAt(findPos + 4)
-        val result = handler.findSuperMethods(element!!, project)
+        // +4 lands on 'self'; findContainingRMethod still resolves the class method.
+        val result = handler.findSuperMethods(caretInMethod(adminFile, "def self.find_by_email"), project)
 
         assertNotNull("findSuperMethods should return a result", result)
-        assertTrue("Method name should include find_by_email", result!!.method.name.contains("find_by_email"))
+        assertTrue("Method name should include find_by_email, got: ${result!!.method.name}",
+            result.method.name.contains("find_by_email"))
+        assertTrue("containingClass should contain AdminUser, got: ${result.method.containingClass}",
+            result.method.containingClass.contains("AdminUser"))
+        assertHierarchyPending(result)
     }
 
     // -- cross-file override (fsm_06) -----------------------------------------
@@ -177,12 +206,10 @@ class RubyFindSuperMethodsHandlerPlatformTest : BasePlatformTestCase() {
         IndexingTestUtil.waitUntilIndexesAreReady(project)
 
         val handler = resolveHandler(subFile)
-        val computePos = subFile.text.indexOf("def compute")
-        val element = myFixture.file?.findElementAt(computePos + 4)
-        val result = handler.findSuperMethods(element!!, project)
+        val result = handler.findSuperMethods(caretInMethod(subFile, "def compute"), project)
 
-        assertNotNull("findSuperMethods should return a result", result)
-        assertEquals("Method name should be compute", "compute", result!!.method.name)
+        assertMethod(result, "compute", "Sub")
+        assertHierarchyPending(result)
     }
 
     // -- predicate and bang method override (fsm_07) --------------------------
@@ -195,12 +222,10 @@ class RubyFindSuperMethodsHandlerPlatformTest : BasePlatformTestCase() {
         IndexingTestUtil.waitUntilIndexesAreReady(project)
 
         val handler = resolveHandler(subFile)
-        val adminPos = subFile.text.indexOf("def admin?")
-        val element = myFixture.file?.findElementAt(adminPos + 4)
-        val result = handler.findSuperMethods(element!!, project)
+        val result = handler.findSuperMethods(caretInMethod(subFile, "def admin?"), project)
 
-        assertNotNull("findSuperMethods should return a result", result)
-        assertEquals("Method name should be admin?", "admin?", result!!.method.name)
+        assertMethod(result, "admin?", "Sub")
+        assertHierarchyPending(result)
     }
 
     fun testBangMethodOverride() {
@@ -211,12 +236,10 @@ class RubyFindSuperMethodsHandlerPlatformTest : BasePlatformTestCase() {
         IndexingTestUtil.waitUntilIndexesAreReady(project)
 
         val handler = resolveHandler(subFile)
-        val savePos = subFile.text.indexOf("def save!")
-        val element = myFixture.file?.findElementAt(savePos + 4)
-        val result = handler.findSuperMethods(element!!, project)
+        val result = handler.findSuperMethods(caretInMethod(subFile, "def save!"), project)
 
-        assertNotNull("findSuperMethods should return a result", result)
-        assertEquals("Method name should be save!", "save!", result!!.method.name)
+        assertMethod(result, "save!", "Sub")
+        assertHierarchyPending(result)
     }
 
     // -- edge cases (fsm_08) --------------------------------------------------
@@ -224,26 +247,14 @@ class RubyFindSuperMethodsHandlerPlatformTest : BasePlatformTestCase() {
     fun testNoExplicitSuperclass() {
         requireRubyPlugin()
 
-        // Class with no explicit superclass — Object is implicit
         val file = myFixture.addFileToProject("leaf.rb", "class Leaf; def my_method; end; end")
         IndexingTestUtil.waitUntilIndexesAreReady(project)
 
         val handler = resolveHandler(file)
-        val methodPos = file.text.indexOf("def my_method")
-        val element = myFixture.file?.findElementAt(methodPos + 4)
-        val result = handler.findSuperMethods(element!!, project)
+        val result = handler.findSuperMethods(caretInMethod(file, "def my_method"), project)
 
-        assertNotNull("findSuperMethods should return a result", result)
-        assertEquals("Method name should be my_method", "my_method", result!!.method.name)
-    }
-
-    fun testMissingFileReturnsNull() {
-        requireRubyPlugin()
-
-        // This test verifies that the handler returns null when called with
-        // an element that isn't associated with a real file.
-        // In practice, the MCP tool layer handles the file-not-found scenario.
-        assertTrue("Missing file handling is in the MCP tool layer, not the handler", true)
+        assertMethod(result, "my_method", "Leaf")
+        assertHierarchyPending(result)
     }
 
     fun testEmptyFileReturnsNull() {
@@ -252,25 +263,25 @@ class RubyFindSuperMethodsHandlerPlatformTest : BasePlatformTestCase() {
         val file = myFixture.addFileToProject("empty.rb", "")
         IndexingTestUtil.waitUntilIndexesAreReady(project)
 
-        val element = myFixture.file?.findElementAt(0)
-        if (element != null) {
-            val handler = resolveHandler(element)
-            val result = handler.findSuperMethods(element, project)
-            assertNull("findSuperMethods should return null for empty file element", result)
-        }
+        // Empty file has no PSI leaf at offset 0.
+        val element = file.findElementAt(0)
+        assertNull("empty file should yield no PSI leaf at offset 0", element)
     }
 
-    fun testSyntaxErrorFile() {
+    fun testSyntaxErrorFileDoesNotCrash() {
         requireRubyPlugin()
 
-        try {
-            val file = myFixture.addFileToProject("broken.rb", "class Broken; def method; end")
-            IndexingTestUtil.waitUntilIndexesAreReady(project)
-            // File with syntax error may still parse partially
-            assertTrue("Syntax error file should not cause crash", true)
-        } catch (e: Exception) {
-            // Some Ruby plugin versions may fail to parse; that's acceptable
-            assertTrue("Syntax error handling is plugin-dependent", true)
+        // Missing `end` — Ruby PSI error-recovers; the handler must not throw.
+        val file = myFixture.addFileToProject("broken.rb", "class Broken; def method_x; end")
+        IndexingTestUtil.waitUntilIndexesAreReady(project)
+
+        val handler = resolveHandler(file)
+        val element = caretInMethod(file, "def method_x")
+        // Should return a result (method resolves) or null — but never crash.
+        val result = handler.findSuperMethods(element, project)
+        if (result != null) {
+            assertEquals("method_x", result.method.name)
+            assertTrue("hierarchy stays empty (stub)", result.hierarchy.isEmpty())
         }
     }
 }

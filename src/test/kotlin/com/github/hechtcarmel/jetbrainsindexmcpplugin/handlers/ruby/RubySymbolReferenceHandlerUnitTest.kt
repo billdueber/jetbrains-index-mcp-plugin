@@ -55,6 +55,18 @@ class RubySymbolReferenceHandlerUnitTest : TestCase() {
     fun testPatternMatchesUnderscoredNames() =
         assertTrue("RUBY_SYMBOL_PATTERN should match 'my_gem::MyClass'", RUBY_SYMBOL_PATTERN.matches("my_gem::MyClass"))
 
+    fun testPatternPermissivelyAcceptsLowercaseLeadingSegment() {
+        // KNOWN OVER-MATCH: PATH_SEGMENT allows a lowercase-initial segment, so
+        // 'my_gem::MyClass' and even a bare lowercase 'user' are accepted by the
+        // format pattern, although Ruby constants must be uppercase-initial.
+        // This is intentional leniency at the format-validation layer; actual
+        // resolution against the index filters out non-existent constants.
+        assertTrue("pattern permissively matches lowercase leading segment",
+            RUBY_SYMBOL_PATTERN.matches("user"))
+        assertTrue("pattern permissively matches lowercase namespace segment",
+            RUBY_SYMBOL_PATTERN.matches("my_gem::MyClass"))
+    }
+
     // ── RUBY_SYMBOL_PATTERN: invalid symbols ─────────────────────────────────
 
     fun testPatternRejectsEmptyString() =

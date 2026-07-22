@@ -23,6 +23,31 @@ class RubyStructureHandler : BaseRubyHandler<List<StructureNode>>(), StructureHa
 
     companion object {
         private val LOG = logger<RubyStructureHandler>()
+
+        /**
+         * Derives a Ruby method signature string from the method's source text.
+         *
+         * Visible for testing so the full branch logic can be exercised without
+         * PSI: parameter extraction, empty parens (`()`), and the paren-less
+         * fallback (`()` for `def foo`, `def admin?`, `def save!`). A one-line
+         * body like `def foo; end` yields `null` (no trailing whitespace/EOL
+         * after the name on that line).
+         */
+        internal fun deriveMethodSignatureFromText(text: String): String? {
+            val paramPattern = Regex("""def\s+\S+\s*\(([^)]*)\)""")
+            val match = paramPattern.find(text)
+            if (match != null) {
+                val params = match.groupValues[1]
+                return if (params.isNotBlank()) "($params)" else "()"
+            }
+            // Fallback: paren-less method definition — first line is `def name`
+            val noParamPattern = Regex("""def\s+\S+\s*$\s*""")
+            return if (noParamPattern.containsMatchIn(text.lines().firstOrNull() ?: "")) "()" else null
+        }
+
+        /** Detects the `self.` class-method modifier from method text. Visible for testing. */
+        internal fun deriveSelfModifier(text: String): List<String> =
+            if (text.startsWith("def self.")) listOf("self") else emptyList()
     }
 
     override fun canHandle(element: PsiElement): Boolean {
@@ -230,17 +255,11 @@ class RubyStructureHandler : BaseRubyHandler<List<StructureNode>>(), StructureHa
      * Gets Ruby method modifiers (visibility, self/class method indication).
      */
     private fun getRubyMethodModifiers(method: PsiElement): List<String> {
-        val modifiers = mutableListOf<String>()
-
-        // Check if the method text starts with "def self." (class method)
-        try {
-            val text = method.text
-            if (text.startsWith("def self.")) {
-                modifiers.add("self")
-            }
-        } catch (_: Exception) {}
-
-        return modifiers
+        return try {
+            deriveSelfModifier(method.text)
+        } catch (_: Exception) {
+            emptyList()
+        }
     }
 
     /**
@@ -265,29 +284,8 @@ class RubyStructureHandler : BaseRubyHandler<List<StructureNode>>(), StructureHa
      * Shows the method signature with parameters, e.g., "(x, y)"
      */
     private fun buildMethodSignature(method: PsiElement): String? {
-        // Try to extract parameters from the method's PSI structure
-        // RMethod doesn't expose getParameterList directly, so we parse
-        // the text between parentheses after "def method_name"
         return try {
-            val text = method.text
-            val paramPattern = Regex("""def\s+\S+\s*\(([^)]*)\)""")
-            val match = paramPattern.find(text)
-            if (match != null) {
-                val params = match.groupValues[1]
-                if (params.isNotBlank()) {
-                    "($params)"
-                } else {
-                    "()"
-                }
-            } else {
-                // Check for no-parameter method (no parentheses)
-                val noParamPattern = Regex("""def\s+\S+\s*$\s*""")
-                if (noParamPattern.containsMatchIn(text.lines().firstOrNull() ?: "")) {
-                    "()"
-                } else {
-                    null
-                }
-            }
+            deriveMethodSignatureFromText(method.text)
         } catch (e: Exception) {
             null
         }

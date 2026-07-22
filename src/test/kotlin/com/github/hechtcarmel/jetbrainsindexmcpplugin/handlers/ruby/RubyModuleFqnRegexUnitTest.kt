@@ -4,25 +4,21 @@ import junit.framework.TestCase
 
 /**
  * Pure (non-fixture) unit tests for the regex extraction logic in
- * [BaseRubyHandler.getModuleFQNsViaPsiTextWalk].
+ * [BaseRubyHandler.extractModuleNamesFromText], the tertiary text-scan fallback
+ * used by `getModuleFQNsViaPsiTextWalk` to pull module names out of
+ * `include`/`extend`/`prepend` calls.
  *
- * That method constructs `Regex("""\b$callName\s+([A-Z][A-Za-z_:]*)\b""")`
- * and uses `pattern.findAll(sourceText)` to extract module names from
- * `include`/`extend`/`prepend` calls. These tests verify the regex
- * pattern itself — no PSI, no index, no Ruby plugin needed.
+ * These call the REAL handler helper (not a local copy), so a divergence in the
+ * production regex will fail these tests. No PSI, no index, no Ruby plugin needed.
  *
  * The regex is tested for three call names: `"include"`, `"extend"`, `"prepend"`.
  */
 class RubyModuleFqnRegexUnitTest : TestCase() {
 
-    // ── helpers: reproduce the exact pattern from the handler ──────────────────
+    // ── helper: delegate to the real handler logic under test ──────────────────
 
-    private fun extractModuleNames(sourceText: String, callName: String): Set<String> {
-        val pattern = Regex("""\b$callName\s+([A-Z][A-Za-z_:]*)\b""")
-        return pattern.findAll(sourceText)
-            .map { it.groupValues[1] }
-            .toSet()
-    }
+    private fun extractModuleNames(sourceText: String, callName: String): Set<String> =
+        BaseRubyHandler.extractModuleNamesFromText(sourceText, callName).toSet()
 
     // ── include ────────────────────────────────────────────────────────────────
 

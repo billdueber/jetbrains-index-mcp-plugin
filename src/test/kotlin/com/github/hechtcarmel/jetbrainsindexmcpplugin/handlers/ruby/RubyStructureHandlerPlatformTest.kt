@@ -127,6 +127,11 @@ class RubyStructureHandlerPlatformTest : BasePlatformTestCase() {
             "add", nodes[0].children[0].name)
         assertEquals("Second method should be compute, got: ${nodes[0].children[1].name}",
             "compute", nodes[0].children[1].name)
+        // Signature derivation against real RMethod text (end-to-end).
+        assertEquals("add signature should be (x, y), got: ${nodes[0].children[0].signature}",
+            "(x, y)", nodes[0].children[0].signature)
+        assertEquals("compute signature should be (), got: ${nodes[0].children[1].signature}",
+            "()", nodes[0].children[1].signature)
     }
 
     // ── module with methods ───────────────────────────────────────────────────
@@ -261,6 +266,13 @@ class RubyStructureHandlerPlatformTest : BasePlatformTestCase() {
             "square", nodes[0].children[0].name)
         assertEquals("Second method should be add, got: ${nodes[0].children[1].name}",
             "add", nodes[0].children[1].name)
+        // `self.` class methods carry the "self" modifier; instance methods do not.
+        assertTrue("square should carry the 'self' modifier, got: ${nodes[0].children[0].modifiers}",
+            nodes[0].children[0].modifiers.contains("self"))
+        assertEquals("square signature should be (x), got: ${nodes[0].children[0].signature}",
+            "(x)", nodes[0].children[0].signature)
+        assertFalse("add (instance method) should NOT carry 'self', got: ${nodes[0].children[1].modifiers}",
+            nodes[0].children[1].modifiers.contains("self"))
     }
 
     // ── mixed class and module top-level ──────────────────────────────────────

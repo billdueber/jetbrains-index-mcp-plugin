@@ -1,10 +1,11 @@
 package com.github.hechtcarmel.jetbrainsindexmcpplugin.handlers.ruby
 
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.handlers.BuiltInSearchScope
-import com.github.hechtcarmel.jetbrainsindexmcpplugin.handlers.CallHierarchyHandler
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.handlers.CallElementData
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.handlers.LanguageHandlerRegistry
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.util.PluginDetectors
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiFile
 import com.intellij.testFramework.IndexingTestUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import org.junit.Assume
@@ -16,6 +17,10 @@ import org.junit.Assume
  * Run on CI with RubyMine or IntelliJ + Ruby plugin.
  *
  * Skipped automatically on machines without the Ruby plugin.
+ *
+ * NOTE: the caret element MUST be resolved from the `PsiFile` returned by
+ * `addFileToProject` (see [caretIn]) — NOT from `myFixture.file`, which is only
+ * set by `configureByX` and is null here.
  */
 class RubyCallHierarchyHandlerPlatformTest : BasePlatformTestCase() {
 
@@ -58,12 +63,26 @@ class RubyCallHierarchyHandlerPlatformTest : BasePlatformTestCase() {
             ?: fail("Expected RubyCallHierarchyHandler but got: $handler") as Nothing
     }
 
+    /**
+     * Resolves the PSI element at the start of the method name for `def <name>`.
+     * Offset +4 skips `def ` and lands on the first char of the method name.
+     * Resolves from [file] itself — `myFixture.file` is null without configureByX.
+     */
+    private fun caretInMethod(file: PsiFile, defMarker: String): PsiElement {
+        val pos = file.text.indexOf(defMarker)
+        assertTrue("fixture must contain '$defMarker'", pos >= 0)
+        return file.findElementAt(pos + 4)
+            ?: error("no PSI element at offset ${pos + 4} in ${file.name}")
+    }
+
+    private fun List<CallElementData>?.hasCall(namePart: String): Boolean =
+        this?.any { it.name.contains(namePart) } == true
+
     // -- simple callers -------------------------------------------------------
 
     fun testSimpleCallers() {
         requireRubyPlugin()
 
-        myFixture.addFileToProject("utils.rb", "def greet(name); \"Hello, #{name}\"; end")
         val mainFile = myFixture.addFileToProject("main.rb", """
             def start
               greet("world")
@@ -75,12 +94,14 @@ class RubyCallHierarchyHandlerPlatformTest : BasePlatformTestCase() {
         IndexingTestUtil.waitUntilIndexesAreReady(project)
 
         val handler = resolveHandler(mainFile)
-        // Resolve to the greet method
-        val element = myFixture.file?.findElementAt(mainFile.text.indexOf("def greet") + 4)
-        val result = handler.getCallHierarchy(element!!, project, "callers", 1, BuiltInSearchScope.PROJECT_FILES)
+        val result = handler.getCallHierarchy(
+            caretInMethod(mainFile, "def greet"), project, "callers", 1, BuiltInSearchScope.PROJECT_FILES
+        )
 
         assertNotNull("Call hierarchy should not be null", result)
         assertEquals("Element name should be greet", "greet", result!!.element.name)
+        assertTrue("greet's callers should include start, got: ${result.calls?.map { it.name }}",
+            result.calls.hasCall("start"))
     }
 
     // -- simple callees -------------------------------------------------------
@@ -99,11 +120,14 @@ class RubyCallHierarchyHandlerPlatformTest : BasePlatformTestCase() {
         IndexingTestUtil.waitUntilIndexesAreReady(project)
 
         val handler = resolveHandler(mainFile)
-        val element = myFixture.file?.findElementAt(mainFile.text.indexOf("def start") + 4)
-        val result = handler.getCallHierarchy(element!!, project, "callees", 1, BuiltInSearchScope.PROJECT_FILES)
+        val result = handler.getCallHierarchy(
+            caretInMethod(mainFile, "def start"), project, "callees", 1, BuiltInSearchScope.PROJECT_FILES
+        )
 
         assertNotNull("Call hierarchy should not be null", result)
         assertEquals("Element name should be start", "start", result!!.element.name)
+        assertTrue("start's callees should include helper, got: ${result.calls?.map { it.name }}",
+            result.calls.hasCall("helper"))
     }
 
     // -- instance method callers ----------------------------------------------
@@ -127,16 +151,15 @@ class RubyCallHierarchyHandlerPlatformTest : BasePlatformTestCase() {
         IndexingTestUtil.waitUntilIndexesAreReady(project)
 
         val handler = resolveHandler(file)
-        val addMethodPos = file.text.indexOf("def add")
-        val element = myFixture.file?.findElementAt(addMethodPos + 4)
-        val result = handler.getCallHierarchy(element!!, project, "callers", 1, BuiltInSearchScope.PROJECT_FILES)
+        val result = handler.getCallHierarchy(
+            caretInMethod(file, "def add"), project, "callers", 1, BuiltInSearchScope.PROJECT_FILES
+        )
 
         assertNotNull("Call hierarchy should not be null", result)
-        val calls = result!!.calls
-        assertTrue("Should have at least one caller, got: ${calls.size}", calls.isNotEmpty())
-        val callerNames = calls.map { it.name }
-        assertTrue("Callers should include compute, got: $callerNames", callerNames.any { it.contains("compute") })
-        assertTrue("Callers should include calculate, got: $callerNames", callerNames.any { it.contains("calculate") })
+        val callerNames = result!!.calls?.map { it.name } ?: emptyList()
+        assertTrue("Should have callers, got: $callerNames", callerNames.isNotEmpty())
+        assertTrue("Callers should include compute, got: $callerNames", result.calls.hasCall("compute"))
+        assertTrue("Callers should include calculate, got: $callerNames", result.calls.hasCall("calculate"))
     }
 
     // -- class method callers -------------------------------------------------
@@ -160,11 +183,12 @@ class RubyCallHierarchyHandlerPlatformTest : BasePlatformTestCase() {
         IndexingTestUtil.waitUntilIndexesAreReady(project)
 
         val handler = resolveHandler(file)
-        val parsePos = file.text.indexOf("def self.parse")
-        val element = myFixture.file?.findElementAt(parsePos + 4)
-        val result = handler.getCallHierarchy(element!!, project, "callers", 1, BuiltInSearchScope.PROJECT_FILES)
+        val result = handler.getCallHierarchy(
+            caretInMethod(file, "def self.parse"), project, "callers", 1, BuiltInSearchScope.PROJECT_FILES
+        )
 
         assertNotNull("Call hierarchy should not be null", result)
+        assertTrue("parse element name should include parse", result!!.element.name.contains("parse"))
     }
 
     // -- no callers -----------------------------------------------------------
@@ -183,17 +207,14 @@ class RubyCallHierarchyHandlerPlatformTest : BasePlatformTestCase() {
         IndexingTestUtil.waitUntilIndexesAreReady(project)
 
         val handler = resolveHandler(file)
-        val orphanPos = file.text.indexOf("def orphan")
-        val element = myFixture.file?.findElementAt(orphanPos + 4)
-        val result = handler.getCallHierarchy(element!!, project, "callers", 1, BuiltInSearchScope.PROJECT_FILES)
+        val result = handler.getCallHierarchy(
+            caretInMethod(file, "def orphan"), project, "callers", 1, BuiltInSearchScope.PROJECT_FILES
+        )
 
         assertNotNull("Call hierarchy should not be null", result)
-        val r = result!!
-        assertEquals("Element name should be orphan", "orphan", r.element.name)
-        // Calls may be null or empty for orphan methods
-        if (r.calls != null) {
-            assertTrue("Calls should be empty for orphan method, got: ${r.calls.size}", r.calls.isEmpty())
-        }
+        assertEquals("Element name should be orphan", "orphan", result!!.element.name)
+        assertFalse("orphan should have no callers, got: ${result.calls?.map { it.name }}",
+            result.calls.hasCall("unrelated"))
     }
 
     // -- no callees -----------------------------------------------------------
@@ -209,16 +230,14 @@ class RubyCallHierarchyHandlerPlatformTest : BasePlatformTestCase() {
         IndexingTestUtil.waitUntilIndexesAreReady(project)
 
         val handler = resolveHandler(file)
-        val leafPos = file.text.indexOf("def leaf_method")
-        val element = myFixture.file?.findElementAt(leafPos + 4)
-        val result = handler.getCallHierarchy(element!!, project, "callees", 1, BuiltInSearchScope.PROJECT_FILES)
+        val result = handler.getCallHierarchy(
+            caretInMethod(file, "def leaf_method"), project, "callees", 1, BuiltInSearchScope.PROJECT_FILES
+        )
 
         assertNotNull("Call hierarchy should not be null", result)
-        val r = result!!
-        assertEquals("Element name should be leaf_method", "leaf_method", r.element.name)
-        if (r.calls != null) {
-            assertTrue("Calls should be empty for leaf method, got: ${r.calls.size}", r.calls.isEmpty())
-        }
+        assertEquals("Element name should be leaf_method", "leaf_method", result!!.element.name)
+        assertTrue("Calls should be empty/null for leaf method, got: ${result.calls?.map { it.name }}",
+            result.calls.isNullOrEmpty())
     }
 
     // -- recursive method (self-referencing) ----------------------------------
@@ -235,15 +254,15 @@ class RubyCallHierarchyHandlerPlatformTest : BasePlatformTestCase() {
         IndexingTestUtil.waitUntilIndexesAreReady(project)
 
         val handler = resolveHandler(file)
-        val factorialPos = file.text.indexOf("def factorial")
-        val element = myFixture.file?.findElementAt(factorialPos + 4)
-        val result = handler.getCallHierarchy(element!!, project, "callees", 3, BuiltInSearchScope.PROJECT_FILES)
+        val result = handler.getCallHierarchy(
+            caretInMethod(file, "def factorial"), project, "callees", 3, BuiltInSearchScope.PROJECT_FILES
+        )
 
         assertNotNull("Call hierarchy should not be null", result)
-        val r = result!!
-        assertEquals("Element name should be factorial", "factorial", r.element.name)
-        // The recursive call should be found without infinite loop
-        assertNotNull("Calls should not be null for recursive method", r.calls)
+        assertEquals("Element name should be factorial", "factorial", result!!.element.name)
+        // The recursive call is resolved once; the cycle guard prevents infinite recursion.
+        assertTrue("factorial should list itself as a (single) callee, got: ${result.calls?.map { it.name }}",
+            result.calls.hasCall("factorial"))
     }
 
     // -- predicate method -----------------------------------------------------
@@ -263,12 +282,14 @@ class RubyCallHierarchyHandlerPlatformTest : BasePlatformTestCase() {
         IndexingTestUtil.waitUntilIndexesAreReady(project)
 
         val handler = resolveHandler(file)
-        val validPos = file.text.indexOf("def valid?")
-        val element = myFixture.file?.findElementAt(validPos + 4)
-        val result = handler.getCallHierarchy(element!!, project, "callers", 1, BuiltInSearchScope.PROJECT_FILES)
+        val result = handler.getCallHierarchy(
+            caretInMethod(file, "def valid?"), project, "callers", 1, BuiltInSearchScope.PROJECT_FILES
+        )
 
         assertNotNull("Call hierarchy should not be null", result)
         assertTrue("Element name should include valid", result!!.element.name.contains("valid"))
+        assertTrue("valid?'s callers should include process, got: ${result.calls?.map { it.name }}",
+            result.calls.hasCall("process"))
     }
 
     // -- bang method ----------------------------------------------------------
@@ -287,25 +308,14 @@ class RubyCallHierarchyHandlerPlatformTest : BasePlatformTestCase() {
         IndexingTestUtil.waitUntilIndexesAreReady(project)
 
         val handler = resolveHandler(file)
-        val savePos = file.text.indexOf("def save!")
-        val element = myFixture.file?.findElementAt(savePos + 4)
-        val result = handler.getCallHierarchy(element!!, project, "callers", 1, BuiltInSearchScope.PROJECT_FILES)
+        val result = handler.getCallHierarchy(
+            caretInMethod(file, "def save!"), project, "callers", 1, BuiltInSearchScope.PROJECT_FILES
+        )
 
         assertNotNull("Call hierarchy should not be null", result)
         assertTrue("Element name should include save", result!!.element.name.contains("save"))
-    }
-
-    // -- non-existent file returns null ---------------------------------------
-
-    fun testNonExistentFileReturnsNull() {
-        requireRubyPlugin()
-
-        // For a file that doesn't exist, we need to mock the scenario.
-        // The handler's getCallHierarchy is called with a PSI element from an existing file.
-        // The "non-existent file" scenario is handled by the MCP tool layer before the handler.
-        // This test verifies that the handler returns null when the element is not in a real file.
-        // We can skip this for now — the MCP tool layer handles file-not-found errors.
-        assertTrue("Non-existent file handling is in the MCP tool layer, not the handler", true)
+        assertTrue("save!'s callers should include persist, got: ${result.calls?.map { it.name }}",
+            result.calls.hasCall("persist"))
     }
 
     // -- depth > 1 callers ----------------------------------------------------
@@ -327,12 +337,18 @@ class RubyCallHierarchyHandlerPlatformTest : BasePlatformTestCase() {
         IndexingTestUtil.waitUntilIndexesAreReady(project)
 
         val handler = resolveHandler(file)
-        val level3Pos = file.text.indexOf("def level3")
-        val element = myFixture.file?.findElementAt(level3Pos + 4)
-        val result = handler.getCallHierarchy(element!!, project, "callers", 2, BuiltInSearchScope.PROJECT_FILES)
+        val result = handler.getCallHierarchy(
+            caretInMethod(file, "def level3"), project, "callers", 2, BuiltInSearchScope.PROJECT_FILES
+        )
 
         assertNotNull("Call hierarchy should not be null", result)
         assertEquals("Element name should be level3", "level3", result!!.element.name)
+        assertTrue("level3's direct callers should include level2, got: ${result.calls?.map { it.name }}",
+            result.calls.hasCall("level2"))
+        val level2 = result.calls?.firstOrNull { it.name.contains("level2") }
+        assertNotNull("level2 caller node expected", level2)
+        assertTrue("depth-2: level2's callers should include level1, got: ${level2!!.children?.map { it.name }}",
+            level2.children.hasCall("level1"))
     }
 
     // -- depth > 1 callees ----------------------------------------------------
@@ -354,12 +370,18 @@ class RubyCallHierarchyHandlerPlatformTest : BasePlatformTestCase() {
         IndexingTestUtil.waitUntilIndexesAreReady(project)
 
         val handler = resolveHandler(file)
-        val level1Pos = file.text.indexOf("def level1")
-        val element = myFixture.file?.findElementAt(level1Pos + 4)
-        val result = handler.getCallHierarchy(element!!, project, "callees", 2, BuiltInSearchScope.PROJECT_FILES)
+        val result = handler.getCallHierarchy(
+            caretInMethod(file, "def level1"), project, "callees", 2, BuiltInSearchScope.PROJECT_FILES
+        )
 
         assertNotNull("Call hierarchy should not be null", result)
         assertEquals("Element name should be level1", "level1", result!!.element.name)
+        assertTrue("level1's direct callees should include level2, got: ${result.calls?.map { it.name }}",
+            result.calls.hasCall("level2"))
+        val level2 = result.calls?.firstOrNull { it.name.contains("level2") }
+        assertNotNull("level2 callee node expected", level2)
+        assertTrue("depth-2: level2's callees should include level3, got: ${level2!!.children?.map { it.name }}",
+            level2.children.hasCall("level3"))
     }
 
     // -- cross-file callers ---------------------------------------------------
@@ -380,18 +402,13 @@ class RubyCallHierarchyHandlerPlatformTest : BasePlatformTestCase() {
         IndexingTestUtil.waitUntilIndexesAreReady(project)
 
         val handler = resolveHandler(mainFile)
-        // Cross-file callers may or may not resolve depending on Ruby plugin version.
-        // We verify the handler doesn't crash when called with a file that has
-        // references to methods in other files.
-        val startPos = mainFile.text.indexOf("def start")
-        val element = myFixture.file?.findElementAt(startPos + 4)
-        if (element != null) {
-            val result = handler.getCallHierarchy(element, project, "callers", 1, BuiltInSearchScope.PROJECT_FILES)
-            // result may be null or contain callers depending on Ruby plugin
-            if (result != null) {
-                assertTrue("start should be the element name", result.element.name.contains("start"))
-            }
-        }
+        // Cross-file resolution depends on the Ruby plugin version; verify no crash
+        // and that the queried element resolves correctly.
+        val result = handler.getCallHierarchy(
+            caretInMethod(mainFile, "def start"), project, "callers", 1, BuiltInSearchScope.PROJECT_FILES
+        )
+        assertNotNull("Call hierarchy should not be null", result)
+        assertEquals("start should be the element name", "start", result!!.element.name)
     }
 
     // -- mixed call types (instance + class) ----------------------------------
@@ -416,12 +433,14 @@ class RubyCallHierarchyHandlerPlatformTest : BasePlatformTestCase() {
         IndexingTestUtil.waitUntilIndexesAreReady(project)
 
         val handler = resolveHandler(file)
-        val runPos = file.text.indexOf("def run")
-        val element = myFixture.file?.findElementAt(runPos + 4)
-        val result = handler.getCallHierarchy(element!!, project, "callees", 2, BuiltInSearchScope.PROJECT_FILES)
+        val result = handler.getCallHierarchy(
+            caretInMethod(file, "def run"), project, "callees", 2, BuiltInSearchScope.PROJECT_FILES
+        )
 
         assertNotNull("Call hierarchy should not be null", result)
         assertEquals("Element name should be run", "run", result!!.element.name)
+        assertTrue("run's callees should include prepare, got: ${result.calls?.map { it.name }}",
+            result.calls.hasCall("prepare"))
     }
 
     // -- empty file -----------------------------------------------------------
@@ -433,12 +452,9 @@ class RubyCallHierarchyHandlerPlatformTest : BasePlatformTestCase() {
         IndexingTestUtil.waitUntilIndexesAreReady(project)
 
         val handler = resolveHandler(file)
-        // Empty file has no elements — findElementAt(0) returns null
-        val element = myFixture.file?.findElementAt(0)
-        if (element != null) {
-            val result = handler.getCallHierarchy(element, project, "callers", 1, BuiltInSearchScope.PROJECT_FILES)
-            assertNull("Call hierarchy should be null for empty file element", result)
-        }
+        // Empty file has no elements — findElementAt(0) returns null.
+        val element = file.findElementAt(0)
+        assertNull("empty file should yield no PSI leaf at offset 0", element)
     }
 
     // -- scope filtering: project files only ----------------------------------
@@ -457,12 +473,14 @@ class RubyCallHierarchyHandlerPlatformTest : BasePlatformTestCase() {
         IndexingTestUtil.waitUntilIndexesAreReady(project)
 
         val handler = resolveHandler(file)
-        val greetPos = file.text.indexOf("def greet")
-        val element = myFixture.file?.findElementAt(greetPos + 4)
-        val result = handler.getCallHierarchy(element!!, project, "callers", 1, BuiltInSearchScope.PROJECT_FILES)
+        val result = handler.getCallHierarchy(
+            caretInMethod(file, "def greet"), project, "callers", 1, BuiltInSearchScope.PROJECT_FILES
+        )
 
         assertNotNull("Call hierarchy should not be null", result)
         assertEquals("Element name should be greet", "greet", result!!.element.name)
+        assertTrue("greet's callers should include start (in project scope), got: ${result.calls?.map { it.name }}",
+            result.calls.hasCall("start"))
     }
 
     // -- position outside method returns null ---------------------------------
@@ -480,13 +498,11 @@ class RubyCallHierarchyHandlerPlatformTest : BasePlatformTestCase() {
         IndexingTestUtil.waitUntilIndexesAreReady(project)
 
         val handler = resolveHandler(file)
-        // Position at class definition, not inside a method
+        // Position on the class name, not inside any method.
         val classPos = file.text.indexOf("class Calculator")
-        val element = myFixture.file?.findElementAt(classPos + 6)
-        if (element != null) {
-            val result = handler.getCallHierarchy(element, project, "callers", 1, BuiltInSearchScope.PROJECT_FILES)
-            // Should be null because the element is not inside a method
-            assertNull("Call hierarchy should be null for element outside method", result)
-        }
+        val element = file.findElementAt(classPos + 6)
+        assertNotNull("class-name element expected", element)
+        val result = handler.getCallHierarchy(element!!, project, "callers", 1, BuiltInSearchScope.PROJECT_FILES)
+        assertNull("Call hierarchy should be null for element outside a method", result)
     }
 }

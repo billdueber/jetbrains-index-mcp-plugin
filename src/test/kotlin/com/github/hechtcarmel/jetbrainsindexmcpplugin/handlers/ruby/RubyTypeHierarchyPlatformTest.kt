@@ -660,16 +660,8 @@ class RubyTypeHierarchyPlatformTest : BasePlatformTestCase() {
         val hierarchy = handler.getTypeHierarchy(psiFile, project, BuiltInSearchScope.PROJECT_FILES)
 
         // Ruby plugin PSI error recovery determines which elements are parseable.
-        // This is an informational test — the handler should not crash.
-        if (hierarchy != null) {
-            assertTrue(
-                "Element should be one of the parseable classes",
-                hierarchy.element.name in setOf("ValidClass", "AnotherValidClass", "BrokenClass")
-            )
-        }
-        // If hierarchy is null (error recovery failed), the test still passes —
-        // this is informational only
-        // Otherwise verify we found one of the expected class names
+        // This is an informational test — the handler must not crash. If a
+        // hierarchy is produced, it must be one of the parseable classes.
         if (hierarchy != null) {
             assertTrue(
                 "Element should be one of the parseable classes, was: ${hierarchy.element.name}",

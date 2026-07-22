@@ -15,6 +15,21 @@ import com.intellij.psi.search.SearchScope
  */
 abstract class BaseRubyHandler<T> : LanguageHandler<T> {
 
+    companion object {
+        /**
+         * Extracts module names following a `callName` (`include`/`extend`/`prepend`)
+         * from raw source text using the same regex as [getModuleFQNsViaPsiTextWalk].
+         *
+         * Returns the raw group-1 matches in source order (duplicates preserved;
+         * callers dedup). Visible for testing so the tertiary text-scan fallback
+         * can be exercised without PSI, an index, or the Ruby plugin.
+         */
+        internal fun extractModuleNamesFromText(sourceText: String, callName: String): List<String> {
+            val pattern = Regex("""\b$callName\s+([A-Z][A-Za-z_:]*)\b""")
+            return pattern.findAll(sourceText).map { it.groupValues[1] }.toList()
+        }
+    }
+
     protected fun isRubyLanguage(element: PsiElement): Boolean {
         return element.language.id.equals("ruby", ignoreCase = true)
     }
@@ -562,9 +577,7 @@ abstract class BaseRubyHandler<T> : LanguageHandler<T> {
         // classes/modules in the same file.
         val sourceText: String = element.text
 
-        val pattern = Regex("""\b$callName\s+([A-Z][A-Za-z_:]*)\b""")
-        for (match in pattern.findAll(sourceText)) {
-            val moduleName = match.groupValues[1]
+        for (moduleName in extractModuleNamesFromText(sourceText, callName)) {
             if (moduleName !in seenFqns) {
                 seenFqns.add(moduleName)
                 runCatching {

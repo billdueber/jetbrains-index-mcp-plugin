@@ -144,7 +144,9 @@ class RubySymbolReferenceHandlerTest : BasePlatformTestCase() {
         assertTrue("Should resolve instance method", result.isSuccess)
         val element = result.getOrNull()
         assertNotNull("Result should be a method element", element)
-        assertEquals("Element name should be admin?", "admin?", element!!.javaClass.simpleName)
+        assertTrue("Result should be a PsiNamedElement, got: ${element?.javaClass?.simpleName}",
+            element is PsiNamedElement)
+        assertEquals("Element name should be admin?", "admin?", (element as PsiNamedElement).name)
     }
 
     // ── class method (dot notation) ───────────────────────────────────────────
@@ -271,7 +273,7 @@ class RubySymbolReferenceHandlerTest : BasePlatformTestCase() {
         """.trimIndent())
         IndexingTestUtil.waitUntilIndexesAreReady(project)
 
-        val userFile = myFixture.addFileToProject("admin.rb", "Admin::User#admin?")
+        val userFile = myFixture.addFileToProject("admin_ref.rb", "Admin::User#admin?")
         val handler = resolveHandler()
         val result = handler.resolveSymbol(project, "Admin::User#admin?")
 

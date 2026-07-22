@@ -13,7 +13,7 @@ import com.intellij.testFramework.IndexingTestUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 
 /**
- * Meaningful unit tests for [BaseRubyHandler] and [RubyTypeHierarchyHandler].
+ * Platform tests for [BaseRubyHandler] and [RubyTypeHierarchyHandler].
  *
  * Exercises the actual handler methods against real Ruby PSI — no local
  * reimplementations. Protected methods are accessed via [TestBaseRubyHandler],
@@ -22,12 +22,15 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
  * [LanguageHandlerRegistry.getTypeHierarchyHandler] — no subclass of
  * [RubyTypeHierarchyHandler] needed (it is final).
  *
- * Requires the Ruby plugin. On CI, add to gradle.properties:
+ * NOTE: This is a PLATFORM test (extends [BasePlatformTestCase]); it must NOT
+ * be named `*UnitTest` or the local `*UnitTest*` gradle filter would select it
+ * and hang on headless machines. Requires the Ruby plugin. On CI, add to
+ * gradle.properties:
  *   platformPlugins=org.jetbrains.plugins.ruby:253.31033.53
  *
  * Gated at runtime: tests skip gracefully if plugin is absent.
  */
-class RubyTypeHierarchyHandlerUnitTest : BasePlatformTestCase() {
+class RubyBaseHandlerPlatformTest : BasePlatformTestCase() {
 
     private val RUBY_FIXTURE = """
         module AnimalKingdom

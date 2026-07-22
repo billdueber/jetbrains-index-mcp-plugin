@@ -1,14 +1,25 @@
 package com.github.hechtcarmel.jetbrainsindexmcpplugin.handlers.ruby
 
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.handlers.LanguageHandlerRegistry
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.handlers.ruby.RubyStructureHandler.Companion.deriveMethodSignatureFromText
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.handlers.ruby.RubyStructureHandler.Companion.deriveSelfModifier
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.util.PluginDetector
+import com.github.hechtcarmel.jetbrainsindexmcpplugin.util.PluginDetectors
+import com.intellij.psi.PsiElement
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.mockkObject
+import io.mockk.unmockkObject
 import junit.framework.TestCase
 
 /**
- * Pure (non-fixture) unit tests for the pure-logic helpers used by
- * [RubyStructureHandler].
+ * Pure (non-fixture) unit tests for [RubyStructureHandler].
  *
- * These run without the Ruby plugin — no PSI, no IDE.
- * They test the boundary conditions that could break when
- * real Ruby PSI data hits the algorithm.
+ * These call the REAL handler helpers ([RubyStructureHandler.deriveMethodSignatureFromText],
+ * [RubyStructureHandler.deriveSelfModifier]) and the REAL protected
+ * [BaseRubyHandler.reconstructFqn] via a minimal probe subclass — no local
+ * reimplementations, so production regressions fail these tests. No Ruby plugin,
+ * no PSI, no IDE.
  *
  * **What cannot be tested here** (needs Ruby plugin):
  *   - Reflection calls to RClass.getStructureElements()
@@ -19,140 +30,208 @@ import junit.framework.TestCase
  */
 class RubyStructureHandlerUnitTest : TestCase() {
 
-    // ── Method signature regex ────────────────────────────────────────────────
+    override fun setUp() {
+        super.setUp()
+        LanguageHandlerRegistry.clear()
+    }
 
-    // The handler uses this pattern to extract parameters from method text
-    private val methodParamPattern = Regex("""def\s+\S+\s*\(([^)]*)\)""")
+    override fun tearDown() {
+        super.tearDown()
+        LanguageHandlerRegistry.clear()
+    }
+
+    // ── Method signature derivation (real handler logic) ──────────────────────
 
     fun testMethodSignatureWithParameters() {
         val text = "  def add(x, y)\n    x + y\n  end"
-        val match = methodParamPattern.find(text)
-        assertNotNull("Pattern should match method with params", match)
-        assertEquals("Should extract params, got: ${match!!.groupValues[1]}", "x, y", match.groupValues[1])
+        assertEquals("(x, y)", deriveMethodSignatureFromText(text))
     }
 
     fun testMethodSignatureWithNoParams() {
         val text = "  def greet()\n    \"hello\"\n  end"
-        val match = methodParamPattern.find(text)
-        assertNotNull("Pattern should match method with empty parens", match)
-        assertEquals("Should extract empty string, got: ${match!!.groupValues[1]}", "", match.groupValues[1])
+        assertEquals("()", deriveMethodSignatureFromText(text))
     }
 
     fun testMethodSignatureWithDefaultValue() {
         val text = "  def greet(name = \"world\")\n    \"hello #{name}\"\n  end"
-        val match = methodParamPattern.find(text)
-        assertNotNull("Pattern should match method with default value", match)
-        assertEquals("Should extract params with defaults, got: ${match!!.groupValues[1]}",
-            "name = \"world\"", match.groupValues[1])
+        assertEquals("(name = \"world\")", deriveMethodSignatureFromText(text))
     }
 
     fun testMethodSignatureWithSplat() {
         val text = "  def sum(*args)\n    args.sum\n  end"
-        val match = methodParamPattern.find(text)
-        assertNotNull("Pattern should match method with splat", match)
-        assertEquals("Should extract splat params, got: ${match!!.groupValues[1]}", "*args", match.groupValues[1])
+        assertEquals("(*args)", deriveMethodSignatureFromText(text))
     }
 
     fun testMethodSignatureWithKeywordArg() {
         val text = "  def configure(env:, debug: false)\n  end"
-        val match = methodParamPattern.find(text)
-        assertNotNull("Pattern should match method with keyword args", match)
-        assertEquals("Should extract keyword args, got: ${match!!.groupValues[1]}",
-            "env:, debug: false", match.groupValues[1])
+        assertEquals("(env:, debug: false)", deriveMethodSignatureFromText(text))
     }
 
     fun testMethodSignatureWithBlockArg() {
         val text = "  def process(&block)\n    block.call\n  end"
-        val match = methodParamPattern.find(text)
-        assertNotNull("Pattern should match method with block arg", match)
-        assertEquals("Should extract block param, got: ${match!!.groupValues[1]}", "&block", match.groupValues[1])
-    }
-
-    fun testMethodSignatureNoParens() {
-        val text = "  def compute\n    add(1, 2)\n  end"
-        val match = methodParamPattern.find(text)
-        assertNull("Pattern should NOT match method without parens", match)
+        assertEquals("(&block)", deriveMethodSignatureFromText(text))
     }
 
     fun testMethodSignatureClassMethod() {
         val text = "  def self.square(x)\n    x * x\n  end"
-        val match = methodParamPattern.find(text)
-        assertNotNull("Pattern should match class method with params", match)
-        assertEquals("Should extract params, got: ${match!!.groupValues[1]}", "x", match.groupValues[1])
-    }
-
-    fun testMethodSignaturePredicateMethod() {
-        val text = "  def admin?\n    true\n  end"
-        val match = methodParamPattern.find(text)
-        assertNull("Pattern should NOT match predicate method without parens", match)
-    }
-
-    fun testMethodSignatureBangMethod() {
-        val text = "  def save!\n    true\n  end"
-        val match = methodParamPattern.find(text)
-        assertNull("Pattern should NOT match bang method without parens", match)
-    }
-
-    fun testMethodSignatureOneLineBody() {
-        val text = "  def method_one; end"
-        val match = methodParamPattern.find(text)
-        assertNull("Pattern should NOT match one-line method without parens", match)
+        assertEquals("(x)", deriveMethodSignatureFromText(text))
     }
 
     fun testMethodSignatureComplexDefault() {
         val text = "  def process(name: nil, timeout: DEFAULT_TIMEOUT, retries: 3)\n  end"
-        val match = methodParamPattern.find(text)
-        assertNotNull("Pattern should match method with multiple keyword args", match)
-        assertEquals("Should extract all keyword args, got: ${match!!.groupValues[1]}",
-            "name: nil, timeout: DEFAULT_TIMEOUT, retries: 3", match.groupValues[1])
+        assertEquals("(name: nil, timeout: DEFAULT_TIMEOUT, retries: 3)", deriveMethodSignatureFromText(text))
     }
 
-    // ── Class method modifier detection ───────────────────────────────────────
+    // ── Paren-less fallback branch (regression targets for the missed branch) ──
+    // These previously asserted `null` against a partial copy of the pattern.
+    // The real handler returns "()" for paren-less definitions via the fallback.
 
-    private fun detectSelfModifier(text: String): List<String> {
-        val modifiers = mutableListOf<String>()
-        if (text.startsWith("def self.")) {
-            modifiers.add("self")
-        }
-        return modifiers
+    fun testMethodSignatureNoParensReturnsEmptyParens() {
+        val text = "  def compute\n    add(1, 2)\n  end"
+        assertEquals("Paren-less def should fall back to '()'", "()", deriveMethodSignatureFromText(text))
     }
+
+    fun testMethodSignaturePredicateMethodReturnsEmptyParens() {
+        val text = "  def admin?\n    true\n  end"
+        assertEquals("Predicate def should fall back to '()'", "()", deriveMethodSignatureFromText(text))
+    }
+
+    fun testMethodSignatureBangMethodReturnsEmptyParens() {
+        val text = "  def save!\n    true\n  end"
+        assertEquals("Bang def should fall back to '()'", "()", deriveMethodSignatureFromText(text))
+    }
+
+    fun testMethodSignatureOneLineBodyReturnsNull() {
+        // First line is `def method_one; end` — the name is followed by `; end`
+        // on the same line, so the paren-less fallback does NOT match → null.
+        val text = "  def method_one; end"
+        assertNull("One-line body should yield null (no trailing EOL after name)",
+            deriveMethodSignatureFromText(text))
+    }
+
+    // ── self modifier detection (real handler logic) ──────────────────────────
 
     fun testClassMethodHasSelfModifier() {
-        val result = detectSelfModifier("def self.square(x)")
-        assertTrue("Class method should have 'self' modifier, got: $result", result.contains("self"))
+        assertEquals(listOf("self"), deriveSelfModifier("def self.square(x)"))
     }
 
     fun testInstanceMethodHasNoSelfModifier() {
-        val result = detectSelfModifier("def add(x, y)")
-        assertTrue("Instance method should have no modifier, got: $result", result.isEmpty())
+        assertTrue(deriveSelfModifier("def add(x, y)").isEmpty())
     }
 
     fun testClassMethodWithPredicate() {
-        val result = detectSelfModifier("def self.admin?")
-        assertTrue("Class predicate method should have 'self' modifier, got: $result", result.contains("self"))
+        assertEquals(listOf("self"), deriveSelfModifier("def self.admin?"))
     }
 
-    // ── FQN reconstruction ────────────────────────────────────────────────────
+    // ── FQN reconstruction (real protected BaseRubyHandler method) ─────────────
 
-    private fun reconstructFqn(name: String, ancestorNames: List<String>): String {
-        val reversed = ancestorNames.reversed()
-        if (reversed.isEmpty()) return name
-        val prefix = reversed.joinToString("::")
-        return if (name.isEmpty()) prefix else "$prefix::$name"
+    /** Minimal probe exposing the protected [BaseRubyHandler.reconstructFqn]. */
+    private class ReconstructProbe : BaseRubyHandler<Unit>() {
+        override val languageId = "Ruby"
+        override fun canHandle(element: PsiElement): Boolean = false
+        override fun isAvailable(): Boolean = false
+        fun reconstruct(name: String, ancestors: List<String>): String = reconstructFqn(name, ancestors)
     }
+
+    private val probe = ReconstructProbe()
 
     fun testReconstructFqnReturnsNameWhenNoAncestors() {
-        assertEquals("FQN with no ancestors should be bare name",
-            "User", reconstructFqn("User", emptyList()))
+        assertEquals("User", probe.reconstruct("User", emptyList()))
     }
 
     fun testReconstructFqnForNestedModule() {
-        assertEquals("FQN for class in module",
-            "Outer::Inner::Nested", reconstructFqn("Nested", listOf("Inner", "Outer")))
+        // innermost-first ancestor list [Inner, Outer] → Outer::Inner::Nested
+        assertEquals("Outer::Inner::Nested", probe.reconstruct("Nested", listOf("Inner", "Outer")))
     }
 
     fun testReconstructFqnWithEmptyName() {
-        assertEquals("FQN with empty name",
-            "Outer", reconstructFqn("", listOf("Outer")))
+        assertEquals("Outer", probe.reconstruct("", listOf("Outer")))
+    }
+
+    fun testReconstructFqnBothEmpty() {
+        assertEquals("", probe.reconstruct("", emptyList()))
+    }
+
+    // ── Metadata ──────────────────────────────────────────────────────────────
+
+    fun testLanguageIdIsRuby() {
+        assertEquals("languageId must be 'Ruby'", "Ruby", RubyStructureHandler().languageId)
+    }
+
+    fun testIsAvailableWithoutPlugin() {
+        mockkObject(PluginDetectors)
+        val rubyDetector = mockk<PluginDetector>()
+        every { rubyDetector.isAvailable } returns false
+        every { PluginDetectors.ruby } returns rubyDetector
+        try {
+            assertFalse("isAvailable should be false without Ruby plugin", RubyStructureHandler().isAvailable())
+        } finally {
+            unmockkObject(PluginDetectors)
+        }
+    }
+
+    fun testCanHandleReturnsFalseWithoutRubyPlugin() {
+        mockkObject(PluginDetectors)
+        val rubyDetector = mockk<PluginDetector>()
+        every { rubyDetector.isAvailable } returns false
+        every { PluginDetectors.ruby } returns rubyDetector
+        try {
+            assertFalse("canHandle must be false without Ruby plugin",
+                RubyStructureHandler().canHandle(mockk()))
+        } finally {
+            unmockkObject(PluginDetectors)
+        }
+    }
+
+    fun testCanHandleRejectsNonRubyLanguage() {
+        mockkObject(PluginDetectors)
+        val rubyDetector = mockk<PluginDetector>()
+        every { rubyDetector.isAvailable } returns true
+        every { PluginDetectors.ruby } returns rubyDetector
+        try {
+            val element = mockk<PsiElement> {
+                every { language } returns mockk { every { id } returns "kotlin" }
+            }
+            assertFalse("canHandle must return false for non-Ruby element",
+                RubyStructureHandler().canHandle(element))
+        } finally {
+            unmockkObject(PluginDetectors)
+        }
+    }
+
+    fun testCanHandleReturnsTrueForRubyLanguageElement() {
+        mockkObject(PluginDetectors)
+        val rubyDetector = mockk<PluginDetector>()
+        every { rubyDetector.isAvailable } returns true
+        every { PluginDetectors.ruby } returns rubyDetector
+        try {
+            val element = mockk<PsiElement> {
+                every { language } returns mockk { every { id } returns "ruby" }
+            }
+            assertTrue("canHandle must return true for Ruby element with plugin available",
+                RubyStructureHandler().canHandle(element))
+        } finally {
+            unmockkObject(PluginDetectors)
+        }
+    }
+
+    // ── Registry wiring ───────────────────────────────────────────────────────
+
+    fun testRegistryExposesRubyStructureWhenForcedAvailable() {
+        mockkObject(PluginDetectors)
+        val rubyDetector = mockk<PluginDetector>()
+        every { rubyDetector.isAvailable } returns true
+        every { PluginDetectors.ruby } returns rubyDetector
+        LanguageHandlerRegistry.clear()
+        try {
+            LanguageHandlerRegistry.registerStructureHandler(RubyStructureHandler())
+            assertTrue(
+                "'Ruby' must be advertised as a supported structure language",
+                LanguageHandlerRegistry.getSupportedLanguagesForStructure().contains("Ruby")
+            )
+        } finally {
+            LanguageHandlerRegistry.clear()
+            unmockkObject(PluginDetectors)
+        }
     }
 }
