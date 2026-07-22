@@ -98,7 +98,8 @@ class FindSuperMethodsTool : AbstractMcpTool() {
                         column = superMethod.column,
                         isInterface = superMethod.isInterface,
                         depth = superMethod.depth,
-                        language = superMethod.language
+                        language = superMethod.language,
+                        via = superMethod.via
                     )
                 },
                 totalCount = superMethodsData.hierarchy.size

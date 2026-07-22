@@ -438,7 +438,7 @@ class RubyCallHierarchyHandlerPlatformTest : BasePlatformTestCase() {
         )
 
         assertNotNull("Call hierarchy should not be null", result)
-        assertEquals("Element name should be run", "run", result!!.element.name)
+        assertEquals("Element name should be Worker#run", "Worker#run", result!!.element.name)
         assertTrue("run's callees should include prepare, got: ${result.calls?.map { it.name }}",
             result.calls.hasCall("prepare"))
     }

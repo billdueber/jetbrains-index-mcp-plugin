@@ -987,7 +987,8 @@ class JavaSuperMethodsHandler : BaseJavaHandler<SuperMethodsData>(), SuperMethod
                 column = getColumnNumber(project, superMethod),
                 isInterface = containingClass?.isInterface == true,
                 depth = depth,
-                language = if (superMethod.language.id == "kotlin") "Kotlin" else "Java"
+                language = if (superMethod.language.id == "kotlin") "Kotlin" else "Java",
+                via = if (containingClass?.isInterface == true) "interface" else "superclass"
             ))
 
             hierarchy.addAll(buildHierarchy(project, superMethod, visited, depth + 1))

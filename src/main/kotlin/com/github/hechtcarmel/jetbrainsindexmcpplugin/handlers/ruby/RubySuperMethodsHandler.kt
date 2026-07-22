@@ -17,10 +17,21 @@ import com.intellij.psi.util.PsiTreeUtil
  * Finds all parent methods that a method overrides or inherits from.
  *
  * **Implementation Strategy**:
- * - Primary: Uses `RubyOverrideImplementUtil.getOverriddenMethods()` for accurate method resolution.
- *   This is backed by the indexed symbol tree (v2 ClassModuleSymbol) and handles Ruby's complex
- *   method resolution order (MRO) including mixins and module methods.
- * - Secondary: Falls back to PSI tree traversal for edge cases (e.g., when element is a method call).
+ * Builds the super-method chain ourselves from the indexed symbol tree rather than
+ * delegating to `RubyOverrideImplementUtil.getOverriddenMethods` (which returns a flat,
+ * undifferentiated list). Walking it ourselves lets us tag each parent with *how* it
+ * entered the method-lookup chain — `include`, `prepend`, `extend`, or classical
+ * `superclass` inheritance — surfaced via [SuperMethodData.via]. This is finer-grained
+ * than the plugin's native override navigation, which does not distinguish mixin kind.
+ *
+ * **Ruby MRO order used** (for an instance method defined in class C):
+ * 1. modules `include`d by C            (`via = "include"`)
+ * 2. superclass chain S, and for each S:
+ *    - modules `prepend`ed to S         (`via = "prepend"`, above S in its own MRO)
+ *    - S itself                          (`via = "superclass"`)
+ *    - modules `include`d by S           (`via = "include"`)
+ * For a class method (`def self.x`): modules `extend`ed by C (`via = "extend"`) plus the
+ * superclass chain.
  *
  * **Returns**:
  * - `SuperMethodsData` containing the current method's metadata and its super method hierarchy.
@@ -50,13 +61,18 @@ class RubySuperMethodsHandler : BaseRubyHandler<SuperMethodsData>(), SuperMethod
         // Build method data for the current method
         val methodData = buildMethodData(rMethod, project, containingClass)
 
-        // Find overridden methods (super methods)
-        // TODO: Re-implement using direct reflection to RubyOverrideImplementUtil
-        val overriddenMethods = emptyList<PsiElement>()
-        val searchScope = GlobalSearchScope.projectScope(project)
+        val methodName = getName(rMethod)
+            ?: return SuperMethodsData(method = methodData, hierarchy = emptyList())
 
-        // Build hierarchy from overridden methods
-        val hierarchy = buildHierarchy(project, overriddenMethods, searchScope)
+        // Class methods (`def self.foo`) resolve through the `extend` / singleton chain;
+        // instance methods through `include` / `prepend` / superclass.
+        val isClassMethod = try {
+            rMethod.text.startsWith("def self.")
+        } catch (_: Exception) {
+            false
+        }
+
+        val hierarchy = buildRubyHierarchy(project, containingClass, methodName, isClassMethod)
 
         return SuperMethodsData(
             method = methodData,
@@ -118,59 +134,137 @@ class RubySuperMethodsHandler : BaseRubyHandler<SuperMethodsData>(), SuperMethod
         )
     }
 
-    // ── Super Method Hierarchy Building ────────────────────────────────────────────────────
+    // ── Super Method Hierarchy Building (Ruby MRO with provenance) ──────────────────────────
 
     /**
-     * Builds the super method hierarchy from a list of overridden methods.
+     * Builds the super-method hierarchy for [methodName] as declared in [originClass],
+     * walking the Ruby method-resolution order and tagging each parent with how it entered
+     * the chain ([SuperMethodData.via]).
      *
-     * Handles depth limiting and cycle detection.
-     *
-     * @param project The project context
-     * @param overriddenMethods List of overridden RMethod elements
-     * @param searchScope The search scope for resolving elements
-     * @return List of super method hierarchy data
+     * Only ancestors that actually declare a method named [methodName] are returned — those
+     * are the parents the origin method overrides / can reach via `super`.
      */
-    private fun buildHierarchy(
+    private fun buildRubyHierarchy(
         project: Project,
-        overriddenMethods: List<PsiElement>,
-        searchScope: GlobalSearchScope
+        originClass: PsiElement,
+        methodName: String,
+        isClassMethod: Boolean
     ): List<SuperMethodData> {
+        val scope = GlobalSearchScope.allScope(project)
+
+        // Collect candidate ancestor containers in MRO order, paired with provenance.
+        val candidates = mutableListOf<Pair<PsiElement, String>>()
+        if (isClassMethod) {
+            // Class methods: extend mixins provide singleton methods, then the superclass chain.
+            for (fqn in getExtendedModuleFQNs(project, originClass)) {
+                resolveByFQN(project, fqn, scope)?.let { candidates.add(it to "extend") }
+            }
+            collectSuperclassChain(project, originClass, scope, candidates, includeMixins = false)
+        } else {
+            // Instance methods: included modules of the origin, then the superclass chain
+            // (which itself expands prepend/self/include per class).
+            for (fqn in getIncludedModuleFQNs(project, originClass)) {
+                resolveByFQN(project, fqn, scope)?.let { candidates.add(it to "include") }
+            }
+            collectSuperclassChain(project, originClass, scope, candidates, includeMixins = true)
+        }
+
         val hierarchy = mutableListOf<SuperMethodData>()
-        val visited = mutableSetOf<String>()
-        val visitedClasses = mutableSetOf<String>()
+        val visitedMethods = mutableSetOf<String>()
 
-        for (overrider in overriddenMethods) {
-            val key = getMethodKey(overrider)
-            if (key in visited) continue
-            visited.add(key)
-
-            val containingClass = findContainingRClassOrRModule(overrider)
-                ?: continue
-            val classKey = getRubyQualifiedName(containingClass)
-                ?: getName(containingClass) ?: continue
-            if (classKey in visitedClasses) continue
-            visitedClasses.add(classKey)
-
+        for ((ancestor, via) in candidates) {
             if (hierarchy.size >= MAX_SUPER_METHODS) break
+            val classKey = getRubyQualifiedName(ancestor) ?: getName(ancestor) ?: continue
+            val superMethod = findMethodByNameReflectively(ancestor, methodName) ?: continue
 
-            val file = overrider.containingFile?.virtualFile
-            val methodData = SuperMethodData(
-                name = getName(overrider) ?: "unknown",
-                signature = buildRubyMethodSignature(overrider),
-                containingClass = classKey,
-                containingClassKind = if (isRClass(containingClass)) "CLASS" else "MODULE",
-                file = file?.let { getRelativePath(project, it) },
-                line = getLineNumber(project, overrider),
-                column = getColumnNumber(project, overrider),
-                isInterface = false,
-                depth = hierarchy.size + 1,
-                language = "Ruby"
+            val methodKey = "$classKey#$methodName"
+            if (methodKey in visitedMethods) continue
+            visitedMethods.add(methodKey)
+
+            val file = superMethod.containingFile?.virtualFile
+            hierarchy.add(
+                SuperMethodData(
+                    name = getName(superMethod) ?: methodName,
+                    signature = buildRubyMethodSignature(superMethod),
+                    containingClass = classKey,
+                    containingClassKind = if (isRClass(ancestor)) "CLASS" else "MODULE",
+                    file = file?.let { getRelativePath(project, it) },
+                    line = getLineNumber(project, superMethod),
+                    column = getColumnNumber(project, superMethod),
+                    isInterface = isRModule(ancestor),
+                    depth = hierarchy.size + 1,
+                    language = "Ruby",
+                    via = via
+                )
             )
-
-            hierarchy.add(methodData)
         }
 
         return hierarchy
+    }
+
+    /**
+     * Walks the superclass chain starting from [startClass], appending each ancestor container
+     * to [out] in Ruby MRO order. When [includeMixins] is true, each superclass is expanded as
+     * `prepend` modules (above the class) → the class itself → `include` modules (below it).
+     *
+     * Cycle-guarded by qualified class name and bounded by [MAX_HIERARCHY_DEPTH].
+     */
+    private fun collectSuperclassChain(
+        project: Project,
+        startClass: PsiElement,
+        scope: GlobalSearchScope,
+        out: MutableList<Pair<PsiElement, String>>,
+        includeMixins: Boolean
+    ) {
+        val visitedClasses = mutableSetOf<String>()
+        var current: PsiElement? = startClass
+        var guard = 0
+
+        while (current != null && guard++ < MAX_HIERARCHY_DEPTH) {
+            val superFqn = rClassGetSuperClassFQN(current) ?: break
+            val superClass = resolveByFQN(project, superFqn, scope)
+                ?: resolveByFQN(project, superFqn, GlobalSearchScope.projectScope(project))
+                ?: break
+
+            val key = getRubyQualifiedName(superClass) ?: getName(superClass) ?: break
+            if (key in visitedClasses) break
+            visitedClasses.add(key)
+
+            if (includeMixins) {
+                for (fqn in getPrependedModuleFQNs(project, superClass)) {
+                    resolveByFQN(project, fqn, scope)?.let { out.add(it to "prepend") }
+                }
+            }
+            out.add(superClass to "superclass")
+            if (includeMixins) {
+                for (fqn in getIncludedModuleFQNs(project, superClass)) {
+                    resolveByFQN(project, fqn, scope)?.let { out.add(it to "include") }
+                }
+            }
+
+            current = superClass
+        }
+    }
+
+    /**
+     * Finds a method named [methodName] declared directly on [container] (an RClass/RModule).
+     *
+     * Uses `findMethodByName(String)` (inherited from `RFieldConstantContainerBase`) via
+     * reflection, falling back to a direct RMethod child scan.
+     */
+    private fun findMethodByNameReflectively(container: PsiElement, methodName: String): PsiElement? {
+        try {
+            val findMethod = container.javaClass.getMethod("findMethodByName", String::class.java)
+            (findMethod.invoke(container, methodName) as? PsiElement)?.let { return it }
+        } catch (_: Exception) {
+        }
+        try {
+            for (child in container.children) {
+                if (isRMethod(child) && getName(child) == methodName) return child
+            }
+        } catch (_: Exception) {
+        }
+        return null
     }
 
     // ── Ruby Method Signature Building ────────────────────────────────────────────────────
@@ -283,19 +377,5 @@ class RubySuperMethodsHandler : BaseRubyHandler<SuperMethodsData>(), SuperMethod
 
         // Fallback: try to infer from return statement
         return "Any"
-    }
-
-    /**
-     * Generates a unique key for a method for cycle detection.
-     *
-     * @param method The method element
-     * @return A string key combining class name and method name
-     */
-    private fun getMethodKey(method: PsiElement): String {
-        val className = findContainingRClassOrRModule(method)?.let {
-            getRubyQualifiedName(it) ?: getName(it)
-        } ?: "unknown"
-        val methodName = getName(method) ?: "unknown"
-        return "$className.$methodName"
     }
 }

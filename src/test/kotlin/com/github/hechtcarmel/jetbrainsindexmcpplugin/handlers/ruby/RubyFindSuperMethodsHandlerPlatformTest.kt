@@ -17,17 +17,15 @@ import org.junit.Assume
  *
  * Skipped automatically on machines without the Ruby plugin.
  *
- * ## Current handler limitation (asserted, not hidden)
+ * ## Handler contract (implemented)
  *
- * [RubySuperMethodsHandler.findSuperMethods] currently hard-codes
- * `overriddenMethods = emptyList()` (see its TODO: "Re-implement using direct
- * reflection to RubyOverrideImplementUtil"). Therefore `result.hierarchy` is
- * ALWAYS empty today. These tests assert:
- *   1. the current method resolves and its [MethodData] is populated correctly
- *      (name, containingClass, signature, position) — this IS implemented, and
- *   2. `hierarchy` is empty — documenting the not-yet-implemented super lookup.
- * When override resolution lands, flip the [assertHierarchyPending] assertions
- * to assert the expected parent methods.
+ * [RubySuperMethodsHandler.findSuperMethods] walks the Ruby method-resolution order
+ * and returns each parent that declares the same method, tagged with how it entered
+ * the chain ([SuperMethodData.via] = `superclass` | `include` | `prepend` | `extend`).
+ * These tests assert OUR transformation of the plugin's PSI:
+ *   1. the origin method's [MethodData] (name, containingClass, signature, position),
+ *   2. the resolved parents' shape — `containingClass`, `via` provenance, and `depth`
+ *      ordering — not the plugin's raw resolution accuracy.
  *
  * NOTE: the caret element MUST be resolved from the `PsiFile` returned by
  * `addFileToProject` (see [caretInMethod]) — NOT from `myFixture.file`, which is
@@ -98,14 +96,29 @@ class RubyFindSuperMethodsHandlerPlatformTest : BasePlatformTestCase() {
     }
 
     /**
-     * Documents the current handler contract: super lookup is stubbed, so the
-     * hierarchy is empty. Replace with real parent assertions once implemented.
+     * Asserts the hierarchy contains a parent method [name] declared in a class/module
+     * whose qualified name contains [classPart], reached via provenance [via]. Verifies
+     * OUR marshalling (name, containingClass, via, depth, language) rather than the
+     * plugin's resolution accuracy.
      */
-    private fun assertHierarchyPending(result: SuperMethodsData?) {
+    private fun assertSuper(result: SuperMethodsData?, name: String, classPart: String, via: String) {
+        assertNotNull("findSuperMethods should return a result", result)
+        val match = result!!.hierarchy.firstOrNull {
+            it.name == name && it.containingClass.contains(classPart)
+        } ?: (fail(
+            "expected super '$name' in '$classPart' (via=$via), got: " +
+                result.hierarchy.joinToString { "${it.containingClass}#${it.name}(via=${it.via},depth=${it.depth})" }
+        ) as Nothing)
+        assertEquals("provenance for $classPart#$name", via, match.via)
+        assertTrue("super depth must be >= 1, got ${match.depth}", match.depth >= 1)
+        assertEquals("super language should be Ruby", "Ruby", match.language)
+    }
+
+    /** Asserts no super methods were resolved (leaf / no-parent case). */
+    private fun assertHierarchyEmpty(result: SuperMethodsData?) {
         assertNotNull(result)
         assertTrue(
-            "hierarchy is empty until RubyOverrideImplementUtil resolution is implemented, got: " +
-                "${result!!.hierarchy.map { it.name }}",
+            "hierarchy must be empty, got: ${result!!.hierarchy.map { it.name }}",
             result.hierarchy.isEmpty()
         )
     }
@@ -123,7 +136,7 @@ class RubyFindSuperMethodsHandlerPlatformTest : BasePlatformTestCase() {
         val result = handler.findSuperMethods(caretInMethod(dogFile, "def speak"), project)
 
         assertMethod(result, "speak", "Dog")
-        assertHierarchyPending(result)
+        assertSuper(result, "speak", "Animal", via = "superclass")
     }
 
     // -- mixin override (fsm_02) ----------------------------------------------
@@ -139,7 +152,7 @@ class RubyFindSuperMethodsHandlerPlatformTest : BasePlatformTestCase() {
         val result = handler.findSuperMethods(caretInMethod(userFile, "def greet"), project)
 
         assertMethod(result, "greet", "User")
-        assertHierarchyPending(result)
+        assertSuper(result, "greet", "Greetable", via = "include")
     }
 
     // -- deep chain (fsm_03) --------------------------------------------------
@@ -156,7 +169,12 @@ class RubyFindSuperMethodsHandlerPlatformTest : BasePlatformTestCase() {
         val result = handler.findSuperMethods(caretInMethod(childFile, "def speak"), project)
 
         assertMethod(result, "speak", "Child")
-        assertHierarchyPending(result)
+        // Superclass chain: Parent (depth 1) then GrandParent (depth 2), both via superclass.
+        assertSuper(result, "speak", "Parent", via = "superclass")
+        assertSuper(result, "speak", "GrandParent", via = "superclass")
+        val parentDepth = result!!.hierarchy.first { it.containingClass.contains("Parent") && !it.containingClass.contains("GrandParent") }.depth
+        val grandDepth = result.hierarchy.first { it.containingClass.contains("GrandParent") }.depth
+        assertTrue("Parent must precede GrandParent in depth ($parentDepth < $grandDepth)", parentDepth < grandDepth)
     }
 
     // -- no super (fsm_04) ----------------------------------------------------
@@ -193,7 +211,13 @@ class RubyFindSuperMethodsHandlerPlatformTest : BasePlatformTestCase() {
             result.method.name.contains("find_by_email"))
         assertTrue("containingClass should contain AdminUser, got: ${result.method.containingClass}",
             result.method.containingClass.contains("AdminUser"))
-        assertHierarchyPending(result)
+        // Class method: parent reached through the superclass chain. Singleton-method
+        // resolution is plugin-dependent, so assert shape only when a parent is found.
+        val classSuper = result.hierarchy.firstOrNull { it.containingClass.contains("User") && !it.containingClass.contains("AdminUser") }
+        if (classSuper != null) {
+            assertEquals("class-method super provenance", "superclass", classSuper.via)
+            assertEquals("find_by_email", classSuper.name)
+        }
     }
 
     // -- cross-file override (fsm_06) -----------------------------------------
@@ -209,7 +233,7 @@ class RubyFindSuperMethodsHandlerPlatformTest : BasePlatformTestCase() {
         val result = handler.findSuperMethods(caretInMethod(subFile, "def compute"), project)
 
         assertMethod(result, "compute", "Sub")
-        assertHierarchyPending(result)
+        assertSuper(result, "compute", "Base", via = "include")
     }
 
     // -- predicate and bang method override (fsm_07) --------------------------
@@ -225,7 +249,7 @@ class RubyFindSuperMethodsHandlerPlatformTest : BasePlatformTestCase() {
         val result = handler.findSuperMethods(caretInMethod(subFile, "def admin?"), project)
 
         assertMethod(result, "admin?", "Sub")
-        assertHierarchyPending(result)
+        assertSuper(result, "admin?", "Base", via = "superclass")
     }
 
     fun testBangMethodOverride() {
@@ -239,7 +263,45 @@ class RubyFindSuperMethodsHandlerPlatformTest : BasePlatformTestCase() {
         val result = handler.findSuperMethods(caretInMethod(subFile, "def save!"), project)
 
         assertMethod(result, "save!", "Sub")
-        assertHierarchyPending(result)
+        assertSuper(result, "save!", "Base", via = "superclass")
+    }
+
+    // -- prepend provenance (fsm_09) ------------------------------------------
+
+    fun testPrependedModuleOnSuperclass() {
+        requireRubyPlugin()
+
+        // Loud is prepended to Animal, so it sits ABOVE Animal in the MRO. From Dog#speak,
+        // `super` reaches Loud#speak (via=prepend) before Animal#speak (via=superclass).
+        myFixture.addFileToProject("loud.rb", "module Loud; def speak; 'LOUD'; end; end")
+        myFixture.addFileToProject("animal.rb", "class Animal; prepend Loud; def speak; 'generic'; end; end")
+        val dogFile = myFixture.addFileToProject("dog.rb", "class Dog < Animal; def speak; 'woof'; end; end")
+        IndexingTestUtil.waitUntilIndexesAreReady(project)
+
+        val handler = resolveHandler(dogFile)
+        val result = handler.findSuperMethods(caretInMethod(dogFile, "def speak"), project)
+
+        assertMethod(result, "speak", "Dog")
+        assertSuper(result, "speak", "Loud", via = "prepend")
+        assertSuper(result, "speak", "Animal", via = "superclass")
+    }
+
+    // -- extend provenance (fsm_10) -------------------------------------------
+
+    fun testExtendedModuleClassMethod() {
+        requireRubyPlugin()
+
+        // `extend Finder` turns Finder's instance methods into class methods of User,
+        // so User.find_by_email overrides Finder#find_by_email (via=extend).
+        myFixture.addFileToProject("finder.rb", "module Finder; def find_by_email; end; end")
+        val userFile = myFixture.addFileToProject("user.rb", "class User; extend Finder; def self.find_by_email; end; end")
+        IndexingTestUtil.waitUntilIndexesAreReady(project)
+
+        val handler = resolveHandler(userFile)
+        val result = handler.findSuperMethods(caretInMethod(userFile, "def self.find_by_email"), project)
+
+        assertNotNull("findSuperMethods should return a result", result)
+        assertSuper(result, "find_by_email", "Finder", via = "extend")
     }
 
     // -- edge cases (fsm_08) --------------------------------------------------
@@ -254,7 +316,7 @@ class RubyFindSuperMethodsHandlerPlatformTest : BasePlatformTestCase() {
         val result = handler.findSuperMethods(caretInMethod(file, "def my_method"), project)
 
         assertMethod(result, "my_method", "Leaf")
-        assertHierarchyPending(result)
+        assertHierarchyEmpty(result)
     }
 
     fun testEmptyFileReturnsNull() {

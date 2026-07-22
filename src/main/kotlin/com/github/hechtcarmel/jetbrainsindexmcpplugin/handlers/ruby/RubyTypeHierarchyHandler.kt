@@ -44,7 +44,9 @@ class RubyTypeHierarchyHandler : BaseRubyHandler<TypeHierarchyData>(), TypeHiera
         scope: BuiltInSearchScope,
         excludeGenerated: Boolean
     ): TypeHierarchyData? {
-        val rContainer = findContainingRClassOrRModule(element) ?: return null
+        val rContainer = findContainingRClassOrRModule(element)
+            ?: firstClassOrModuleInFile(element)
+            ?: return null
         val searchScope = createNavigationSearchScope(project, scope, excludeGenerated)
 
         val fqnStr = getRubyQualifiedName(rContainer)
@@ -69,6 +71,23 @@ class RubyTypeHierarchyHandler : BaseRubyHandler<TypeHierarchyData>(), TypeHiera
 
     // ── Supertypes ───────────────────────────────────────────────────────────────
 
+    /**
+     * When [element] is a whole [PsiFile] (or a leaf with no enclosing class/module),
+     * returns the first `RClass`/`RModule` declared in the file, in document order.
+     *
+     * Production callers always pass a resolved position or a class element, so this
+     * only affects whole-file inputs; it lets "type hierarchy of the class in this file"
+     * resolve to the primary declaration and yields null for a file with no class/module.
+     */
+    private fun firstClassOrModuleInFile(element: PsiElement): PsiElement? {
+        val file = element as? com.intellij.psi.PsiFile ?: element.containingFile ?: return null
+        val rClass = rClassClass ?: return null
+        val rModule = rModuleClass ?: return null
+        return com.intellij.psi.util.PsiTreeUtil
+            .collectElementsOfType(file, PsiElement::class.java)
+            .firstOrNull { rClass.isInstance(it) || rModule.isInstance(it) }
+    }
+
     private fun getSupertypes(
         project: Project,
         element: PsiElement,
@@ -89,9 +108,9 @@ class RubyTypeHierarchyHandler : BaseRubyHandler<TypeHierarchyData>(), TypeHiera
         if (isRClass(element)) {
             val superFqn = rClassGetSuperClassFQN(element)
             if (superFqn != null && superFqn !in visited) {
-                var superClass = resolveByFQN(project, superFqn, searchScope)
+                var superClass = resolveByFQNRelative(project, element, superFqn, searchScope)
                 if (superClass == null) {
-                    superClass = resolveByFQN(project, superFqn, GlobalSearchScope.projectScope(project))
+                    superClass = resolveByFQNRelative(project, element, superFqn, GlobalSearchScope.projectScope(project))
                 }
                 if (superClass != null && shouldIncludeNavigationElement(searchScope, superClass)) {
                     val superSuper = getSupertypes(project, superClass, searchScope, visited, depth + 1)
@@ -114,7 +133,9 @@ class RubyTypeHierarchyHandler : BaseRubyHandler<TypeHierarchyData>(), TypeHiera
             getPrependedModuleFQNs(project, element)
         for (modFqn in mixinFqns) {
             if (modFqn in visited) continue
-            val modElement = resolveModuleFqn(project, modFqn, searchScope) ?: continue
+            val modElement = resolveByFQNRelative(project, element, modFqn, searchScope)
+                ?: resolveByFQNRelative(project, element, modFqn, GlobalSearchScope.projectScope(project))
+                ?: continue
             if (!shouldIncludeNavigationElement(searchScope, modElement)) continue
             supertypes.add(TypeElementData(
                 name = getRubyQualifiedName(modElement) ?: modFqn,

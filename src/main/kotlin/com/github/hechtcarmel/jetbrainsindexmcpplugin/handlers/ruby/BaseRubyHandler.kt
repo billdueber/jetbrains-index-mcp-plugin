@@ -411,6 +411,29 @@ abstract class BaseRubyHandler<T> : LanguageHandler<T> {
      * Tries [resolveByFQN] with the given search scope first, then falls back to
      * [GlobalSearchScope.projectScope] to catch modules outside the current scope.
      */
+    /**
+     * Resolves a class/module reference [refFqn] written at [referrer], honoring Ruby
+     * lexical scope: tries the referrer's enclosing namespaces innermost→outermost, then
+     * the bare/absolute name.
+     *
+     * Fixes `class Dog < Animal` inside `module NS`, where the Ruby plugin's
+     * `getSuperClassFQN()` returns the unqualified "Animal" but the target's full FQN is
+     * "NS::Animal". For a top-level referrer this degrades to a plain [resolveByFQN].
+     */
+    protected fun resolveByFQNRelative(
+        project: Project,
+        referrer: PsiElement,
+        refFqn: String,
+        searchScope: GlobalSearchScope
+    ): PsiElement? {
+        var ns = getRubyQualifiedName(referrer)?.substringBeforeLast("::", "") ?: ""
+        while (ns.isNotEmpty()) {
+            resolveByFQN(project, "$ns::$refFqn", searchScope)?.let { return it }
+            ns = ns.substringBeforeLast("::", "")
+        }
+        return resolveByFQN(project, refFqn, searchScope)
+    }
+
     protected fun resolveModuleFqn(
         project: Project,
         modFqn: String,
@@ -654,7 +677,29 @@ abstract class BaseRubyHandler<T> : LanguageHandler<T> {
                             PsiElement::class.java,
                             com.intellij.util.CommonProcessors.CollectProcessor(prefixedResults)
                         )
-                        prefixedResults.take(100)
+                        if (prefixedResults.isNotEmpty()) {
+                            prefixedResults.take(100)
+                        } else {
+                            // Namespaced fallback: the index keys subclasses by the superclass
+                            // reference AS WRITTEN (often unqualified, e.g. "Dog" for
+                            // `class ServiceDog < Dog` inside `module NS`). Query by short name,
+                            // then confirm each candidate's superclass resolves (lexically) to fqnStr.
+                            val shortName = fqnStr.substringAfterLast("::")
+                            if (shortName != fqnStr) {
+                                val shortResults = mutableListOf<PsiElement>()
+                                stubIndex.processElements(
+                                    indexKey, shortName, project, searchScope,
+                                    PsiElement::class.java,
+                                    com.intellij.util.CommonProcessors.CollectProcessor(shortResults)
+                                )
+                                shortResults.filter { cand ->
+                                    val sfqn = rClassGetSuperClassFQN(cand) ?: return@filter false
+                                    val resolved = resolveByFQNRelative(project, cand, sfqn, searchScope)
+                                        ?: return@filter false
+                                    getRubyQualifiedName(resolved) == fqnStr
+                                }.take(100)
+                            } else emptyList()
+                        }
                     }
                 } else null
             } catch (_: Exception) { null }

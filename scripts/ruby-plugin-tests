@@ -9,10 +9,18 @@
 # What it manages (all in the project directory):
 #   build.gradle.kts    — injects / removes the localPlugin() block
 #   ./gradle.properties — localRubyPluginPath + platformVersion
+#
+# IMPORTANT: localRubyPluginPath must point at the Ruby plugin ROOT DIRECTORY
+# (the one containing lib/ and lib/modules/), NOT a single jar. The plugin's PSI
+# implementation classes (RClass, RubyOverrideImplementUtil, …) live in
+# lib/modules/intellij.ruby.*.jar — pointing at lib/ruby.jar loads only
+# META-INF/plugin.xml, so Class.forName() fails and the Ruby handlers report
+# isAvailable=false, causing the platform tests to silently SKIP (green, 0ms).
 set -euo pipefail
 
 # ─── Configuration ─────────────────────────────────────────────
-RUBY_JAR="$HOME/Library/Application Support/JetBrains/IntelliJIdea2025.3/plugins/ruby/lib/ruby.jar"
+# Ruby plugin root directory (contains lib/, lib/modules/, rubystubs/, …).
+RUBY_PLUGIN_DIR="$HOME/Library/Application Support/JetBrains/IntelliJIdea2025.3/plugins/ruby"
 IDEA_VERSION="2025.3"
 # ───────────────────────────────────────────────────────────────
 
@@ -83,17 +91,17 @@ has_prop() {
 
 set_prop() {
     if has_prop; then
-        if grep -qF "localRubyPluginPath=$RUBY_JAR" "$LOCAL_PROPS"; then
+        if grep -qF "localRubyPluginPath=$RUBY_PLUGIN_DIR" "$LOCAL_PROPS"; then
             echo "  ~  localRubyPluginPath already set in $LOCAL_PROPS"
             return
         fi
         local tmp="$LOCAL_PROPS.tmp"
         grep -v '^localRubyPluginPath=' "$LOCAL_PROPS" > "$tmp" || true
-        printf 'localRubyPluginPath=%s\n' "$RUBY_JAR" >> "$tmp"
+        printf 'localRubyPluginPath=%s\n' "$RUBY_PLUGIN_DIR" >> "$tmp"
         mv "$tmp" "$LOCAL_PROPS"
         echo "  ✓  updated localRubyPluginPath in $LOCAL_PROPS"
     else
-        printf 'localRubyPluginPath=%s\n' "$RUBY_JAR" >> "$LOCAL_PROPS"
+        printf 'localRubyPluginPath=%s\n' "$RUBY_PLUGIN_DIR" >> "$LOCAL_PROPS"
         echo "  ✓  added localRubyPluginPath to $LOCAL_PROPS"
     fi
 }

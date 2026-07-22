@@ -280,7 +280,8 @@ data class SuperMethodInfo(
     val column: Int?,
     val isInterface: Boolean,
     val depth: Int,
-    val language: String? = null
+    val language: String? = null,
+    val via: String? = null
 )
 
 // ide_find_class output (reuses SymbolMatch)
