@@ -1,6 +1,6 @@
 package com.github.hechtcarmel.jetbrainsindexmcpplugin.handlers.ruby
 
-import org.junit.Ignore
+import org.junit.Assume
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.handlers.BuiltInSearchScope
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.handlers.LanguageHandlerRegistry
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.handlers.TypeHierarchyData
@@ -28,11 +28,11 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
  * closed-source and accessed only via reflection — no compile-time dep.
  * So we use real .rb fixture files instead.
  */
-@Ignore("Ruby plugin test - skipped in this environment")
 class RubyTypeHierarchyPlatformTest : BasePlatformTestCase() {
 
     override fun setUp() {
         super.setUp()
+        Assume.assumeTrue("Ruby plugin not available", PluginDetectors.ruby.isAvailable)
         LanguageHandlerRegistry.registerHandlers()
     }
 

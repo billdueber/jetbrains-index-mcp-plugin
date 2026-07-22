@@ -36,6 +36,7 @@ object RubyHandlers {
         try {
             // Verify Ruby PSI classes are accessible before registering
             Class.forName("org.jetbrains.plugins.ruby.ruby.lang.psi.controlStructures.classes.RClass")
+            Class.forName("org.jetbrains.plugins.ruby.ruby.lang.psi.controlStructures.modules.RModule")
             Class.forName("org.jetbrains.plugins.ruby.ruby.lang.psi.controlStructures.methods.RMethod")
 
             registry.registerTypeHierarchyHandler(RubyTypeHierarchyHandler())
