@@ -333,6 +333,10 @@ abstract class BaseRubyHandler<T> : LanguageHandler<T> {
      * NOTE: Do NOT use RubyInheritanceIndex here — that index maps superclass-short-name →
      * subclass elements (getElements("Animal") returns Dog/Cat that INHERIT from Animal,
      * not Animal itself).
+     *
+     * Both strategies attempt to find the element by its own FQN. Strategy 1 uses
+     * short-name index lookup filtered by full FQN; Strategy 2 uses the
+     * RubyInheritanceResolutionIndex which maps FQN → element directly.
      */
     protected fun resolveByFQN(
         project: Project,
@@ -387,14 +391,23 @@ abstract class BaseRubyHandler<T> : LanguageHandler<T> {
     }
 
     /**
-     * Fallback variant of [resolveByFQN] using broader scope or findElement API.
-     * Delegates to [resolveByFQN] — kept for call-site backward compatibility.
+     * Resolves a module element from its FQN and builds a [TypeElementData] with kind MODULE.
+     *
+     * Tries [resolveByFQN] with the given search scope first, then falls back to
+     * [GlobalSearchScope.projectScope] to catch modules outside the current scope.
      */
-    protected fun resolveByFQNOnInheritanceIndex(
+    protected fun resolveModuleFqn(
         project: Project,
-        fqnStr: String,
+        modFqn: String,
         searchScope: GlobalSearchScope
-    ): PsiElement? = resolveByFQN(project, fqnStr, searchScope)
+    ): PsiElement? {
+        var modElement = resolveByFQN(project, modFqn, searchScope)
+        if (modElement == null) {
+            val projectScope = GlobalSearchScope.projectScope(project)
+            modElement = resolveByFQN(project, modFqn, projectScope)
+        }
+        return modElement
+    }
 
     /**
      * Gets the FQNs of modules included via `include` in this class/module.
@@ -544,14 +557,10 @@ abstract class BaseRubyHandler<T> : LanguageHandler<T> {
         val seenFqns = mutableSetOf<String>()
         val projectScope = GlobalSearchScope.projectScope(project)
 
-        // Read the source text from the containing file for reliable content scanning.
-        // Using file text instead of element.text to avoid issues where element.text
-        // may not cover the full body (e.g., when element is a PSI sub-element).
-        val sourceText: String = try {
-            element.containingFile?.text ?: element.text
-        } catch (_: Exception) {
-            element.text
-        }
+        // Scope the scan to the element's own text, not the containing file,
+        // to avoid picking up `include`/`extend`/`prepend` calls from unrelated
+        // classes/modules in the same file.
+        val sourceText: String = element.text
 
         val pattern = Regex("""\b$callName\s+([A-Z][A-Za-z_:]*)\b""")
         for (match in pattern.findAll(sourceText)) {

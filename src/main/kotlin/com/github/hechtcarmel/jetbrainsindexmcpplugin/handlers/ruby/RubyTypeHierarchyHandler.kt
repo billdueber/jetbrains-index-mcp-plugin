@@ -85,25 +85,16 @@ class RubyTypeHierarchyHandler : BaseRubyHandler<TypeHierarchyData>(), TypeHiera
 
         val supertypes = mutableListOf<TypeElementData>()
 
-        // ── Superclass (RClass only) ─────────────────────────────────
+        // ── Superclass (RClass only) ──────────────────────────────────
         if (isRClass(element)) {
             val superFqn = rClassGetSuperClassFQN(element)
             if (superFqn != null && superFqn !in visited) {
-                // Try with navigation scope first, then fall back to broader scopes
                 var superClass = resolveByFQN(project, superFqn, searchScope)
                 if (superClass == null) {
-                    superClass = resolveByFQNOnInheritanceIndex(project, superFqn, searchScope)
-                }
-                if (superClass == null) {
-                    val projectScope = GlobalSearchScope.projectScope(project)
-                    superClass = resolveByFQN(project, superFqn, projectScope)
-                }
-                if (superClass == null) {
-                    val projectScope = GlobalSearchScope.projectScope(project)
-                    superClass = resolveByFQNOnInheritanceIndex(project, superFqn, projectScope)
+                    superClass = resolveByFQN(project, superFqn, GlobalSearchScope.projectScope(project))
                 }
                 if (superClass != null && shouldIncludeNavigationElement(searchScope, superClass)) {
-                    val superSupertypes = getSupertypes(project, superClass, searchScope, visited, depth + 1)
+                    val superSuper = getSupertypes(project, superClass, searchScope, visited, depth + 1)
                     supertypes.add(TypeElementData(
                         name = getRubyQualifiedName(superClass) ?: getName(superClass) ?: superFqn,
                         qualifiedName = getRubyQualifiedName(superClass),
@@ -111,82 +102,28 @@ class RubyTypeHierarchyHandler : BaseRubyHandler<TypeHierarchyData>(), TypeHiera
                         line = getLineNumber(project, superClass),
                         kind = "CLASS",
                         language = "Ruby",
-                        supertypes = superSupertypes.takeIf { it.isNotEmpty() }
+                        supertypes = superSuper.takeIf { it.isNotEmpty() }
                     ))
                 }
             }
         }
 
-        // ── Included modules (both RClass and RModule) ───────────────
-        val includedFqns = getIncludedModuleFQNs(project, element)
-        for (modFqn in includedFqns) {
+        // ── Included / extended / prepended modules ───────────────────
+        val mixinFqns = getIncludedModuleFQNs(project, element) +
+            getExtendedModuleFQNs(project, element) +
+            getPrependedModuleFQNs(project, element)
+        for (modFqn in mixinFqns) {
             if (modFqn in visited) continue
-            var modElement = resolveByFQN(project, modFqn, searchScope)
-            if (modElement == null) {
-                modElement = resolveByFQNOnInheritanceIndex(project, modFqn, searchScope)
-            }
-            if (modElement == null) {
-                val projectScope = GlobalSearchScope.projectScope(project)
-                modElement = resolveByFQN(project, modFqn, projectScope)
-            }
-            if (modElement != null && shouldIncludeNavigationElement(searchScope, modElement)) {
-                supertypes.add(TypeElementData(
-                    name = getRubyQualifiedName(modElement) ?: modFqn,
-                    qualifiedName = getRubyQualifiedName(modElement),
-                    file = modElement.containingFile?.virtualFile?.let { getRelativePath(project, it) },
-                    line = getLineNumber(project, modElement),
-                    kind = "MODULE",
-                    language = "Ruby"
-                ))
-            }
-        }
-
-        // ── Extended modules (class-level mixin, both RClass and RModule) ───
-        val extendedFqns = getExtendedModuleFQNs(project, element)
-        for (modFqn in extendedFqns) {
-            if (modFqn in visited) continue
-            var modElement = resolveByFQN(project, modFqn, searchScope)
-            if (modElement == null) {
-                modElement = resolveByFQNOnInheritanceIndex(project, modFqn, searchScope)
-            }
-            if (modElement == null) {
-                val projectScope = GlobalSearchScope.projectScope(project)
-                modElement = resolveByFQN(project, modFqn, projectScope)
-            }
-            if (modElement != null && shouldIncludeNavigationElement(searchScope, modElement)) {
-                supertypes.add(TypeElementData(
-                    name = getRubyQualifiedName(modElement) ?: modFqn,
-                    qualifiedName = getRubyQualifiedName(modElement),
-                    file = modElement.containingFile?.virtualFile?.let { getRelativePath(project, it) },
-                    line = getLineNumber(project, modElement),
-                    kind = "MODULE",
-                    language = "Ruby"
-                ))
-            }
-        }
-
-        // ── Prepended modules (both RClass and RModule) ────────────────
-        val prependedFqns = getPrependedModuleFQNs(project, element)
-        for (modFqn in prependedFqns) {
-            if (modFqn in visited) continue
-            var modElement = resolveByFQN(project, modFqn, searchScope)
-            if (modElement == null) {
-                modElement = resolveByFQNOnInheritanceIndex(project, modFqn, searchScope)
-            }
-            if (modElement == null) {
-                val projectScope = GlobalSearchScope.projectScope(project)
-                modElement = resolveByFQN(project, modFqn, projectScope)
-            }
-            if (modElement != null && shouldIncludeNavigationElement(searchScope, modElement)) {
-                supertypes.add(TypeElementData(
-                    name = getRubyQualifiedName(modElement) ?: modFqn,
-                    qualifiedName = getRubyQualifiedName(modElement),
-                    file = modElement.containingFile?.virtualFile?.let { getRelativePath(project, it) },
-                    line = getLineNumber(project, modElement),
-                    kind = "MODULE",
-                    language = "Ruby"
-                ))
-            }
+            val modElement = resolveModuleFqn(project, modFqn, searchScope) ?: continue
+            if (!shouldIncludeNavigationElement(searchScope, modElement)) continue
+            supertypes.add(TypeElementData(
+                name = getRubyQualifiedName(modElement) ?: modFqn,
+                qualifiedName = getRubyQualifiedName(modElement),
+                file = modElement.containingFile?.virtualFile?.let { getRelativePath(project, it) },
+                line = getLineNumber(project, modElement),
+                kind = "MODULE",
+                language = "Ruby"
+            ))
         }
 
         return supertypes
