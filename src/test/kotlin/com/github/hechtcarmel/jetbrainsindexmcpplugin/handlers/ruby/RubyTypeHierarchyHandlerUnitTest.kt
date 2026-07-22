@@ -11,7 +11,6 @@ import com.intellij.psi.PsiFile
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.testFramework.IndexingTestUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
-import org.junit.Assume
 
 /**
  * Meaningful unit tests for [BaseRubyHandler] and [RubyTypeHierarchyHandler].
@@ -125,9 +124,6 @@ class RubyTypeHierarchyHandlerUnitTest : BasePlatformTestCase() {
 
     override fun setUp() {
         super.setUp()
-        // Gate: skip all tests if Ruby plugin is missing
-        Assume.assumeTrue("Ruby plugin not available", PluginDetectors.ruby.isAvailable)
-
         LanguageHandlerRegistry.registerHandlers()
         handler = TestBaseRubyHandler()
 
@@ -135,6 +131,10 @@ class RubyTypeHierarchyHandlerUnitTest : BasePlatformTestCase() {
         psiFile = myFixture.psiManager.findFile(virtualFile)!!
         IndexingTestUtil.waitUntilIndexesAreReady(myFixture.project)
     }
+
+    /** IntelliJ-native skip: when false, runBare() skips the test with no failure. */
+    override fun shouldRunTest(): Boolean =
+        PluginDetectors.ruby.isAvailable && super.shouldRunTest()
 
     override fun tearDown() {
         try {
