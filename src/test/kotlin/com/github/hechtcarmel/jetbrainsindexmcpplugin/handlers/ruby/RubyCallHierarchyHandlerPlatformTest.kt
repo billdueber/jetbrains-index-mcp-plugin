@@ -8,7 +8,6 @@ import com.intellij.psi.PsiElement
 import com.intellij.testFramework.IndexingTestUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import org.junit.Assume
-import org.junit.Ignore
 
 /**
  * Platform tests for [RubyCallHierarchyHandler].
@@ -18,13 +17,16 @@ import org.junit.Ignore
  *
  * Skipped automatically on machines without the Ruby plugin.
  */
-@Ignore("Ruby plugin test - skipped in this environment")
 class RubyCallHierarchyHandlerPlatformTest : BasePlatformTestCase() {
 
     override fun setUp() {
         super.setUp()
         LanguageHandlerRegistry.registerHandlers()
     }
+
+    /** IntelliJ-native skip: when false, runBare() skips the test with no failure. */
+    override fun shouldRunTest(): Boolean =
+        PluginDetectors.ruby.isAvailable && super.shouldRunTest()
 
     override fun tearDown() {
         try {
