@@ -1,9 +1,0 @@
-<idea-plugin>
-  <dependencies>
-    <plugin id="com.jetbrains.performancePlugin"/>
-    <module name="intellij.ruby.backend"/>
-  </dependencies>
-  <extensions defaultExtensionNs="com.jetbrains">
-    <performancePlugin.commandProvider implementation="org.jetbrains.ruby.performanceTesting.RubyPerformanceCommands"/>
-  </extensions>
-</idea-plugin>

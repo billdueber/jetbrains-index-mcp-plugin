@@ -1,6 +1,0 @@
-<idea-plugin>
-  <dependencies>
-    <plugin id="com.intellij.lang.puppet"/>
-    <module name="intellij.ruby.backend"/>
-  </dependencies>
-</idea-plugin>

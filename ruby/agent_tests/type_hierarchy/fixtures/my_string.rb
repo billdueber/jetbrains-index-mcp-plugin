@@ -1,1 +1,0 @@
-class MyString < String; end

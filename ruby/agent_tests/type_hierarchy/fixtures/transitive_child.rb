@@ -1,2 +1,0 @@
-class TransitiveChild < TransitiveParent
-end

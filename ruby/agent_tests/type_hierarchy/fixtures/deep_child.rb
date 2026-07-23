@@ -1,2 +1,0 @@
-class DeepChild < DeepParent
-end

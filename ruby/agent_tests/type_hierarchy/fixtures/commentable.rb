@@ -1,1 +1,0 @@
-module Commentable; end

@@ -1,1 +1,0 @@
-class Parent < GrandParent; end
