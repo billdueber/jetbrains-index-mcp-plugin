@@ -23,9 +23,6 @@ import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.lifecycle.ReleasePro
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.lifecycle.SetAllProjectModesTool
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.lifecycle.SetLifecycleLogFileTool
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.lifecycle.SetProjectModeTool
-import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.ruby.RubyCallHierarchyDebugTool
-import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.ruby.RubyIndexExplorerTool
-import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.ruby.RubyUnknownsProbeTool
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.project.BuildProjectTool
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.project.ReloadProjectTool
 import com.github.hechtcarmel.jetbrainsindexmcpplugin.tools.project.CloseProjectTool
@@ -291,13 +288,6 @@ class ToolRegistry {
         register(ReleaseProjectTool())
         register(SetProjectModeTool())
         register(SetAllProjectModesTool())
-
-        // Ruby research tools (temporary — see ruby/back_out_changes.md)
-        if (PluginDetectors.ruby.isAvailable) {
-            register(RubyIndexExplorerTool())
-            register(RubyCallHierarchyDebugTool())
-            register(RubyUnknownsProbeTool())
-        }
 
         LOG.info("Registered universal tools (available in all JetBrains IDEs)")
     }
